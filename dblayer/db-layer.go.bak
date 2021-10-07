@@ -1,0 +1,219 @@
+package dblayer
+
+import (
+    "log"
+    "strings"
+    "database/sql"
+    _ "github.com/mattn/go-sqlite3"
+)
+
+
+/*
+func (dbl *DBLayer) getRecords(table string, fields Fields) (*sql.Rows, error) {
+    keys, _ := fieldsMap(fields)
+    
+    q := "SELECT " + keys + " FROM " + table
+    return dbl.DB.Query(q)
+}
+*/
+
+func (dbl *DBLayer) NewRow(table string, fields Fields) int64 {
+    //keys, values := fieldsMap(fields)
+    keys := ""
+    values := make([]interface{}, len(fields))
+
+    i := 0
+    for k, v := range fields {
+        if "" != keys {
+            keys += "', '"
+        }
+        keys += k
+
+        values[i] = v
+        i++
+    }
+    
+    q := "INSERT INTO " + table + " ('" + keys + "') VALUES (?" + strings.Repeat(", ?", len(values)-1) + ")"
+    log.Println(q)
+    stmt, err := dbl.DB.Prepare(q)
+    catch(err)
+    defer stmt.Close()
+    
+    res, err := stmt.Exec(values...)
+    catch(err)
+    
+    id, err := res.LastInsertId()
+    catch(err)
+    
+    return id
+}
+
+// @id can be id, slice of id's or custom condition string (where)
+func (dbl *DBLayer) UpdateRows(table string, fields Fields, args ...interface{}) int64 {
+    //keys, values := fieldsMap(fields)
+    keys := ""
+    values := make([]interface{}, len(fields))
+
+    i := 0
+    for k, v := range fields {
+        if "" != keys {
+            keys += ", "
+        }
+        keys += "'" + k + "' = ?"
+
+        values[i] = v
+        i++
+    }
+
+    q := "UPDATE " + table + " SET " + keys
+    q, params := appendCond(q, args)
+
+    log.Println(q)
+    stmt, err := dbl.DB.Prepare(q)
+    catch(err)
+    defer stmt.Close()
+    
+    params = append(values, params)
+    res, err := stmt.Exec(params...)
+    catch(err)
+    
+    numRows, err := res.RowsAffected()
+    catch(err)
+    
+    return numRows    
+}
+
+func (dbl *DBLayer) MakeQuery(table string, mymap Fields) (string, []interface{}) {
+    keys := ""
+    values := make([]interface{}, len(mymap))
+
+    i := 0
+    for k, v := range mymap {
+        if "" != keys {
+            keys += "`, `"
+        }
+        keys +=  k
+
+        values[i] = v
+        i++
+    }
+    q := "SELECT `" + keys + "` FROM " + table
+    return q, values
+}
+
+func (dbl *DBLayer) DeleteRows(table string, args ...interface{}) {
+    q := "DELETE FROM " + table
+    q, params := appendCond(q, args)
+    log.Println(q)
+    _, err := dbl.DB.Exec(q, params...)
+    catch(err)
+}
+
+//rows, err = cfg.DB.Query(q + " WHERE rule_id IN(" + dblayer.JoinSlice(ids) + ")")
+func (dbl *DBLayer) QueryRows(q string, args ...interface{}) *sql.Rows {
+    q, params := appendCond(q, args)
+    log.Println(q)
+    res, err := dbl.DB.Query(q, params...)
+    catch(err)
+    return res
+}
+
+
+/////////////////////////////////////////////////////////////////////
+///////////////////////////// E X T R A /////////////////////////////
+/////////////////////////////////////////////////////////////////////
+
+// int64 - single id
+// []int64 - ID list
+// string, []int64 - add IN(...) to string
+// "target = ? AND user_id = ?", interface{}, interface{}
+// "target = ? AND user_id = ?", interface{}, interface{}
+// "target = ? AND user_id = ?", interface{}, interface{}
+var AppendCondTesting = appendCond
+func appendCond(q string, args []interface{}) (string, []interface{}) {
+    var where, list, cond string
+    var count int
+    var params []interface{}
+    if len(args) == 0 {
+        return q, args
+    }
+
+    for pos, arg := range args {
+        switch v := arg.(type) {
+            case string:
+                if 0 == pos {
+                    count = strings.Count(v, "?")
+                    where = v
+                } else {
+                    params = append(params, arg)
+                }
+            case int, int64:
+                if pos > count {
+                    list = " = ?"
+                }
+                params = append(params, arg)
+
+            case []int64:
+                list = "IN(" + JoinSlice(v) + ")"
+            
+            default:
+                params = append(params, arg)
+            }
+	}
+    if "" != list && "" == where {
+        where = "id"
+    }
+    if "" != list || "" != where {
+        cond = " WHERE " + where + " " + list
+    }
+    return q + cond, params
+}
+
+/*
+func makeCond(args ...interface{}) string {
+    var where, list, cond string
+
+    for _, arg := range args {
+        switch v := arg.(type) {
+            case string:
+                where = v
+            case int64:
+                list = " = " + strconv.FormatInt(v, 10)
+            case []int64:
+                list = "IN(" + JoinSlice(v) + ")"
+                
+            default:
+                // no match; here v has the same type as i
+            }
+	}
+    if "" != list && "" == where {
+        where = "id"
+    }
+    if "" != list || "" != where {
+        cond = " WHERE " + where + " " + list
+    }
+    return cond
+}
+
+
+func makeCond(id interface{}) string {
+    var where string
+    switch v := id.(type) {
+        case int64:
+            where += "id IN(" + JoinSlice([]int64{v}) + ")"
+        case []int64:
+            where += "id IN(" + JoinSlice(v) + ")"
+        case string:
+            where += v
+    }
+    /*if "" == where {
+        where = "id IS NULL" // unreachable condition
+    }*/
+/*    
+    if len(where) > 0 {
+        where = " WHERE " + where
+    }
+    return where
+}
+*/
+

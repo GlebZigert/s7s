@@ -1,0 +1,8 @@
+docs/
+build/
+zkt-soap/
+storage/
+rtsp-proxy/
+mysql/
+main.exe
+main

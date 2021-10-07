@@ -1,0 +1,81 @@
+package dispatcher
+
+import (
+    "sync"
+    "net/http"
+//    "database/sql"
+    "encoding/json"
+    "golang.org/x/net/websocket"
+    
+    "../api"
+    "../adapters/configuration"
+)
+
+//type Reply func (int, int, string, int, interface{})
+type Broadcast func (*websocket.Conn, interface{})
+type Subscribe func () chan interface{}
+
+type Factory func (*api.API) Adapter
+//type Do func (int, string, string)
+
+type HTTPAPI interface {
+    HTTPHandler(http.ResponseWriter, *http.Request)    
+}
+
+type ManageableZones interface {
+    ZoneCommand(userId, zoneCommand int64, devices []int64)
+}
+
+type Adapter interface {
+    GetName()  string
+    GetSettings() *api.Settings
+    Do(int64, string, []byte) (interface{}, bool)
+    Run()
+    Shutdown()
+}
+
+type Service Adapter /*struct {
+	name   string
+    adapter Adapter
+}*/
+
+type Client struct {
+	ws *websocket.Conn
+	//token	string
+    role    int64
+}
+
+type Error struct {
+    Code    int64   `json:"code"`
+    Error   string  `json:"error"`
+}
+
+type Credentials struct {
+    Login   string   `json:"login"`
+    Token   string   `json:"token"`
+}
+
+type ZoneCommand struct {
+    ZoneId      int64   `json:"zoneId"`
+    Command     int64   `json:"command"`
+}
+
+type Dispatcher struct {
+    // TODO: mutex required?
+    sync.RWMutex
+    cfg             configuration.ConfigAPI
+	services		map[int64] Service
+	clients			map[int64] Client
+    queue           chan string
+	clientsCount	int
+	nextClient		int
+    //db              *sql.DB
+    factory         Factory
+}
+
+type Query struct {
+	Service int64
+    Action  string
+    Task    int
+    Data json.RawMessage // delay parsing (https://golang.org/pkg/encoding/json/#RawMessage)
+}

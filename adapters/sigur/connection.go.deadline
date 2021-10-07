@@ -1,0 +1,219 @@
+package sigur
+
+import (
+	"os"
+//	"io"
+	"net"
+	"bufio"
+//	"fmt"
+	"log"
+	"time"
+    "regexp"
+	"strings"
+    "strconv"
+    "context"
+    "errors"
+    //"text/scanner"
+)
+
+// 192.168.0.237:3312
+
+const reconnectInterval = 3 // seconds
+const dtLayout = "2006-01-02 15:04:05"
+
+func (api *Sigur) connect(ctx context.Context) {
+	var lastTryTime time.Time
+    var dialer net.Dialer
+
+    host := api.Settings.Host
+	newTry := true
+
+    commands := []string {
+        `LOGIN 1.8 "` + api.Settings.Login + `" "` + api.Settings.Password + `"`,
+        "SUBSCRIBE CE"}
+
+    for !api.Cancelled(ctx) {
+        api.Sleep(ctx, time.Duration(reconnectInterval) * time.Second - time.Now().Sub(lastTryTime));
+        lastTryTime = time.Now()
+
+        if (newTry) {
+            log.Println(api.GetName(), "trying to connect to", host)
+		}
+
+        if nil != api.conn {
+	       api.conn.Close()
+        }
+        dctx, _ := context.WithTimeout(ctx, 500*time.Millisecond)
+        conn, err := dialer.DialContext(dctx, "tcp", host)
+        if err != nil {
+            if (newTry) {
+                log.Println(api.GetName(), err)
+                api.SetTCPStatus("offline")
+            }
+            newTry = false
+            continue;
+        }
+        api.Lock()
+        api.conn = conn
+        api.Unlock()
+
+        if (newTry) {
+            log.Println(api.GetName(), "connected to", host)
+        }
+
+		scanner := bufio.NewScanner(api.conn)
+
+        ok := true
+        for i:= 0; i < len(commands) && ok; i++ {
+             ok = api.send(commands[i]) && scanner.Scan() && scanner.Text() == "OK"
+        }
+        if !ok {
+            if (newTry) {
+                log.Println(api.GetName(), "Authentication failed")
+                api.SetTCPStatus("error")
+            }
+            
+            newTry = false
+            continue
+        }
+        
+        api.readLoop(api.connected())
+        newTry = true
+	}
+    log.Println(api.GetName(), "TCP stream stopped")
+}
+
+func (api *Sigur) readLoop(devToWait int) {
+    messageRE := regexp.MustCompile(`[^\s"']+|"[^"]*"`)
+
+    // 
+    for {
+        deadline := time.Now().Add(time.Second * 5)
+        //api.conn.SetReadDeadline(time.Time{})
+        api.conn.SetReadDeadline(deadline)
+        scanner := bufio.NewScanner(api.conn)
+        for scanner.Scan() {
+            data := messageRE.FindAllString(scanner.Text(), -1)
+            log.Println(api.GetName(), data)
+
+            switch data[0] {
+                case "ERROR":
+                    log.Println(api.GetName(), scanner.Text())
+
+                case "EVENT_CE":
+                    api.storeEvent(data)
+
+                case "APINFO":
+                    // APINFO ID 1 NAME "╨в1" ZONEA 1 ZONEB 0 STATE ONLINE_UNLOCKED
+                    id, _ := strconv.Atoi(data[2])
+
+                    if device, ok := api.devices[id]; true == ok {
+                        device.State = data[len(data)-1]
+                        log.Println("STATE:", device.State)
+                        devToWait--;
+                        if 0 == devToWait {
+                            api.SetTCPStatus("online")
+                        }
+                    }
+            }
+        }
+        
+        err := scanner.Err()
+        // TODO: better use os.ErrDeadlineExceeded
+        if nil == err || errors.Is(err, os.ErrClosed) {
+            log.Println(api.GetName(), "TCP connection closed")
+            break
+        } else { // deadline (timeout) ?
+            log.Println(api.GetName(), err)
+            //log.Printf("%T\n", err)
+        }
+    }
+}
+
+func (api *Sigur) processEvents() {
+    /*var events []*Event
+    now := time.Now().Unix()
+    //eList = append(eList, ev)
+    for i, e := range api.events {
+        ready := now > e.Timestamp + 10
+        if e.ObjectId > 0 && "" == e.ObjectName {
+            if obj, ok := api.objects[e.ObjectId]; ok == true {
+                
+            }
+        }
+    }
+    
+    if len(events) > 0 {
+        api.Reply(-1, api.Settings.Id, "events", events)
+    }*/
+        
+}
+
+func (api *Sigur) storeEvent(data []string) {
+    e := new(Event)
+    e.Timestamp = time2num(data[1])
+    e.APId, _ = strconv.Atoi(data[2])
+    e.ObjectId, _ = strconv.Atoi(data[3])
+    api.events = append(api.events, e)
+    api.processEvents()
+}
+
+func (sigur *Sigur) connected() int {
+    // TODO: check db is connected
+    n := 0
+ /*   for id, d := range sigur.devices {
+        if "DEVICE" == d.Type {
+            sigur.send("GETAPINFO " + strconv.Itoa(id))
+            n++
+        }
+    }*/
+    return n
+}
+
+/*
+func (api *Sigur) splitMessage(str string) []string {
+    var s scanner.Scanner
+    s.Init(strings.NewReader(str))
+    slice := make([]string, 0, 5)
+    for tok := s.Scan(); tok != scanner.EOF; tok = s.Scan() {
+        slice = append(slice, s.TokenText())
+    }
+    return slice
+    //return strings.Join(slice, ", ")
+    //fmt.Println(out)
+}*/
+
+
+func time2num(dt string) int64 {
+    dtn, err := time.Parse(dtLayout, strings.Trim(dt, `"`))
+    if nil != err {
+        // TODO: log err?
+        dtn = time.Now()
+    }
+    return dtn.Unix()
+}
+
+func (api *Sigur) resetConnection() {
+    api.RLock()
+    notNil := nil != api.conn
+    api.RUnlock()
+    
+    if notNil {
+	   api.conn.Close()
+    }
+}
+
+func (api *Sigur) sendCommand(data string) {
+}
+
+func (api *Sigur) send(data string) bool {
+	res := false
+	if (api.conn != nil) {
+		// TODO: check for write buffer overflow
+		n, err := api.conn.Write([]byte(data + "\r\n")) //n, err := fmt.Fprintf(api.conn, data)
+		if err == nil && n == len(data) + 2 {
+			res = true
+		}
+	}
+	return res;
+}
