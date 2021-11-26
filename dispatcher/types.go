@@ -27,8 +27,9 @@ type ManageableZones interface {
 }
 
 type Adapter interface {
-    GetName()  string
-    GetSettings() *api.Settings
+    GetName()           string
+    GetSettings()       *api.Settings
+    GetList()    []int64
     Do(int64, string, []byte) (interface{}, bool)
     Run()
     Shutdown()

@@ -86,6 +86,20 @@ func (svc *Rif) Shutdown() {
     svc.ReportShutdown()
 }
 
+// Return all devices IDs for user filtering
+func (svc *Rif) GetList() []int64 {
+    list := make([]int64, 0, len(svc.devices))
+    
+    svc.RLock()
+    defer svc.RUnlock()
+    
+    for id := range svc.devices {
+        list = append(list, id)
+    }
+
+    return list
+}
+
 func (svc *Rif) ZoneCommand(userId, zoneCommand int64, devList []int64) {
     var xml string
     svc.Log("ZONE-COMMAND", devList, zoneCommand)

@@ -49,7 +49,7 @@ func (svc *Z5RWeb) Run() {
     }
     
     svc.loadDevices()
-    svc.subscription = svc.cfg.Subscribe()
+    //svc.subscription = svc.cfg.Subscribe()
     go svc.subscriptionLoop()
     
     var ctx context.Context
@@ -59,6 +59,12 @@ func (svc *Z5RWeb) Run() {
     svc.setupApi()
     svc.ReportStartup()
 }
+
+// Return all devices IDs for user filtering
+func (cfg *Z5RWeb) GetList() []int64 {
+    return nil
+}
+
 
 /*func (svc *Z5RWeb) waitDevices(ctx context.Context) {
     // TODO:
@@ -347,7 +353,7 @@ func (svc *Z5RWeb) subscriptionLoop() {
 func (svc *Z5RWeb) Shutdown() {
     svc.Log("Shutting down...")
     svc.Cancel()
-    svc.cfg.Unsubscribe(svc.subscription)
+    //svc.cfg.Unsubscribe(svc.subscription)
     if nil != svc.httpLog {
         svc.httpLog.Close()
     }

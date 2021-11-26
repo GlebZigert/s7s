@@ -261,7 +261,7 @@ type Settings struct {
     }    `json:"status"`
 }
 
-type ServicesList []Settings // for filtering
+//type ServicesList []Settings // for filtering
 
 
 type Task struct {
@@ -269,6 +269,10 @@ type Task struct {
     TaskId      int
 }
 
+
+/*func (services ServicesList) GetList() []int64 {
+    return nil
+}
 
 func (services ServicesList) Filter (list map[int64]int64) interface{} {
     var res ServicesList
@@ -279,6 +283,16 @@ func (services ServicesList) Filter (list map[int64]int64) interface{} {
         }
     }
     return res
+}*/
+
+func (events EventsList) GetList () []int64 {
+    list := make([]int64, 0, len(events))
+    
+    for _, ev := range events {
+        list = append(list, ev.DeviceId)
+    }
+
+    return list
 }
 
 func (events EventsList) Filter (userId int64, devFilter map[int64]int64, classFilter map[int64] struct{}) interface{} {

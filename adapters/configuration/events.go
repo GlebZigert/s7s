@@ -72,7 +72,7 @@ func (cfg *Configuration) dbLoadJournal(userId, serviceId int64) (list api.Event
     
     from := time.Now().AddDate(0, 0, -2).Unix()
     _, fromId := cfg.shiftStarted(userId)
-    //cfg.Log("SHIFT:", ss, fromId)
+    //cfg.Log("SHIFT EVENT ID #", fromId)
     // TODO: load events starting from session opening
     rows, values := table.
         Seek("e.service_id = ? AND e.time > ? AND e.id >= ?", serviceId, from, fromId).
@@ -97,6 +97,7 @@ func (cfg *Configuration) dbLoadJournal(userId, serviceId int64) (list api.Event
             list = append(list, *event)
         //}
     }
+    //cfg.Log("JRN:", list)
     return
 }
 

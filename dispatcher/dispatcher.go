@@ -349,22 +349,24 @@ func (dispatcher *Dispatcher) reply(cid int64, reply *api.ReplyMessage) {
             reply.Data = nil
         }
     } */
-    if settings, ok := reply.Data.(*api.Settings); ok {
+    /*if settings, ok := reply.Data.(*api.Settings); ok {
         auth := dispatcher.cfg.Authorize(cid, settings.Id, api.AM_WATCH | api.AM_CONTROL)
         //fmt.Println("%%%%%%%%%%%%%%%%%% AUTHO", auth)
         if 0 == len(auth) {
             reply.Data = nil
         }
-    } else if events, ok := reply.Data.(api.EventsList); ok {
+    } else */if events, ok := reply.Data.(api.EventsList); ok {
         // filter by devices permissions
-        log.Println("::: APPLY EV FILTER :::", len(events), " for svc #", reply.Service)
-        devFilter := dispatcher.cfg.Authorize(cid, reply.Service, api.AM_WATCH | api.AM_CONTROL)
+        log.Println("::: APPLY EV FILTER :::", len(events), " events for svc #", reply.Service)
+        idList := events.GetList()
+        devFilter := dispatcher.cfg.Authorize(cid, idList)
         reply.Data = events.Filter(cid, devFilter, armFilter[client.role])
     } else if original, ok := reply.Data.(configuration.Filterable); ok {
         // filter by devices permissions
         log.Println("::: APPLY DEV FILTER :::", reply.Service, reply.Action)
         // INFO: perform filtering inside services to handle special conditions such as groups (virtual elements)
-        filter := dispatcher.cfg.Authorize(cid, reply.Service, api.AM_WATCH | api.AM_CONTROL)
+        idList := original.GetList()
+        filter := dispatcher.cfg.Authorize(cid, idList)
         reply.Data = original.Filter(filter)
     } else {
         log.Println("::: FILTER FAILED :::", reply.Service, reply.Action)
@@ -476,12 +478,18 @@ func (dispatcher *Dispatcher) preprocessQuery(userId *int64, ws *websocket.Conn,
         //log.Println("!!! Preprocess:", q.Service, q.Action)
         switch q.Action {
             case "ListServices": // services with statuses
-                var list api.ServicesList
+                var list []api.Settings
                 dispatcher.RLock()
                 for _, service := range dispatcher.services {
                     settings := service.GetSettings()
                     if 0 != settings.Id {
-                        list = append(list, *settings)
+                        idList := service.GetList()
+                        //log.Println("ListAllDevices", idList)
+                        filter := dispatcher.cfg.Authorize(*userId, idList)
+                        //log.Println("FILTER", filter)
+                        if len(filter) > 0 {
+                            list = append(list, *settings)
+                        }
                     }
                 }
                 dispatcher.RUnlock()

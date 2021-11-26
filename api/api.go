@@ -174,7 +174,7 @@ func (api *API) SetServiceStatus(tcp, db string) {
     //api.Log(":::::::::::::: STATUS Events:", events)
     if len(events) > 0 {
         api.Broadcast("Events", events)
-        api.Broadcast("StatusUpdate", &status)
+        api.Broadcast("StatusUpdate", &status) // TODO: it's legacy?
     }
 }
 

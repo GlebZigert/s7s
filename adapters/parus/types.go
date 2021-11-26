@@ -44,7 +44,7 @@ func (devices DevList) Filter(list map[int64]int64) interface{} {
     var res DevList
     for i := range devices {
         // list[0] > 0 => whole service accessible
-        devices[i].AccessMode = list[0]
+        devices[i].AccessMode = list[0] // TODO: || list[devices[i].Id]
         if 0 == devices[i].AccessMode {
             devices[i].AccessMode = list[devices[i].Id]
         }

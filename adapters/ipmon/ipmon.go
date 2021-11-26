@@ -32,6 +32,10 @@ func (svc *IPMon) Run() {
     svc.ReportStartup()
 }
 
+// Return all devices IDs for user filtering
+func (cfg *IPMon) GetList() []int64 {
+    return nil
+}
 
 func (svc *IPMon) pollDevices(ctx context.Context) {
     var states = []int64{api.EC_CONNECTION_LOST, api.EC_CONNECTION_OK}

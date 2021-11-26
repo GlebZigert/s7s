@@ -108,6 +108,14 @@ type RIFPlusPacket struct {
     Events  []_Event `xml:"jours>jour"`
 }
 
+func (devices DevList) GetList() []int64 {
+    ids := make([]int64, len(devices))
+    for i := range devices {
+        ids[i] = devices[i].Id
+    }
+    return ids
+}
+
 func (devices DevList) Filter (list map[int64]int64) interface{} {
     var res DevList
     for i := range devices {
@@ -120,6 +128,7 @@ func (devices DevList) Filter (list map[int64]int64) interface{} {
              res = append(res, devices[i])
         }
     }
+    // TODO: maybe just return res?
     if len(res) > 0 {
         return res
     } else {

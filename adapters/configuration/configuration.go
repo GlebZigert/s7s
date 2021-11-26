@@ -2,6 +2,7 @@ package configuration
 
 import (
     "time"
+    "strings"
     "context"
     "encoding/json"
     "database/sql"
@@ -37,6 +38,10 @@ func (cfg *Configuration) Run() {
 
 func (cfg *Configuration) Shutdown() {
     
+}
+
+func (cfg *Configuration) GetList() []int64 {
+    return nil
 }
 
 func (cfg *Configuration) Get() []*api.Settings {
@@ -232,15 +237,16 @@ func (cfg *Configuration) Authenticate(login, token string) (id, role int64) {
 
 // get list of permitted devices for user in serviceId
 // if serviceId = 0, then list of permitted services
-func (cfg *Configuration) Authorize(userId, serviceId int64, mask int64) (list map[int64]int64) {
+/*func (cfg *Configuration) _Authorize(userId, serviceId int64, mask int64) (list map[int64]int64) {
     list = make(map[int64]int64) // [deviceId] => flags
     user := cfg.GetUser(userId)
     if user == nil {
+        // TODO: possible buggy concept?
         return // admin role, can anything
     }
     switch user.Role {
-        case api.ARM_ADMIN: list[0] = 2; return
-        case api.ARM_SECRET: list[0] = 1; return
+        case api.ARM_ADMIN: list[0] = api.AM_CONTROL; return
+        case api.ARM_SECRET: list[0] = api.AM_WATCH; return
     }
     
     cfg.cache.RLock()
@@ -275,9 +281,118 @@ func (cfg *Configuration) Authorize(userId, serviceId int64, mask int64) (list m
 
     //cfg.Log("### AUTHORIZED:", userId, serviceId, list)
     return list
+}*/
+
+// @arg == nil => services list
+// @arg == int64 => available devices in service
+// @arg == []int64 => devices list
+/*func (cfg *Configuration) Authorize(userId int64, arg interface{}) (list map[int64]int64) {
+    list = make(map[int64]int64) // [deviceId] => flags
+    user := cfg.GetUser(userId)
+    if user == nil {
+        // TODO: possible buggy concept?
+        return // admin role, can do anything
+    }
+    switch user.Role {
+        case api.ARM_ADMIN: list[0] = api.AM_CONTROL; return
+        case api.ARM_SECRET: list[0] = api.AM_WATCH; return
+    }
+    
+    cfg.cache.RLock()
+    users := append(cfg.cache.parents[user.ParentId], user.Id, user.ParentId)
+    cfg.cache.RUnlock()
+
+    var deviceId, flags int64
+    flags = 1 // for services list
+    var fields dblayer.Fields
+    var params []interface{}
+    cond := "link = 'user-device' AND source_id"
+
+    if serviceId, ok := arg.(int64); ok {
+        if 0 == serviceId { // visible services
+            fields = dblayer.Fields{"DISTINCT scope_id": &deviceId}
+            params = append(params, cond, users)
+        } else { // devices in service
+            fields = dblayer.Fields{"target_id": &deviceId, "flags": &flags}
+            cond = "scope_id = ? AND " + cond
+            params = append(params, cond, serviceId, mask, users)
+        }
+    } else if devices, ok := arg.([]int64); ok && len(devices) > 0 {
+        cond = "target_id IN IN(?" + strings.Repeat(", ?", len(devices)-1) + ") AND " + cond
+        params = append(params, cond)
+        for _, v := range devices {
+            params = append(params, v)
+        }
+        params = append(params, serviceId, users)
+    }
+
+    if nil != params {
+        rows, values := cfg.Table("external_links").
+            Seek(params...).
+            Get(fields)
+        defer rows.Close()
+
+        for rows.Next() {
+            err := rows.Scan(values...)
+            catch(err)
+            val, _ := list[deviceId]
+            list[deviceId] = val | flags
+        }
+    }
+
+    //cfg.Log("### AUTHORIZED:", userId, serviceId, list)
+    return list
+}*/
+
+// not all devices are really "deleted", so don't use serviceId
+// devices == nil => check services
+func (cfg *Configuration) Authorize(userId int64, devices []int64) (list map[int64]int64) {
+    list = make(map[int64]int64) // [deviceId] => flags
+    user := cfg.GetUser(userId)
+    //cfg.Log("AUTHORIZING:", userId, user)
+    if user != nil {
+        switch user.Role {
+            case api.ARM_ADMIN: list[0] = api.AM_CONTROL
+            case api.ARM_SECRET: list[0] = api.AM_WATCH
+        }
+    }
+    if nil == user || len(list) > 0 || len(devices) == 0 {
+        return // in any case, if list[i] == 0, then user can't do anything
+    }
+    cfg.cache.RLock()
+    users := append(cfg.cache.parents[user.ParentId], user.Id, user.ParentId)
+    cfg.cache.RUnlock()
+
+    var deviceId, flags int64
+    flags = 1 // for services list
+    var params []interface{}
+    fields := dblayer.Fields{"target_id": &deviceId, "flags": &flags}
+    cond := "target_id IN(?" +
+        strings.Repeat(", ?", len(devices)-1) +
+        ") AND link = 'user-device' AND source_id"
+    params = append(params, cond)
+
+    for _, v := range devices {
+        params = append(params, v)
+    }
+    params = append(params, users)
+
+    rows, values := cfg.Table("external_links").
+        Seek(params...).
+        Get(fields)
+    defer rows.Close()
+
+    for rows.Next() {
+        err := rows.Scan(values...)
+        catch(err)
+        val, _ := list[deviceId]
+        list[deviceId] = val | flags
+    }
+    //cfg.Log("### AUTHORIZED:", userId, devices, list)
+    return list
 }
 
-
+/*
 func (cfg *Configuration) Subscribe() chan interface{} {
     cfg.Lock()
     defer cfg.Unlock()
@@ -297,7 +412,7 @@ func (cfg *Configuration) Unsubscribe(c chan interface{}) {
         }
     }
 }
-
+*/
 // card - ruleId - deviceId
 /*func (cfg *Configuration) GetActiveCards(serviceId int64) (cards map[int64][]string) {
     cards = make(map[int64][]string)

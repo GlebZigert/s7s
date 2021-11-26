@@ -149,8 +149,17 @@ func (cfg *Configuration) deleteZone(cid int64, data []byte) (interface{}, bool)
 ///////////////////////////// M A P S /////////////////////////////
 ///////////////////////////////////////////////////////////////////
 func (cfg *Configuration) listMaps(cid int64, data []byte) (interface{}, bool) {
-    res := cfg.loadMaps()
-    return res, false // don't broadcast
+    maps := cfg.loadMaps()
+    // let's filter them
+    // 1. collect all devices
+    var devices []int64
+    for i := range maps {
+        for j:= range maps[i].Shapes {
+            devices = append(devices, maps[i].Shapes[j].DeviceId)
+        }
+    }
+    cfg.Log("map devs", devices)
+    return maps, false // don't broadcast
 }
 
 func (cfg *Configuration) updateMap(cid int64, data []byte) (interface{}, bool) {

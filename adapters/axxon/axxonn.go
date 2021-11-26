@@ -67,6 +67,10 @@ fmt.Println("======================")
 }
 
 
+// Return all devices IDs for user filtering
+func (cfg *Axxon) GetList() []int64 {
+    return nil
+}
 
 func (svc *Axxon) Run() {
     svc.username = "func (svc *Axxon) Run()"

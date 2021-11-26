@@ -143,16 +143,73 @@ type Configuration struct {
 }
 
 type Filterable interface {
+    GetList() []int64
     Filter(list map[int64]int64) interface{}
 }
 
+/*********************************************************************************/
+
+func (m Map) GetList() []int64 {
+    list := make([]int64, 0, len(m.Shapes))
+    for i := range m.Shapes {
+        list = append(list, m.Shapes[i].DeviceId)
+    }
+    return list
+}
+
+func (m *Map) Filter(filter map[int64]int64) interface{} {
+    shapes := m.Shapes
+    m.Shapes = make([]Shape, 0, len(m.Shapes))
+    for i := range shapes {
+        // filter[0] > 0 => all id are acceptable
+        if filter[0] > 0 || filter[shapes[i].DeviceId] > 0 {
+             m.Shapes = append(m.Shapes, shapes[i])
+        }
+    }
+    return m
+}
+
+///////////////////////////////////
+
+type MapList []Map
+
+func (maps MapList) GetList() []int64 {
+    list := make([]int64, 0, len(maps))
+    
+    for _, m := range maps {
+        list = append(list, m.GetList()...)
+    }
+
+    return list
+}
+
+func (maps MapList) Filter(filter map[int64]int64) interface{} {
+    var res MapList
+    for _, m := range maps {
+        m.Filter(filter)
+        if len(m.Shapes) > 0 {
+            res = append(res, m)
+        }
+    }
+    // TODO: maybe just return res?
+    if len(res) > 0 {
+        return res
+    } else {
+        return nil
+    }
+}
+
+
+
+/********************************************************************************/
+
 type ConfigAPI interface {
     Get()                           []*api.Settings
-    Subscribe()                     chan interface{}
-    Unsubscribe(chan interface{})
+    //Subscribe()                     chan interface{}
+    //Unsubscribe(chan interface{})
     
     Authenticate(string, string)  (iserId, role int64)
-    Authorize(userId, serviceId int64, mask int64) map[int64]int64
+    Authorize(userId int64, devices []int64) map[int64]int64
     
     // automatic actions (algorithms)
     //CheckEvent(event *api.Event) []Algorithm

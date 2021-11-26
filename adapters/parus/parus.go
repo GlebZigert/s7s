@@ -37,6 +37,11 @@ func (svc *Parus) Run() {
     svc.ReportStartup()
 }
 
+// Return all devices IDs for user filtering
+func (cfg *Parus) GetList() []int64 {
+    return nil
+}
+
 
 func (svc *Parus) pollDevices(ctx context.Context) {
     for !svc.Cancelled(ctx) {

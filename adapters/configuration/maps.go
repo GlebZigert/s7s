@@ -54,7 +54,7 @@ func (cfg *Configuration) saveRow(fields *dblayer.Fields, table string) {
 
 }*/
 
-func (cfg *Configuration) loadMaps() (list []Map){
+func (cfg *Configuration) loadMaps() (list MapList){
     myMap := new(Map)
     fields := mapFields(myMap)
 
