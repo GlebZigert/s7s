@@ -78,12 +78,13 @@ func (svc *Rif) Reconfigure(s *api.Settings) {
 
 func (svc *Rif) Shutdown() {
     log.Println(svc.GetName(), "Shutting down...")
-    svc.Cancel() // use it before close connection!
+    svc.Cancel() // call it before close connection!
     svc.closeConnection()
     if nil != svc.xmlLog {
         svc.xmlLog.Close()
     }
     svc.ReportShutdown()
+    //time.Sleep(12 * time.Second) // emulate hanging
 }
 
 // Return all devices IDs for user filtering
@@ -158,7 +159,7 @@ func (svc *Rif) scanEvents(events []_Event) {
 
 func (svc *Rif) pollEventLog(ctx context.Context) {
     timer := time.NewTimer(eventsPollInterval * time.Second)
-    for {
+    for nil == ctx.Err() {
         svc.Sleep(ctx, 1 * time.Second)
         select {
             case <-ctx.Done():

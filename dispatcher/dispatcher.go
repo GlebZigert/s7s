@@ -5,12 +5,11 @@ import (
 	"log"
 	"fmt"
 	"time"
+    "sync"
 //    "io/ioutil"
-    "strings"
-    "strconv"
+    "context"
     "encoding/json"
 //    "encoding/base64"
-    "net/http"
 	"golang.org/x/net/websocket"
 )
 
@@ -29,6 +28,7 @@ const (
     maxClients = 100
     loginTimeout = 3 // seconds
     keepAliveInterval = 10 + 2 //seconds
+    shutdownTimeout = 10 // seconds
 )
 
 //var config *[]api.Settings
@@ -70,15 +70,14 @@ func seedFilter() {
     }
 }
 
-func New() Dispatcher {
+func Run(ctx context.Context, host string) /*Dispatcher*/ {
     seedFilter()
-	var d = Dispatcher{}
-	d.services = make(map[int64] Service)
-	d.clients = make(map[int64] Client)
-    d.queue = make(chan string, 10)
-    //d.factory = factory
-    //
-    // TODO: store cfg in dispatcher for fufutre usage
+    var d = Dispatcher{
+        queue: make(chan string, 10),
+        services: make(map[int64] Service),
+        clients: make(map[int64] Client)}
+
+    // TODO: store cfg in dispatcher for fututre usage
     cfg := factory(api.NewAPI(&api.Settings{Id: 0, Type: "configuration"}, d.broadcast, nil))
     d.useService(cfg)
     d.cfg = cfg.(configuration.ConfigAPI)
@@ -92,7 +91,77 @@ func New() Dispatcher {
         }
     }
     log.Println("Dispatcher startup completed")
-    return d
+    d.httpServer(ctx, host)
+    // if nil == ctx.Err() => troubles with HTTP server
+    // exit in any case
+    d.shutdown()
+}
+
+func (dispatcher *Dispatcher) shutdown() {
+    var wg sync.WaitGroup
+    var id int64
+    
+    // 1. shutdown services
+    dispatcher.RLock()
+    for id = range dispatcher.services {
+        if id > 0 {
+            serviceId := id
+            wg.Add(1)
+            go func() {
+                defer wg.Done()
+                dispatcher.shutdownService(serviceId)
+            }()
+        }
+    }
+    dispatcher.RUnlock()
+    
+    // 2. wait for services to shutdown properly
+    c := make(chan struct{})
+    go func() {
+        defer close(c)
+        wg.Wait()
+    }()    
+    select {
+        case <-c:
+            log.Println("All services done")
+        case <-time.After(shutdownTimeout * time.Second):
+            log.Println("Some services are hang")
+    }
+    
+    // 3. wait for core shutdown
+    log.Println("Stopping core...")
+    c = make(chan struct{})
+    go func() {
+        defer close(c)
+        dispatcher.shutdownService(0)
+    }()    
+    select {
+        case <-c:
+            log.Println("Core done")
+        case <-time.After(shutdownTimeout * time.Second):
+            log.Println("Core hang")
+    }
+    log.Println("Bye!")
+}
+
+func (dispatcher *Dispatcher) shutdownService(id int64) {
+    var shutdown func()
+    dispatcher.RLock()
+    if _, ok := dispatcher.services[id]; ok {
+        // existing service
+        shutdown = dispatcher.services[id].Shutdown
+    }
+    dispatcher.RUnlock()
+    if nil != shutdown {
+        log.Println("Stopping #", id)
+        shutdown()
+        log.Println("Finished #", id)
+    } else {
+        log.Println("Unknown service #", id)
+    }
+    dispatcher.Lock()
+    delete(dispatcher.services, id)
+    dispatcher.Unlock()
 }
 
 func (dispatcher *Dispatcher) useService(adapter Adapter) {
@@ -102,39 +171,11 @@ func (dispatcher *Dispatcher) useService(adapter Adapter) {
     dispatcher.services[id] = adapter
     dispatcher.Unlock()
     if 0 == id {
-        adapter.Run()
+        adapter.Run() // config run sync
     } else {
-        go adapter.Run() // only config should run async
+        go adapter.Run() // all others run async
     }
     log.Println("UseService: service started", adapter.GetName())
-}
-
-func (dispatcher *Dispatcher) HTTPHandler(w http.ResponseWriter, r *http.Request) {
-    parts := strings.Split(r.URL.Path, "/")
-    if len(parts) != 3 {
-        http.NotFound(w, r)
-        return
-    }
-    
-    id, err := strconv.Atoi(parts[1])
-    if err != nil {
-        http.NotFound(w, r)
-        return
-    }
-    
-    dispatcher.RLock()
-    service, ok := dispatcher.services[int64(id)]
-    dispatcher.RUnlock()
-    
-    if ok {
-        svc, ok := service.(HTTPAPI)
-        if (ok) {
-            //log.Println("[Dispatcher] HTTP", r.Method, "path:", r.URL.Path)
-            svc.HTTPHandler(w, r)
-            return
-        }
-    }
-    http.NotFound(w, r)
 }
 
 func (dispatcher *Dispatcher) loggedIn(userId int64) (really bool) {
@@ -143,40 +184,6 @@ func (dispatcher *Dispatcher) loggedIn(userId int64) (really bool) {
 }
 
 
-func (dispatcher *Dispatcher) SocketServer(ws *websocket.Conn) {
-    defer time.Sleep(100 * time.Millisecond)
-    var cred Credentials
-    if nil == dispatcher.cfg {
-        log.Println("not ready, try later")
-        return // not ready, try later
-    }
-    
-    log.Println("New client")
-    
-    ws.SetReadDeadline(time.Now().Add(loginTimeout * time.Second))
-    err := websocket.JSON.Receive(ws, &cred)
-    if nil != err {
-        log.Println("Failed to login:", err)
-        dispatcher.loginError(ws, api.EC_LOGIN_TIMEOUT)
-        return
-    }
-    ws.SetReadDeadline(time.Time{}) // reset deadline
-
-    reply := api.ReplyMessage{Service: 0, Action: "ChangeUser", Task: 0}
-    user, errClass := dispatcher.changeUser(0, ws, &cred)
-
-    if 0 == errClass {
-        reply.Data = user
-    } else {
-        reply.Data = Error{errClass, api.DescribeClass(errClass)}
-        
-    }
-    websocket.JSON.Send(ws, reply) 
-    if 0 == errClass {
-        dispatcher.serveClient(user.Id, ws)
-        //go heartbeat(ws)
-    }
-}
 
 
 func (dispatcher *Dispatcher) loginError(ws *websocket.Conn, class int64) {
@@ -342,20 +349,7 @@ func (dispatcher *Dispatcher) reply(cid int64, reply *api.ReplyMessage) {
     }
 
     data := reply.Data // store original data
-    /*if 0 == reply.Service && "UpdateService" == reply.Action {
-        auth := dispatcher.cfg.Authorize(cid, reply.Service, api.AM_WATCH | api.AM_CONTROL)
-        fmt.Println("%%%%%%%%%%%%%%%%%% AUTHO", auth)
-        if 0 == len(auth) {
-            reply.Data = nil
-        }
-    } */
-    /*if settings, ok := reply.Data.(*api.Settings); ok {
-        auth := dispatcher.cfg.Authorize(cid, settings.Id, api.AM_WATCH | api.AM_CONTROL)
-        //fmt.Println("%%%%%%%%%%%%%%%%%% AUTHO", auth)
-        if 0 == len(auth) {
-            reply.Data = nil
-        }
-    } else */if events, ok := reply.Data.(api.EventsList); ok {
+    if events, ok := reply.Data.(api.EventsList); ok {
         // filter by devices permissions
         log.Println("::: APPLY EV FILTER :::", len(events), " events for svc #", reply.Service)
         idList := events.GetList()
@@ -462,17 +456,6 @@ func (dispatcher *Dispatcher) scanAlgorithms(events api.EventsList) {
     }
 }
 
-// check for special events
-/*func (dispatcher *Dispatcher) scanSpecial(events api.EventsList) {
-    for i := range events {
-        if api.EC_ENTER_ZONE == events[i].Class {
-            newEvent := events[i]
-            reply := api.ReplyMessage{0, "EnterZone", 0, newEvent}
-        }
-    }
-}*/
-
-
 func (dispatcher *Dispatcher) preprocessQuery(userId *int64, ws *websocket.Conn, q Query) interface{} {
     if 0 == q.Service {
         //log.Println("!!! Preprocess:", q.Service, q.Action)
@@ -552,22 +535,13 @@ func (dispatcher *Dispatcher) doZoneCommand(userId, zoneId, command int64) {
 func (dispatcher *Dispatcher) updateService(data interface{}) {
     var s *api.Settings
     var ok bool
-    var shutdown func()
+    //var shutdown func()
     if s, ok = data.(*api.Settings); !ok {
         log.Println("[Dispatcher] reconfiguration settings type wrong!")
         return
     }
     //log.Println("[Diaspatcher] updating service", s)
-    dispatcher.RLock()
-    _, ok = dispatcher.services[s.Id]
-    if true == ok {
-        // existing service
-        shutdown = dispatcher.services[s.Id].Shutdown
-    }
-    dispatcher.RUnlock()
-    if nil != shutdown {
-        shutdown()
-    }
+    dispatcher.shutdownService(s.Id)
     // (Re-)Create service
     service := factory(api.NewAPI(s, dispatcher.broadcast, dispatcher.cfg))
     if nil == service {
@@ -579,39 +553,15 @@ func (dispatcher *Dispatcher) updateService(data interface{}) {
 
 func (dispatcher *Dispatcher) deleteService(data interface{}) {
     var id int64
-    var ok bool
-    var shutdown func()
+    //var ok bool
+    //var shutdown func()
     if id, _ = data.(int64); id == 0 {
         log.Println("[Dispatcher] wrong delete id!", data)
         return
     }
 
-    dispatcher.RLock()
-    _, ok = dispatcher.services[id]
-    if ok {
-        log.Println("[Dispatcher] Deleting service", dispatcher.services[id].GetName())
-        shutdown = dispatcher.services[id].Shutdown
-    } else {
-        log.Println("[Dispatcher] service to delete not found")
-    }
-    dispatcher.RUnlock()
-    //log.Println("[Dispatcher] Shutting service down...")
-    if nil != shutdown {
-        shutdown()
-    }
-    dispatcher.Lock()
-    delete(dispatcher.services, id)
-    dispatcher.Unlock()
-    //log.Println("[Dispatcher] Deleting service done!")
+    dispatcher.shutdownService(id)
 }
-
-/*
-func heartbeat(ws *websocket.Conn) {
-	for i := 0; i < 10; i++ {
-		time.Sleep(2000 * time.Millisecond)
-		websocket.Message.Send(ws, "heartbeat")
-	}		
-}*/
 
 // formatRequest generates ascii representation of a request
 /*

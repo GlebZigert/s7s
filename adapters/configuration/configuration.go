@@ -37,7 +37,9 @@ func (cfg *Configuration) Run() {
 }
 
 func (cfg *Configuration) Shutdown() {
-    
+    cfg.Log("Shutting down...")
+    cfg.Cancel()
+    cfg.DB.Close()
 }
 
 func (cfg *Configuration) GetList() []int64 {
