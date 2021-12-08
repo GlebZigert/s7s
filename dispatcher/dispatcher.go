@@ -31,8 +31,6 @@ const (
     shutdownTimeout = 10 // seconds
 )
 
-//var config *[]api.Settings
-
 var armFilter map[int64] map[int64] struct{}
 
 func factory(api *api.API) Adapter {
