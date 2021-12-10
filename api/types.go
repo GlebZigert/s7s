@@ -222,7 +222,6 @@ type API struct {
     name        string  // for logging purposes
 
     Cancel      context.CancelFunc
-    
     // using empty type for Config to avoid extra package with shared data types
     // and access type names without package.* prefixes (e.g. User, not package.User)
     // in configuration package

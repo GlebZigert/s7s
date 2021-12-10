@@ -33,8 +33,8 @@ const (
 
 var armFilter map[int64] map[int64] struct{}
 
-func factory(api *api.API) Adapter {
-    var service Adapter
+func factory(api *api.API) Service {
+    var service Service
     switch (*api).Settings.Type {
         case "configuration":
             service = &configuration.Configuration{API: *api}
@@ -68,17 +68,24 @@ func seedFilter() {
     }
 }
 
-func Run(ctx context.Context, host string) /*Dispatcher*/ {
+func Run(ctx context.Context, host string) (err error) {
     seedFilter()
     var d = Dispatcher{
         queue: make(chan string, 10),
         services: make(map[int64] Service),
         clients: make(map[int64] Client)}
 
-    // TODO: store cfg in dispatcher for fututre usage
     cfg := factory(api.NewAPI(&api.Settings{Id: 0, Type: "configuration"}, d.broadcast, nil))
-    d.useService(cfg)
+    d.services[0] = cfg
+    d.services[0].Run()
     d.cfg = cfg.(configuration.ConfigAPI)
+    err = d.cfg.GetError()
+    if nil != err {
+        return
+    }
+    
+    //d.useService(cfg)
+    
     settings := d.cfg.Get()
     for _, s := range settings {
         service := factory(api.NewAPI(s, d.broadcast, d.cfg))
@@ -93,6 +100,7 @@ func Run(ctx context.Context, host string) /*Dispatcher*/ {
     // if nil == ctx.Err() => troubles with HTTP server
     // exit in any case
     d.shutdown()
+    return
 }
 
 func (dispatcher *Dispatcher) shutdown() {
@@ -162,18 +170,14 @@ func (dispatcher *Dispatcher) shutdownService(id int64) {
     dispatcher.Unlock()
 }
 
-func (dispatcher *Dispatcher) useService(adapter Adapter) {
-    settings := adapter.GetSettings()
+func (dispatcher *Dispatcher) useService(service Service) {
+    settings := service.GetSettings()
     id := settings.Id
     dispatcher.Lock()
-    dispatcher.services[id] = adapter
+    dispatcher.services[id] = service
     dispatcher.Unlock()
-    if 0 == id {
-        adapter.Run() // config run sync
-    } else {
-        go adapter.Run() // all others run async
-    }
-    log.Println("UseService: service started", adapter.GetName())
+    go service.Run() // run async
+    log.Println("UseService: service started", service.GetName())
 }
 
 func (dispatcher *Dispatcher) loggedIn(userId int64) (really bool) {

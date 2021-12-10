@@ -15,7 +15,7 @@ import (
 type Broadcast func (*websocket.Conn, interface{})
 type Subscribe func () chan interface{}
 
-type Factory func (*api.API) Adapter
+type Factory func (*api.API) Service
 //type Do func (int, string, string)
 
 type HTTPAPI interface {
@@ -26,19 +26,14 @@ type ManageableZones interface {
     ZoneCommand(userId, zoneCommand int64, devices []int64)
 }
 
-type Adapter interface {
-    GetName()           string
-    GetSettings()       *api.Settings
-    GetList()    []int64
+type Service interface {
+    GetName()       string
+    GetSettings()   *api.Settings
+    GetList()       []int64
     Do(int64, string, []byte) (interface{}, bool)
     Run()
     Shutdown()
 }
-
-type Service Adapter /*struct {
-	name   string
-    adapter Adapter
-}*/
 
 type Client struct {
 	ws *websocket.Conn

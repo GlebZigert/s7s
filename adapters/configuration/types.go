@@ -128,6 +128,8 @@ type Configuration struct {
     sync.RWMutex
     dblayer.DBLayer
     api.API
+    
+    lastError   error
 
     subscribers []chan interface{}
     
@@ -204,7 +206,8 @@ func (maps MapList) Filter(filter map[int64]int64) interface{} {
 /********************************************************************************/
 
 type ConfigAPI interface {
-    Get()                           []*api.Settings
+    Get()               []*api.Settings
+    GetError()      error
     //Subscribe()                     chan interface{}
     //Unsubscribe(chan interface{})
     
@@ -240,7 +243,7 @@ type ConfigAPI interface {
     StartNewShift(userId int64)
     CompleteShift(userId int64)
     GetUser(id int64) *User 
-    GetUser_for_Axxon(id int64) *User 
+    GetUser_for_Axxon(id int64) *User
 }
 
 type EventFilter struct {

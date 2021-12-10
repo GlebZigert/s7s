@@ -27,7 +27,10 @@ func main() {
         cancel()
 	}()
     
-    dispatcher.Run(ctx, host)
+    err := dispatcher.Run(ctx, host)
+    if nil != err {
+        log.Println(err)
+    }
     //time.Sleep(1 * time.Second)
 }
 

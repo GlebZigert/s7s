@@ -50,18 +50,12 @@ func logQuery(table, q string, p interface{}) {
     }
 }
 
-func (dbl *DBLayer) MakeTables(tables []string, ignoreErr bool) {
-    for i := 0; i < len(tables); i++ {
+func (dbl *DBLayer) MakeTables(tables []string) (err error){
+    for i := 0; i < len(tables) && nil == err; i++ {
         //log.Println(tables[i])
-        stmt, err := dbl.DB.Prepare(tables[i])
-        if nil == err {
-            _, err = stmt.Exec()
-            stmt.Close()
-        }
-        if !ignoreErr {
-            catch(err, tables[i], nil)
-        }
+        _, err = dbl.DB.Exec(tables[i])
     }
+    return
 }
 
 func (dbl *DBLayer) Table(t string) *QUD {
@@ -116,11 +110,8 @@ func (qud *QUD) Insert(fields Fields) int64 {
     
     q := "INSERT INTO " + qud.table + " ('" + keys + "') VALUES (?" + strings.Repeat(", ?", len(values)-1) + ")"
     logQuery(qud.table, q, values)
-    stmt, err := qud.db.Prepare(q)
-    catch(err, q, nil)
-    defer stmt.Close()
     
-    res, err := stmt.Exec(values...)
+    res, err := qud.db.Exec(q, values...)
     catch(err, q, values)
     
     id, err := res.LastInsertId()
@@ -258,11 +249,6 @@ func (qud *QUD) Update(fld interface{}) int64 {
 
     logQuery(qud.table, q, qud.params)
     
-    /*stmt, err := qud.db.Prepare(q)
-    catch(err)
-    res, err := stmt.Exec(qud.params...)
-    stmt.Close()
-    catch(err)*/
     res, err := qud.db.Exec(q, qud.params...)
     catch(err, q, qud.params)
     

@@ -14,21 +14,25 @@ import (
 
 var authSalt = "iATdT7R4JKGg1h1YeDPp:Zl6fyUw10sgh1EGxnyKQ"
 
+func init() {
+    //dblayer.LogTables = []string{}
+    dblayer.LogTables = []string {
+        /*"events",
+        "external_links",
+        "services"*/}
+}
+
 func (cfg *Configuration) Run() {
     var ctx context.Context
     ctx, cfg.Cancel = context.WithCancel(context.Background())
 
-    //rif.name = name
-	//cfg.Reply = reply
-    //cfg.actions = make(map[string] Action)
-    cfg.openDB(cfg.GetStorage() + ".db?_synchronous=NORMAL&_journal_mode=WAL") // _busy_timeout=10000
+    dbFilename := cfg.GetStorage() + ".db?_synchronous=NORMAL&_journal_mode=WAL"
+    cfg.lastError = cfg.openDB(dbFilename) // _busy_timeout=10000
+    if nil != cfg.lastError {
+        return
+    }
+    
     //cfg.DB.SetMaxOpenConns(1)
-    //go rif.connect()
-    dblayer.LogTables = []string{}
-    /*dblayer.LogTables = []string {
-        //"events",
-        //"external_links",
-        "services"}*/
     
     cfg.cacheRelations()
     cfg.setupApi()
@@ -42,6 +46,11 @@ func (cfg *Configuration) Shutdown() {
     cfg.DB.Close()
 }
 
+func (cfg *Configuration) GetError() error {
+    return cfg.lastError
+}
+
+// for interface compatibility
 func (cfg *Configuration) GetList() []int64 {
     return nil
 }
@@ -555,15 +564,20 @@ func (cfg *Configuration) getTargetsByScope(target string, scopeId int64) []User
 }
 */
 
-func (cfg *Configuration) openDB(fn string) {
+func (cfg *Configuration) openDB(fn string) (err error) {
     //TODO: https://github.com/mattn/go-sqlite3#user-authentication
     //var db interface{}
-    var err error
     cfg.DB, err = sql.Open("sqlite3", fn)
-    catch(err)
-    cfg.MakeTables(tables, false)
-    cfg.MakeTables(tableUpdates, true)
-    
+    if nil != err {
+        return
+    }
+    err = cfg.MakeTables(tables)
+    if nil != err {
+        cfg.DB.Close()
+        return
+    }
+    cfg.MakeTables(tableUpdates) // ignore errors
+    return
 }
 
 func (cfg *Configuration) setupApi() {
