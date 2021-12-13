@@ -1,6 +1,7 @@
 package configuration
 
 import (
+    "fmt"
     "time"
     "strings"
     "context"
@@ -29,6 +30,7 @@ func (cfg *Configuration) Run() {
     dbFilename := cfg.GetStorage() + ".db?_synchronous=NORMAL&_journal_mode=WAL"
     cfg.lastError = cfg.openDB(dbFilename) // _busy_timeout=10000
     if nil != cfg.lastError {
+        cfg.lastError = fmt.Errorf("Database problem: %w", cfg.lastError)
         return
     }
     

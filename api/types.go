@@ -7,13 +7,26 @@ import (
     //"golang.org/x/net/websocket"
 )
 
-var ARMFilter = map[int64] []int64 { // [armType] => event class to catch if no suitable device/user in event
+var ARMFilter = func (armFilter map[int64] []int64) map[int64] map[int64] struct{} {
+    filter := make(map[int64] map[int64] struct{})
+    // [role][class]
+    for class, _ := range armFilter {
+        for _, role := range armFilter[class] {
+            if _, ok := filter[role]; !ok {
+                filter[role] = make(map[int64] struct{})
+            }
+            filter[role][class] = struct{}{}
+        }
+    }
+    return filter
+}(map[int64] []int64 { // [armType] => event class to catch if no suitable device/user in event
     //1: nil, // all events
     EC_GLOBAL_ALARM: {ARM_UNIT, ARM_CHECKPOINT, ARM_GUARD, ARM_OPERATOR, ARM_SECRET/*, ARM_BUREAU*/},
     EC_ENTER_ZONE: {ARM_SECRET},
     EC_ACCESS_VIOLATION: {ARM_UNIT, ARM_CHECKPOINT, ARM_GUARD},
-    EC_ACCESS_VIOLATION_ENDED: {ARM_UNIT, ARM_CHECKPOINT, ARM_GUARD}}
-    
+    EC_ACCESS_VIOLATION_ENDED: {ARM_UNIT, ARM_CHECKPOINT, ARM_GUARD},
+})
+
 // access control RequestPassage codes
 const (
     ACS_ACCESS_GRANTED = 0

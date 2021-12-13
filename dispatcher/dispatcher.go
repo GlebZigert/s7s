@@ -31,8 +31,6 @@ const (
     shutdownTimeout = 10 // seconds
 )
 
-var armFilter map[int64] map[int64] struct{}
-
 func factory(api *api.API) Service {
     var service Service
     switch (*api).Settings.Type {
@@ -54,22 +52,8 @@ func factory(api *api.API) Service {
     return service
 }
 
-
-func seedFilter() {
-    armFilter = make(map[int64] map[int64] struct{})
-    // [role][class]
-    for class, _ := range api.ARMFilter {
-        for _, role := range api.ARMFilter[class] {
-            if _, ok := armFilter[role]; !ok {
-                armFilter[role] = make(map[int64] struct{})
-            }
-            armFilter[role][class] = struct{}{}
-        }
-    }
-}
-
 func Run(ctx context.Context, host string) (err error) {
-    seedFilter()
+    //seedFilter()
     var d = Dispatcher{
         queue: make(chan string, 10),
         services: make(map[int64] Service),
@@ -356,7 +340,7 @@ func (dispatcher *Dispatcher) reply(cid int64, reply *api.ReplyMessage) {
         log.Println("::: APPLY EV FILTER :::", len(events), " events for svc #", reply.Service)
         idList := events.GetList()
         devFilter := dispatcher.cfg.Authorize(cid, idList)
-        reply.Data = events.Filter(cid, devFilter, armFilter[client.role])
+        reply.Data = events.Filter(cid, devFilter, api.ARMFilter[client.role])
     } else if original, ok := reply.Data.(configuration.Filterable); ok {
         // filter by devices permissions
         log.Println("::: APPLY DEV FILTER :::", reply.Service, reply.Action)
