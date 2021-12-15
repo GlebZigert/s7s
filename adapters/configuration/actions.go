@@ -93,7 +93,10 @@ func (cfg *Configuration) updateAlgorithm(cid int64, data []byte) (interface{}, 
 func (cfg *Configuration) deleteAlgorithm(cid int64, data []byte) (interface{}, bool) {
     var id int64
     json.Unmarshal(data, &id)
-    cfg.dbDeleteAlgorithm(id)
+    err := cfg.dbDeleteAlgorithm(id)
+    if nil != err {
+        panic(err)
+    }
     return id, true // broadcast
 }
 

@@ -93,9 +93,12 @@ func (cfg *Configuration) loadMaps() (list MapList){
     return
 }
 
-func (cfg *Configuration) dbDeleteMap(id int64) {
-    cfg.Table("maps").Delete(id)
-    cfg.Table("shapes").Delete("map_id", id)
+func (cfg *Configuration) dbDeleteMap(id int64) (err error) {
+    err = cfg.Table("shapes").Delete("map_id", id)
+    if nil == err {
+        err = cfg.Table("maps").Delete(id)
+    }
+    return
 }
 
 func (cfg *Configuration) dbUpdatePlanPicture(id int64, picture []byte) {
@@ -122,7 +125,7 @@ func (cfg *Configuration) dbUpdateMap(myMap *Map) {
     }
 }
 
-func (cfg *Configuration) dbUpdateShapes(mapId int64, shapes []Shape) {
+func (cfg *Configuration) dbUpdateShapes(mapId int64, shapes []Shape) (err error) {
     var ids []int64
     for i, _ := range shapes {
         shapes[i].MapId = mapId
@@ -130,6 +133,7 @@ func (cfg *Configuration) dbUpdateShapes(mapId int64, shapes []Shape) {
         cfg.Table("shapes").Save(fields)
         ids = append(ids, shapes[i].Id)
     }
-    
-    cfg.Table("shapes").Delete("map_id = ? AND id NOT", mapId, ids)
+
+    err = cfg.Table("shapes").Delete("map_id = ? AND id NOT", mapId, ids)
+    return
 }

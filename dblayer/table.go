@@ -5,7 +5,8 @@ import (
     "fmt"
     "errors"
     "strings"
-    "strconv"    
+    "strconv"
+    "context"
     "database/sql"
     //_ "github.com/mattn/go-sqlite3"
 )
@@ -31,6 +32,7 @@ type DBLayer struct {
 type QUD struct { // Query-Update-Delete
     table   string
     db      *sql.DB
+    tx      *sql.Tx
     cond    string      // WHERE a = ? AND b = ?
     group   string
     order   string
@@ -61,6 +63,16 @@ func (dbl *DBLayer) MakeTables(tables []string) (err error){
 func (dbl *DBLayer) Table(t string) *QUD {
     // TODO: maybe db: &dbl.DB ?
     return &QUD{table: t, db: dbl.DB}
+}
+
+func (dbl *DBLayer) BeginTx(ctx context.Context) (*sql.Tx, error) {
+    // TODO: maybe db: &dbl.DB ?
+    return dbl.DB.BeginTx(ctx, nil)
+}
+
+func (qud *QUD) Tx(tx *sql.Tx) *QUD {
+    qud.tx = tx
+    return qud
 }
 
 func (qud *QUD) Order(o string) *QUD {
@@ -259,15 +271,16 @@ func (qud *QUD) Update(fld interface{}) int64 {
     return numRows    
 }
 
-func (qud *QUD) Delete(args ...interface{}) {
+func (qud *QUD) Delete(args ...interface{}) (err error) {
     if len(args) > 0 {
         qud.Seek(args...)
     }
     q := "DELETE FROM " + qud.table + qud.cond
     logQuery(qud.table, q, qud.params)
-    _, err := qud.db.Exec(q, qud.params...)
-    catch(err, q, qud.params)
+    _, err = qud.db.Exec(q, qud.params...)
+    //catch(err, q, qud.params)
     qud.reset()
+    return
 }
 
 // all calls shoud be chained .Table().Seek().Get()

@@ -1,6 +1,7 @@
 package configuration
 
 import (
+    "context"
     "../../dblayer"
 )
 
@@ -30,21 +31,15 @@ func (cfg *Configuration) LoadLinks(sourceId int64, link string) (list []ExtLink
 }
 
 
-/*
-func (cfg *Configuration) clearLinksSource(sourceId int64, linkType string) {
+func (cfg *Configuration) SaveLinks(sourceId int64, linkType string, list []ExtLink) (err error){
+    ctx := context.Background()
+	tx, err := cfg.BeginTx(ctx)
+    
     table := cfg.Table("external_links")
-    table.Delete("link = ? AND source_id = ?", linkType, sourceId)
-}
-
-func (cfg *Configuration) clearLinksTarget(targetId int64, linkType string) {
-    table := cfg.Table("external_links")
-    table.Delete("link = ? AND target_id = ?", linkType, sourceId)
-}
-*/
-
-func (cfg *Configuration) SaveLinks(sourceId int64, linkType string, list []ExtLink) {
-    table := cfg.Table("external_links")
-    table.Delete("link = ? AND source_id = ?", linkType, sourceId)
+    err = table.Tx(tx).Delete("link = ? AND source_id = ?", linkType, sourceId)
+    if nil == err {
+        return
+    }
 
     for _, link := range list {
         table.Insert(dblayer.Fields {
@@ -54,4 +49,5 @@ func (cfg *Configuration) SaveLinks(sourceId int64, linkType string, list []ExtL
             "target_id": link[1],
             "flags": link[2]})
     }
+    return
 }

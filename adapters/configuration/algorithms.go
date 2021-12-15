@@ -41,8 +41,9 @@ func (cfg *Configuration) loadAlgorithms() (list []api.Algorithm){
     return
 }
 
-func (cfg *Configuration) dbDeleteAlgorithm(id int64) {
-    cfg.Table("algorithms").Delete(id)
+func (cfg *Configuration) dbDeleteAlgorithm(id int64) (err error) {
+    err = cfg.Table("algorithms").Delete(id)
+    return
 }
 
 

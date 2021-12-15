@@ -82,7 +82,14 @@ func (api *API) GetStorage() string {
 
 // exec action handler
 // one thread per client
-func (api *API) Do(cid int64, action string, json []byte) (interface{}, bool) {
+func (api *API) Do(cid int64, action string, json []byte) (data interface{}, broadcast bool) {
+    defer func() {
+        if r := recover(); r != nil {
+            api.Err("!!! Action '" + action + "' failed for user #", cid, " - ", r)
+            data = "Операция не выполнена (сбой сервера)"
+            broadcast = false
+        }
+    }()    
     if _, ok := api.actions[action]; true == ok {
         return api.actions[action](cid, json)
     } 
