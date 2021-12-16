@@ -55,7 +55,8 @@ func (cfg *Configuration) dbDescribeEvent(event *api.Event) bool {
     fields := dblayer.Fields {
         "reason": event.Reason,
         "reaction": event.Reaction}
-    return cfg.Table(`events`).Seek(event.Id).Update(fields) > 0
+    num, err := db.Table(`events`).Seek(event.Id).Update(nil, fields)
+    return  num > 0 && nil != err
 }
 
 func (cfg *Configuration) dbLoadJournal(userId, serviceId int64) (list api.EventsList) {
@@ -64,7 +65,7 @@ func (cfg *Configuration) dbLoadJournal(userId, serviceId int64) (list api.Event
 
     event := new(api.Event)
     fields := eventFieldsEx(event)
-    table := cfg.Table(`events e
+    table := db.Table(`events e
                         LEFT JOIN services s ON e.service_id = s.id
                         LEFT JOIN devices d ON e.device_id = d.id
                         LEFT JOIN zones z ON e.zone_id = z.id
@@ -74,10 +75,10 @@ func (cfg *Configuration) dbLoadJournal(userId, serviceId int64) (list api.Event
     _, fromId := cfg.shiftStarted(userId)
     //cfg.Log("SHIFT EVENT ID #", fromId)
     // TODO: load events starting from session opening
-    rows, values := table.
+    rows, values, _ := table.
         Seek("e.service_id = ? AND e.time > ? AND e.id >= ?", serviceId, from, fromId).
         Order("e.time, e.id").
-        Get(fields)
+        Get(nil, fields)
     defer rows.Close()
 
     for rows.Next() {
@@ -106,7 +107,7 @@ func (cfg *Configuration) loadEvents(filter *EventFilter) (list []api.Event){
     event := new(api.Event)
     fields := eventFieldsEx(event)
 
-    table := cfg.Table(`events e
+    table := db.Table(`events e
                         LEFT JOIN services s ON e.service_id = s.id
                         LEFT JOIN devices d ON e.device_id = d.id
                         LEFT JOIN zones z ON e.zone_id = z.id
@@ -148,7 +149,7 @@ func (cfg *Configuration) loadEvents(filter *EventFilter) (list []api.Event){
     cond = append(cond, "(" + strings.Join(classes, " OR ") + ")")
     
     args = append([]interface{}{strings.Join(cond, " AND ")}, args...)
-    rows, values := table.Seek(args...).Order("e.time, e.id").Get(fields, filter.Limit)
+    rows, values, _ := table.Seek(args...).Order("e.time, e.id").Get(nil, fields, filter.Limit)
     
     defer rows.Close()
 
@@ -163,17 +164,17 @@ func (cfg *Configuration) loadEvents(filter *EventFilter) (list []api.Event){
 func (cfg *Configuration) dbLogEvent(event *api.Event) {
     fields := eventFields(event)
     delete(fields, "id")
-    event.Id = cfg.Table("events").Insert(fields)
+    event.Id, _ = db.Table("events").Insert(nil, fields)
 }
 
 func (cfg *Configuration) importEvent(event *api.Event) {
     event.Id = 0 // just in case
     ev := new(api.Event)
     fields := eventFields(ev)
-    rows, values := cfg.Table("events").
+    rows, values, _ := db.Table("events").
         Seek("external_id = 0 AND service_id = ? AND device_id = ? AND time = ? AND event = ?",
              event.ServiceId, event.DeviceId, event.Time, event.Event).
-        Order("id").Get(fields, 1)
+        Order("id").Get(nil, fields, 1)
     if rows.Next() {
         err := rows.Scan(values...)
         rows.Close()
@@ -185,7 +186,7 @@ func (cfg *Configuration) importEvent(event *api.Event) {
     if 0 == event.Id {
         cfg.dbLogEvent(event)
     } else { // Unknown event, save it
-        cfg.Table("events").Seek(event.Id).Update(dblayer.Fields{"external_id": event.ExternalId})
+        db.Table("events").Seek(event.Id).Update(nil, dblayer.Fields{"external_id": event.ExternalId})
     }
 }
 
@@ -198,10 +199,10 @@ func (cfg *Configuration) ImportEvents(events []api.Event) {
 func (cfg *Configuration) GetLastEvent(serviceId int64) (event *api.Event){
     event = new(api.Event)
     fields := eventFields(event)
-    rows, values := cfg.Table("events").
+    rows, values, _ := db.Table("events").
         Seek("external_id > 0 AND service_id = ?", serviceId).
         Order("external_id DESC").
-        Get(fields, 1)
+        Get(nil, fields, 1)
     defer rows.Close()
     if rows.Next() {
         err := rows.Scan(values...)
@@ -216,9 +217,9 @@ func (cfg *Configuration) findAlgorithms(serviceId, deviceId, fromState, event i
     Algorithm := new(Algorithm)
     fields := AlgorithmFields(Algorithm)
 
-    rows, values := cfg.Table("algorithms").
+    rows, values := db.Table("algorithms").
     Seek("service_id = ? AND device_id = ? AND (from_state = ? OR from_state < 0) AND (event = ? OR event < 0)", serviceId, deviceId, fromState, event).
-        Get(fields)
+        Get(nil, fields)
     defer rows.Close()
 
     for rows.Next() {

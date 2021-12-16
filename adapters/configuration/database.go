@@ -1,7 +1,7 @@
 package configuration
 
 import (
-    "context"
+    //"context"
     "../../dblayer"
 )
 
@@ -16,9 +16,9 @@ func (cfg *Configuration) LoadLinks(sourceId int64, link string) (list []ExtLink
         "target_id": &id,
         "flags": &flags}
 
-    rows, values := cfg.Table("external_links").
+    rows, values, _ := db.Table("external_links").
         Seek("link = ? AND source_id = ?", link, sourceId).
-        Get(fields)
+        Get(nil, fields)
     defer rows.Close()
 
     for rows.Next() {
@@ -32,22 +32,34 @@ func (cfg *Configuration) LoadLinks(sourceId int64, link string) (list []ExtLink
 
 
 func (cfg *Configuration) SaveLinks(sourceId int64, linkType string, list []ExtLink) (err error){
-    ctx := context.Background()
-	tx, err := cfg.BeginTx(ctx)
+	tx, err := db.Tx(txTimeout)
+    if nil != err {
+        return
+    }
+    //defer func() {if nil != err {tx.Rollback()}}()
     
-    table := cfg.Table("external_links")
-    err = table.Tx(tx).Delete("link = ? AND source_id = ?", linkType, sourceId)
+    table := db.Table("external_links")
+    err = table.Delete(tx, "link = ? AND source_id = ?", linkType, sourceId)
     if nil == err {
+        tx.Rollback()
         return
     }
 
     for _, link := range list {
-        table.Insert(dblayer.Fields {
+        _, err = table.Insert(nil, dblayer.Fields {
             "source_id": sourceId,
             "link": linkType,
             "scope_id": link[0],
             "target_id": link[1],
             "flags": link[2]})
+        if nil != err {
+            break
+        }
+    }
+    if nil != err {
+        tx.Rollback()
+    } else {
+        tx.Commit()
     }
     return
 }

@@ -3,6 +3,7 @@ package dblayer
 import (
     "log"
     "fmt"
+    "time"
     "errors"
     "strings"
     "strconv"
@@ -12,13 +13,13 @@ import (
 )
 
 // usage examples:
-// .Table().Insert()
-// .Table().Get(fields, limit)
-// .Table().Update(fields)
-// .Table().Delete(cond)
-// .Table().Seek(cond).Get(fields, limit)
-// .Table().Seek(cond).Update(fields)
-// .Table().Seek(cond).Delete()
+// .Table().Insert(nil, )
+// .Table().Get(nil, fields, limit)
+// .Table().Update(nil, fields)
+// .Table().Delete(nil, cond)
+// .Table().Seek(cond).Get(nil, fields, limit)
+// .Table().Seek(cond).Update(nil, fields)
+// .Table().Seek(cond).Delete(nil, )
 
 
 var LogTables []string
@@ -26,7 +27,7 @@ var LogTables []string
 type Fields map[string] interface{}
 
 type DBLayer struct {
-    DB  *sql.DB
+    db  *sql.DB
 }
 
 type QUD struct { // Query-Update-Delete
@@ -55,19 +56,30 @@ func logQuery(table, q string, p interface{}) {
 func (dbl *DBLayer) MakeTables(tables []string) (err error){
     for i := 0; i < len(tables) && nil == err; i++ {
         //log.Println(tables[i])
-        _, err = dbl.DB.Exec(tables[i])
+        _, err = dbl.db.Exec(tables[i])
     }
     return
 }
 
-func (dbl *DBLayer) Table(t string) *QUD {
-    // TODO: maybe db: &dbl.DB ?
-    return &QUD{table: t, db: dbl.DB}
+func (dbl *DBLayer) Bind(db *sql.DB) (err error) {
+    dbl.db = db
+    return
 }
 
-func (dbl *DBLayer) BeginTx(ctx context.Context) (*sql.Tx, error) {
+func (dbl *DBLayer) Close() (err error) {
+    return dbl.db.Close()
+}
+
+
+func (dbl *DBLayer) Table(t string) *QUD {
     // TODO: maybe db: &dbl.DB ?
-    return dbl.DB.BeginTx(ctx, nil)
+    return &QUD{table: t, db: dbl.db}
+}
+
+func (dbl *DBLayer) Tx(ms int) (*sql.Tx, error) {
+    ctx := context.Background()
+    ctx, _ = context.WithTimeout(ctx, time.Duration(ms) * time.Millisecond)
+    return dbl.db.BeginTx(ctx, nil)
 }
 
 func (qud *QUD) Tx(tx *sql.Tx) *QUD {
@@ -86,25 +98,26 @@ func (qud *QUD) Group(g string) *QUD {
 }
 
 // create or update
-func (qud *QUD) Save(fields Fields) {
+func (qud *QUD) Save(tx *sql.Tx, fields Fields) (err error) {
     var pId *int64
     tmp, ok := fields["id"]
     if ok {
         pId = tmp.(*int64)
     }
-    if !ok { // new WITHOUT id
-        qud.Insert(fields)
+    if !ok { // new WITHOUT id field
+        _, err = qud.Insert(nil, fields)
     } else if 0 == *pId { // new WITH id
         delete(fields, "id")
-        *pId = qud.Insert(fields)
+        *pId, err = qud.Insert(nil, fields)
     } else { // update
         delete(fields, "id")
-        qud.Seek(*pId).Update(fields)
+        _, err = qud.Seek(*pId).Update(nil, fields)
     }
     //qud.reset()
+    return
 }
 
-func (qud *QUD) Insert(fields Fields) int64 {
+func (qud *QUD) Insert(tx *sql.Tx, fields Fields) (id int64, err error) {
     //keys, values := fieldsMap(fields)
     keys := ""
     values := make([]interface{}, len(fields))
@@ -123,13 +136,13 @@ func (qud *QUD) Insert(fields Fields) int64 {
     q := "INSERT INTO " + qud.table + " ('" + keys + "') VALUES (?" + strings.Repeat(", ?", len(values)-1) + ")"
     logQuery(qud.table, q, values)
     
-    res, err := qud.db.Exec(q, values...)
-    catch(err, q, values)
-    
-    id, err := res.LastInsertId()
-    catch(err, "", nil)
+    //var res sql.Result
+    res, err := qud.execQuery(tx, q, qud.params)
+    if nil == err {
+        id, err = res.LastInsertId()
+    }
 
-    return id
+    return
 }
 
 func (qud *QUD) Seek(args ...interface{}) *QUD {
@@ -185,17 +198,17 @@ func (qud *QUD) Seek(args ...interface{}) *QUD {
     return qud
 }
 
-func (qud *QUD) Get(mymap Fields, limits ...int64) (*sql.Rows, []interface{}) {
-    return qud.RealGet("", mymap, limits...)
+func (qud *QUD) Get(tx *sql.Tx, mymap Fields, limits ...int64) (*sql.Rows, []interface{}, error) {
+    return qud.RealGet(tx, "", mymap, limits...)
 }
 
-func (qud *QUD) GetDistinct(mymap Fields, limits ...int64) (*sql.Rows, []interface{}) {
-    return qud.RealGet("DISTINCT", mymap, limits...)
+func (qud *QUD) GetDistinct(tx *sql.Tx, mymap Fields, limits ...int64) (*sql.Rows, []interface{}, error) {
+    return qud.RealGet(tx, "DISTINCT", mymap, limits...)
 }
 
-func (qud *QUD) RealGet(hint string, mymap Fields, limits ...int64) (*sql.Rows, []interface{}) {
+func (qud *QUD) RealGet(tx *sql.Tx, hint string, mymap Fields, limits ...int64) (res *sql.Rows, values []interface{}, err error) {
     keys := ""
-    values := make([]interface{}, len(mymap))
+    values = make([]interface{}, len(mymap))
 
     i := 0
     for k, v := range mymap {
@@ -231,14 +244,20 @@ func (qud *QUD) RealGet(hint string, mymap Fields, limits ...int64) (*sql.Rows, 
     
     logQuery(qud.table, q, qud.params)
     
-    res, err := qud.db.Query(q, qud.params...)
-    catch(err, q, qud.params)
+    //res, err := qud.execQuery(tx, q, qud.params)    
+
+    if nil == tx {
+        res, err = qud.db.Query(q, qud.params...)
+    } else {
+        res, err = tx.Query(q, qud.params...)
+    }
     
     qud.reset()
-    return res, values
+    
+    return res, values, err
 }
 
-func (qud *QUD) Update(fld interface{}) int64 {
+func (qud *QUD) Update(tx *sql.Tx, fld interface{}) (numRows int64, err error) {
     var keys string
     var params []interface{}
     
@@ -261,29 +280,38 @@ func (qud *QUD) Update(fld interface{}) int64 {
 
     logQuery(qud.table, q, qud.params)
     
-    res, err := qud.db.Exec(q, qud.params...)
-    catch(err, q, qud.params)
+    res, err := qud.execQuery(tx, q, qud.params)
     
-    numRows, err := res.RowsAffected()
-    catch(err, "", nil)
-    
+    if nil == err {
+        numRows, err = res.RowsAffected()
+    }
     qud.reset()
-    return numRows    
+
+    return
 }
 
-func (qud *QUD) Delete(args ...interface{}) (err error) {
+func (qud *QUD) Delete(tx *sql.Tx, args ...interface{}) (err error) {
     if len(args) > 0 {
         qud.Seek(args...)
     }
     q := "DELETE FROM " + qud.table + qud.cond
     logQuery(qud.table, q, qud.params)
-    _, err = qud.db.Exec(q, qud.params...)
-    //catch(err, q, qud.params)
+    
+    _, err = qud.execQuery(tx, q, qud.params)
+
     qud.reset()
     return
 }
 
-// all calls shoud be chained .Table().Seek().Get()
+func (qud *QUD) execQuery(tx *sql.Tx, q string, params []interface{}) (sql.Result, error) {
+    if nil == tx {
+        return qud.db.Exec(q, params...)
+    } else {
+        return tx.Exec(q, params...)
+    }
+}
+
+// all calls shoud be chained .Table().Seek().Get(nil, )
 // but someone can reuse .Table() multiple times
 // so we need to clean conditional part of object (cond & params)
 // for just in case

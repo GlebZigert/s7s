@@ -6,7 +6,7 @@ import (
 //    "net/http"
     
     "../../api"
-    "../../dblayer"
+//    "../../dblayer"
 )
 
 type Device struct {
@@ -126,7 +126,7 @@ type Action func (cid int, json []byte)
 
 type Configuration struct {
     sync.RWMutex
-    dblayer.DBLayer
+    //dblayer.DBLayer
     api.API
     
     lastError   error
@@ -223,12 +223,12 @@ type ConfigAPI interface {
 
     GlobalDeviceId(systemId int64, handle, name string) (id int64)
     SaveDevice(serviceId int64, device *Device, data interface{})
-    DeleteDevice(id int64)
+    DeleteDevice(id int64) error
     LoadDevices(serviceId int64) []Device
     TouchDevice(serviceId int64, dev *Device)
     
     LoadLinks(sourceId int64, link string) (list []ExtLink)
-    SaveLinks(sourceId int64, linkType string, list []ExtLink)
+    SaveLinks(sourceId int64, linkType string, list []ExtLink) error
     
     // ACS
     //GetAccessRules(serviceId int64) (rules []*Rule)

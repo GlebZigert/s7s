@@ -30,7 +30,7 @@ func (cfg *Configuration) loadAlgorithms() (list []api.Algorithm){
     algorithm := new(api.Algorithm)
     fields := AlgorithmFields(algorithm)
 
-    rows, values := cfg.Table("algorithms").Get(fields)
+    rows, values, _ := db.Table("algorithms").Get(nil, fields)
     defer rows.Close()
 
     for rows.Next() {
@@ -42,18 +42,18 @@ func (cfg *Configuration) loadAlgorithms() (list []api.Algorithm){
 }
 
 func (cfg *Configuration) dbDeleteAlgorithm(id int64) (err error) {
-    err = cfg.Table("algorithms").Delete(id)
+    err = db.Table("algorithms").Delete(nil, id)
     return
 }
 
 
 func (cfg *Configuration) dbUpdateAlgorithm(algorithm *api.Algorithm) {
     fields := AlgorithmFields(algorithm)
-    cfg.Table("algorithms").Save(fields)
+    db.Table("algorithms").Save(nil, fields)
 }
 
 func (cfg *Configuration) findDevAlgorithms(e *api.Event) (list []api.Algorithm) {
-    source := cfg.Table("algorithms")
+    source := db.Table("algorithms")
     algorithm := new(api.Algorithm)
     fields := AlgorithmFields(algorithm)
 
@@ -69,7 +69,7 @@ func (cfg *Configuration) findDevAlgorithms(e *api.Event) (list []api.Algorithm)
         return
     }
     
-    rows, values := source.Get(fields)
+    rows, values, _ := source.Get(nil, fields)
     defer rows.Close()
 
     for rows.Next() {

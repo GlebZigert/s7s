@@ -28,10 +28,10 @@ func (cfg *Configuration) shiftStarted(userId int64) (bool, int64) {
         "class": &lastEvent,
         "MAX(time)": &timestamp}
 
-    rows, values := cfg.Table("events").
+    rows, values, _ := db.Table("events").
         Seek("service_id = 0 AND user_id = ? AND class", userId, shiftEvents).
         Group("user_id").
-        Get(fields)
+        Get(nil, fields)
 
     defer rows.Close()
     
@@ -47,13 +47,13 @@ func (cfg *Configuration) shiftStarted(userId int64) (bool, int64) {
 
 
 func (cfg *Configuration) dbUpdateUserPicture(id int64, picture []byte) {
-    cfg.Table("users").Seek(id).Update(dblayer.Fields {"photo": &picture})
+    db.Table("users").Seek(id).Update(nil, dblayer.Fields {"photo": &picture})
 }
 
 func (cfg *Configuration) dbLoadUserPicture(id int64) []byte {
     var picture []byte
     fields := dblayer.Fields {"photo": &picture}
-    rows, values := cfg.Table("users").Seek(id).Get(fields)
+    rows, values, _ := db.Table("users").Seek(id).Get(nil, fields)
     defer rows.Close() // TODO: defer triggered for this rows?
     if rows.Next() {
         err := rows.Scan(values...)
@@ -68,7 +68,7 @@ func (cfg *Configuration) loadUserCards(userId int64) (list []string) {
     list = make([]string, 0)
     fields := dblayer.Fields{"pin": &pin, "card": &card}
 
-    rows, values := cfg.Table("cards").Seek("user_id = ?", userId).Get(fields)
+    rows, values, _ := db.Table("cards").Seek("user_id = ?", userId).Get(nil, fields)
     defer rows.Close()
 
     for rows.Next() {
@@ -107,11 +107,11 @@ func (cfg *Configuration) saveUserCards(user *User) {
     }
 
     // 2. load cards from db
-    table := cfg.Table("cards")
+    table := db.Table("cards")
     cond := "user_id = ? OR card IN('" + strings.Join(onlyCards, "','") + "')"
     fields := dblayer.Fields {"user_id": &userId, "card": &card}
     
-    rows, values := table.Seek(cond, user.Id).Get(fields)
+    rows, values, _ := table.Seek(cond, user.Id).Get(nil, fields)
     for rows.Next() {
         err := rows.Scan(values...)
         catch(err)
@@ -125,14 +125,14 @@ func (cfg *Configuration) saveUserCards(user *User) {
     rows.Close()
     
     // TODO: delete unused, update only updated cards?
-    table.Delete("user_id = ?", user.Id)
+    table.Delete(nil, "user_id = ?", user.Id)
     
     // insert cards
     userId = user.Id
     for card, pin := range cards {
         fields["card"] = card
         fields["pin"] = pin
-        table.Insert(fields)
+        table.Insert(nil, fields)
         // TODO: notify subscribers
     }
     //cfg.Log("BAD:", badCards)
@@ -200,10 +200,10 @@ func (cfg *Configuration) dbUpdateUser(user *User, filter map[string] interface{
             fields["type"] = user.Type
             fields["role"] = user.Role
             fields["archived"] = user.Archived
-            user.Id = cfg.Table("users").Insert(fields)
+            user.Id, _ = db.Table("users").Insert(nil, fields)
         }
     } else if len(fields) > 0 {
-        cfg.Table("users").Seek(user.Id).Update(fields)
+        db.Table("users").Seek(user.Id).Update(nil, fields)
     }
     if 0 != user.Id {
         if nil != filter["zones"] {
@@ -229,7 +229,7 @@ func (cfg *Configuration) deleteBranch(ids []int64) {
     cond := "type = 1 AND archived = false AND parent_id"
     // fing subgroups
     fields := dblayer.Fields {"id": &userId}
-    rows, _ := cfg.Table("users").Seek(cond, ids).Get(fields)
+    rows, _, _ := db.Table("users").Seek(cond, ids).Get(nil, fields)
     for rows.Next() {
         err := rows.Scan(&userId)
         catch(err)
@@ -243,18 +243,18 @@ func (cfg *Configuration) deleteBranch(ids []int64) {
 
     // if no errors, "delete" direct subnodes of current parents list
     fields = dblayer.Fields{"archived": true}
-    cfg.Table("users").Seek(cond, ids).Update(fields)
-    cfg.Table("cards").Delete("user_id", ids)
-    cfg.Table("external_links").Delete(`link IN ("user-zone", "user-device") AND source_id`, ids)
+    db.Table("users").Seek(cond, ids).Update(nil, fields)
+    db.Table("cards").Delete(nil, "user_id", ids)
+    db.Table("external_links").Delete(nil, `link IN ("user-zone", "user-device") AND source_id`, ids)
 }
 
 func (cfg *Configuration) dbDeleteUser(id int64) {
     // delete from the end of branch (prevent loss of nodes in case of error)
     cfg.deleteBranch([]int64{id})
     // if was no errors, delete "root" of all barnch
-    cfg.Table("users").Seek(id).Update("archived = true")
-    cfg.Table("cards").Delete("user_id = ?", id)
-    cfg.Table("external_links").Delete(`link IN ("user-zone", "user-device") AND source_id = ?`, id)
+    db.Table("users").Seek(id).Update(nil, "archived = true")
+    db.Table("cards").Delete(nil, "user_id = ?", id)
+    db.Table("external_links").Delete(nil, `link IN ("user-zone", "user-device") AND source_id = ?`, id)
     // TODO: clean broken links for user links, if users "deleted" instead "archived"
     // SELECT ul.user_id FROM user_links ul LEFT JOIN users u ON ul.user_id = u.id AND u.archived = false WHERE u.id IS NULL;
    
@@ -279,7 +279,7 @@ func (cfg *Configuration) loadUsers() (list []User) {
         "position":     &user.Position,
         "login":        &user.Login}
 
-    rows, values := cfg.Table("users").Seek("archived = false").Get(fields)
+    rows, values, _ := db.Table("users").Seek("archived = false").Get(nil, fields)
     defer rows.Close()
     for rows.Next() {
         err := rows.Scan(values...)
@@ -293,7 +293,7 @@ func (cfg *Configuration) loadUsers() (list []User) {
     var card string
 
     fields = dblayer.Fields {"user_id": &userId, "card": &card}
-    rows, values = cfg.Table("cards").Get(fields)
+    rows, values, _ = db.Table("cards").Get(nil, fields)
     defer rows.Close()
     for rows.Next() {
         err := rows.Scan(values...)
@@ -308,9 +308,9 @@ func (cfg *Configuration) childrenList(parentId int64) (list []int64) {
     var id int64
     fields := dblayer.Fields {"id": &id}
 
-    rows, values := cfg.Table("users").
+    rows, values, _ := db.Table("users").
         Seek("archived = false AND parent_id = ?", parentId).
-        Get(fields)
+        Get(nil, fields)
     defer rows.Close()
     for rows.Next() {
         err := rows.Scan(values...)
@@ -323,7 +323,7 @@ func (cfg *Configuration) childrenList(parentId int64) (list []int64) {
 func (cfg *Configuration) GetUser(id int64) *User {
     user := new(User)
     //cfg.tables["users"].query("fields").where("cond")
-    //cfg.Table("users").Find("cond").Get("list")
+    //db.Table("users").Find("cond").Get(nil, "list")
     fields := dblayer.Fields {
         "id":           &user.Id,
         "archived":     &user.Archived,
@@ -338,7 +338,7 @@ func (cfg *Configuration) GetUser(id int64) *User {
         "position":     &user.Position,
         "login":        &user.Login}
 
-    rows, values := cfg.Table("users").Seek("archived = false AND id = ?", id).Get(fields)
+    rows, values, _ := db.Table("users").Seek("archived = false AND id = ?", id).Get(nil, fields)
     defer rows.Close()
 
     if rows.Next() {

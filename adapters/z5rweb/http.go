@@ -334,7 +334,7 @@ func (svc *Z5RWeb) handlePing(dType string, sn int64, msg *Message) interface{} 
         "mode": msg.Mode,
         "last_seen": now}
 
-    if 0 == svc.Table("devices").Seek("type = ? AND serial_number = ?", dType, sn).Update(fields) {
+    if 0 == svc.Table("devices").Seek("type = ? AND serial_number = ?", dType, sn).Update(nil, fields) {
         // TODO: re-activate?
         svc.Warn("Device not found, re-activate:", dType, sn)
         return &SetActiveCmd {Id: svc.nextMessageId, Operation: "set_active", Active: 0, Online: 0}
@@ -355,11 +355,11 @@ func (svc *Z5RWeb) handlePowerOn(dType string, sn int64, msg *Message) interface
         "external_zone": 0,
         "last_seen": now}
 
-    if 0 == svc.Table("devices").Seek("type = ? AND serial_number = ?", dType, sn).Update(fields) {
+    if 0 == svc.Table("devices").Seek("type = ? AND serial_number = ?", dType, sn).Update(nil, fields) {
         fields["name"] = dType + " " + strconv.FormatInt(sn, 10)
         fields["type"] = dType
         fields["serial_number"] = sn
-        svc.Table("devices").Insert(fields)
+        svc.Table("devices").Insert(nil, fields)
         // TODO: load only new device?
         svc.devices = svc.loadDevices()
         // TODO: broadcast updates

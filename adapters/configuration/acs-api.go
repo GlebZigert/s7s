@@ -131,7 +131,7 @@ func (cfg *Configuration) EnterZone(event api.Event) {
 func (cfg *Configuration) UserByCard(card string) (userId int64) {
     fields := dblayer.Fields{"user_id": &userId}
     emCard, _ := encodeCard(card)
-    rows, values := cfg.Table("cards").Seek("card = ?", emCard).Get(fields, 1)
+    rows, values, _ := db.Table("cards").Seek("card = ?", emCard).Get(nil, fields, 1)
     defer rows.Close()
 
     if rows.Next() {
@@ -161,7 +161,7 @@ func (cfg *Configuration) RequestPassage(zoneId int64, card, pin string) (userId
     // 1. find card
     var dbPin string
     fields := dblayer.Fields{"user_id": &userId, "pin": &dbPin}
-    rows, values := cfg.Table("cards").Seek("card = ?", emCard).Get(fields)
+    rows, values, _ := db.Table("cards").Seek("card = ?", emCard).Get(nil, fields)
     defer rows.Close()
     if rows.Next() {
         err := rows.Scan(values...)
@@ -253,9 +253,9 @@ func (cfg *Configuration) checkZone(zoneId int64, users []int64) (pass bool) {
             OR ? BETWEEN tr.'from' AND tr.'to'
         )
         AND el.source_id`
-    rows, _ := cfg.Table(source).
+    rows, _, _ := db.Table(source).
         Seek(cond, zoneId, wallTime, wallTime, monthdayTime, weekdayTime, users).
-        Get(fields, 1)
+        Get(nil, fields, 1)
     
     defer rows.Close()
 
@@ -274,10 +274,10 @@ func (cfg *Configuration) visitorLocation(userId int64) (zoneId int64) {
         "MAX(time)": &timestamp}
 
     startTime := time.Now().AddDate(0, 0, -passtroughScanDeep).Unix()
-    rows, values := cfg.Table("events").
+    rows, values, _ := db.Table("events").
         Seek("zone_id > 0 AND user_id = ? AND time > ? AND event", userId, startTime, passtroughEvents).
         Group("user_id").
-        Get(fields)
+        Get(nil, fields)
 
     defer rows.Close()
 
@@ -302,10 +302,10 @@ func (cfg *Configuration) visitorsLocation() (locations, parents map[int64] int6
         "MAX(e.time)": &timestamp}
 
     startTime := time.Now().AddDate(0, 0, -passtroughScanDeep).Unix()
-    rows, values := cfg.Table("events e JOIN users u ON e.user_id = u.id").
+    rows, values, _ := db.Table("events e JOIN users u ON e.user_id = u.id").
         Seek("u.archived = false AND e.zone_id > 0 AND e.time > ? AND e.event", startTime, passtroughEvents).
         Group("e.user_id").
-        Get(fields)
+        Get(nil, fields)
 
     defer rows.Close()
 
@@ -325,16 +325,16 @@ func (cfg *Configuration) checkMaxVisitors(zoneId int64) bool {
         "z.max_visitors": &maxVisitors,
         "MAX(e.time)": &timestamp}
     // TODO: optimize query - COUNT(...)
-    table := cfg.Table(`events e
+    table := db.Table(`events e
                         JOIN zones z ON e.zone_id = z.id
                         JOIN users u ON e.user_id = u.id`)
     
     startTime := time.Now().AddDate(0, 0, -passtroughScanDeep).Unix()
-    rows, values := table.
+    rows, values, _ := table.
         Seek("u.archived = false AND e.zone_id > 0 AND e.time > ? AND e.event",
              startTime, passtroughEvents).
         Group("e.user_id").
-        Get(fields)
+        Get(nil, fields)
     defer rows.Close()
 
     for rows.Next() {
@@ -354,17 +354,17 @@ func (cfg *Configuration) entranceEvents() (list []api.Event) {
     event := new(api.Event)
     fields := eventFieldsEx(event)
     fields["MAX(e.time)"] = &timestamp
-    table := cfg.Table(`events e
+    table := db.Table(`events e
                         LEFT JOIN services s ON e.service_id = s.id
                         LEFT JOIN devices d ON e.device_id = d.id
                         LEFT JOIN zones z ON e.zone_id = z.id
                         LEFT JOIN users u ON e.user_id = u.id`)
     
     startTime := time.Now().AddDate(0, 0, -passtroughScanDeep).Unix()
-    rows, values := table.
+    rows, values, _ := table.
         Seek("u.archived = false AND e.zone_id > 0 AND e.time > ? AND e.event", startTime, passtroughEvents).
         Group("e.user_id").
-        Get(fields)
+        Get(nil, fields)
     defer rows.Close()
 
     for rows.Next() {
@@ -412,9 +412,9 @@ func (cfg *Configuration) allowedZones() (zones map[int64] []int64) {
             OR ? BETWEEN tr.'from' AND tr.'to'
             OR ? BETWEEN tr.'from' AND tr.'to'
         )`
-    rows, values := cfg.Table(source).
+    rows, values, _ := db.Table(source).
         Seek(cond, wallTime, wallTime, monthdayTime, weekdayTime).
-        GetDistinct(fields)
+        GetDistinct(nil, fields)
 
     defer rows.Close()
 
@@ -434,7 +434,7 @@ func (cfg *Configuration) allowedZones() (zones map[int64] []int64) {
     fields := dblayer.Fields{"l1.source_id": &id}
     source := "external_links l1 LEFT JOIN external_links l2 ON l1.target_id = l2.target_id"
     cond := "l1.link = 'device-zone' AND l2.link = 'device-zone' AND l2.source_id = ? AND l1.source_id <> ?"
-    rows, values := cfg.Table(source).
+    rows, values := db.Table(source).
         Seek(cond, deviceId, deviceId).
         GetDistinct(fields)
     defer rows.Close()
@@ -451,9 +451,9 @@ func (cfg *Configuration) allowedZones() (zones map[int64] []int64) {
 /*func (cfg *Configuration) checkDevice(deviceId int64, users []int64) (pass bool) {
     fields := dblayer.Fields{"target_id": &deviceId}
     cond := `link = "user-device" AND flags & ? > 0 AND target_id = ? AND source_id`
-    rows, _ := cfg.Table("external_links").
+    rows, _ := db.Table("external_links").
         Seek(cond, api.AM_PASSTROUGH, deviceId, users).
-        Get(fields, 1)
+        Get(nil, fields, 1)
     defer rows.Close()
 
     if rows.Next() {
@@ -491,9 +491,9 @@ func (cfg *Configuration) allowedZones() (zones map[int64] []int64) {
             OR ? BETWEEN tr.'from' AND tr.'to'
         )
         AND el.source_id`
-    rows, _ := cfg.Table(source).
+    rows, _ := db.Table(source).
         Seek(cond, reader, wallTime, wallTime, monthdayTime, weekdayTime, ids).
-        Get(fields, 1)
+        Get(nil, fields, 1)
     
     defer rows.Close()
 
@@ -574,11 +574,11 @@ cache {
 
     // ### 1. get all users & groups with linked targets
     
-    rows, values := cfg.Table("external_links el LEFT JOIN users u ON el.source_id = u.id").
+    rows, values := db.Table("external_links el LEFT JOIN users u ON el.source_id = u.id").
         // TODO: children_id is always greater than parent_id, but until transfer between groups happens (or use timestamp for group change?)
         Order("u.id"). 
         Seek(`u.type = 1 AND u.archived = false AND el.link = ?`, linkType).
-        Get(fields)
+        Get(nil, fields)
     defer rows.Close()
 
     for rows.Next() {
@@ -598,7 +598,7 @@ func (cfg *Configuration) getUsersById(ids []int64) []*User{
     var list []*User
     user := new(User)
     //cfg.tables["users"].query("fields").where("cond")
-    //cfg.Table("users").Find("cond").Get("list")
+    //db.Table("users").Find("cond").Get(nil, "list")
     fields := dblayer.Fields {
         "id":           &user.Id,
         "archived":     &user.Archived,
@@ -608,7 +608,7 @@ func (cfg *Configuration) getUsersById(ids []int64) []*User{
         "surename":     &user.Surename,
         "login":        &user.Login}
 
-    rows, values := cfg.Table("users").Seek(ids).Get(fields)
+    rows, values := db.Table("users").Seek(ids).Get(nil, fields)
     defer rows.Close()
 
     for rows.Next() {
@@ -638,7 +638,7 @@ func unique(values []int64) (list []int64) {
 // users and groups allowed to pass
 func (cfg *Configuration) usersAllowedToPass(deviceId int64) (users []int64) {
     var userId int64
-    rows, values := cfg.Table("external_links").
+    rows, values := db.Table("external_links").
         Seek(`link = "user-device" AND flags & ? > 0 AND target_id = ?`, api.AM_PASSTROUGH, deviceId).
         Get(dblayer.Fields{"source_id": &userId})
     defer rows.Close()
@@ -703,9 +703,9 @@ func (cfg *Configuration) GetCards(deviceId int64) map[string][]*Rule{
     params := []interface{}{cond}
     params = append(params, users...)
     params = append(params, users...)
-    rows, values := cfg.Table(source).
+    rows, values := db.Table(source).
         Seek(args...).
-        Get(fields)
+        Get(nil, fields)
     defer rows.Close()
 
     cards := make(map[string][]*Rule)

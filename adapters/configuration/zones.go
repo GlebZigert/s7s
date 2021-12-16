@@ -20,7 +20,7 @@ func (cfg *Configuration) loadZones() (list []Zone) {
     zone := new(Zone)
     fields := zoneFields(zone)
 
-    rows, values := cfg.Table("zones").Seek("archived IS NULL").Get(fields)
+    rows, values, _ := db.Table("zones").Seek("archived IS NULL").Get(nil, fields)
     defer rows.Close()
 
     for rows.Next() {
@@ -35,7 +35,7 @@ func (cfg *Configuration) getZone(id int64) (zone *Zone) {
     zone = new(Zone)
     fields := zoneFields(zone)
 
-    rows, values := cfg.Table("zones").Seek(id).Get(fields)
+    rows, values, _ := db.Table("zones").Seek(id).Get(nil, fields)
     defer rows.Close()
 
     if rows.Next() {
@@ -49,15 +49,15 @@ func (cfg *Configuration) dbDeleteZone(id int64) {
     // "zone-device" => security devices in zone
     // "device-zone" => ACS point in/out
     clean := []string{"zone-device", "device-zone", "user-zone"}
-    table := cfg.Table("external_links")
-    table.Delete("target_id = ? AND link", id, clean)
+    table := db.Table("external_links")
+    table.Delete(nil, "target_id = ? AND link", id, clean)
 
     fields := dblayer.Fields{"archived": time.Now()}
-    cfg.Table("zones").Seek(id).Update(fields)
+    db.Table("zones").Seek(id).Update(nil, fields)
 }
 
 
 func (cfg *Configuration) dbUpdateZone(zone *Zone) {
     fields := zoneFields(zone)
-    cfg.Table("zones").Save(fields)
+    db.Table("zones").Save(nil, fields)
 }

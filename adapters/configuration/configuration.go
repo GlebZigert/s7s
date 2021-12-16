@@ -13,7 +13,12 @@ import (
     "../../dblayer"
 )
 
-var authSalt = "iATdT7R4JKGg1h1YeDPp:Zl6fyUw10sgh1EGxnyKQ"
+const (
+    authSalt = "iATdT7R4JKGg1h1YeDPp:Zl6fyUw10sgh1EGxnyKQ"
+    txTimeout = 3000 // query transaction timeout, ms
+)
+
+var db dblayer.DBLayer
 
 func init() {
     //dblayer.LogTables = []string{}
@@ -45,7 +50,7 @@ func (cfg *Configuration) Run() {
 func (cfg *Configuration) Shutdown() {
     cfg.Log("Shutting down...")
     cfg.Cancel()
-    cfg.DB.Close()
+    db.Close()
 }
 
 func (cfg *Configuration) GetError() error {
@@ -164,7 +169,7 @@ func (cfg *Configuration) cacheRelations() {
     // TODO: children_id is always greater than parent_id, but until transfer between groups happens (or use timestamp for group change?)
     //
     cond := "parent_id > 0 AND type = 1 AND archived = false" // user root can't have linked devices etc.
-    rows, values := cfg.Table("users").Order("id").Seek(cond).Get(fields)
+    rows, values, _ := db.Table("users").Order("id").Seek(cond).Get(nil, fields)
     defer rows.Close()
 
     for rows.Next() {
@@ -197,9 +202,9 @@ func (cfg *Configuration) Authenticate(login, token string) (id, role int64) {
         "role": &role,
         "token": &userToken}
 
-    rows, values := cfg.Table("users").
+    rows, values, _ := db.Table("users").
         Seek("login = ? AND role > ? AND archived = ?", login, 0, false).
-        Get(fields)
+        Get(nil, fields)
     defer rows.Close()
 
     if rows.Next() {
@@ -280,9 +285,9 @@ func (cfg *Configuration) Authenticate(login, token string) (id, role int64) {
         params = append(params, cond, serviceId, mask, users)
     }
 
-    rows, values := cfg.Table("external_links").
+    rows, values := db.Table("external_links").
         Seek(params...).
-        Get(fields)
+        Get(nil, fields)
     defer rows.Close()
 
     for rows.Next() {
@@ -340,9 +345,9 @@ func (cfg *Configuration) Authenticate(login, token string) (id, role int64) {
     }
 
     if nil != params {
-        rows, values := cfg.Table("external_links").
+        rows, values := db.Table("external_links").
             Seek(params...).
-            Get(fields)
+            Get(nil, fields)
         defer rows.Close()
 
         for rows.Next() {
@@ -390,9 +395,9 @@ func (cfg *Configuration) Authorize(userId int64, devices []int64) (list map[int
     }
     params = append(params, users)
 
-    rows, values := cfg.Table("external_links").
+    rows, values, _ := db.Table("external_links").
         Seek(params...).
-        Get(fields)
+        Get(nil, fields)
     defer rows.Close()
 
     for rows.Next() {
@@ -455,7 +460,7 @@ func (cfg *Configuration) Unsubscribe(c chan interface{}) {
     
     // 3. get cards
     // TODO: seek cards only for active users
-    rows, values := cfg.Table("cards").Get(dblayer.Fields{"id": &userId, "card": &card})
+    rows, values := db.Table("cards").Get(nil, dblayer.Fields{"id": &userId, "card": &card})
     defer rows.Close()
 
     for rows.Next() {
@@ -491,7 +496,7 @@ func (cfg *Configuration) getTargetsByScope(target string, scopeId int64) []User
     var userId, targetId, parentId int64
     
 
-    table := cfg.Table("user_links ul LEFT JOIN users u ON ul.user_id = u.id")
+    table := db.Table("user_links ul LEFT JOIN users u ON ul.user_id = u.id")
     fields := dblayer.Fields{
         "u.id": &userId,
         "u.parent_id": &parentId,
@@ -504,7 +509,7 @@ func (cfg *Configuration) getTargetsByScope(target string, scopeId int64) []User
         Seek(
             `u.archived = ? AND u.type = ? AND ul.target = ? AND ul.scope_id = ?`,
             false, 1, target, scopeId).
-        Get(fields)
+        Get(nil, fields)
     defer rows.Close()
 
     for rows.Next() {
@@ -527,7 +532,7 @@ func (cfg *Configuration) getTargetsByScope(target string, scopeId int64) []User
     fld := dblayer.Fields{
         "id": &userId,
         "parent_id": &parentId}
-    rows, values = cfg.Table("users").
+    rows, values = db.Table("users").
         Order("id"). // children_id can't be greater than parent_id
         Seek("archived = ? AND type = ?", false, 1).
         Get(fld)
@@ -550,7 +555,7 @@ func (cfg *Configuration) getTargetsByScope(target string, scopeId int64) []User
         Seek(
             `u.archived = ? AND u.type <> ? AND ul.target = ? AND ul.scope_id = ? OR parent`,
             false, 1, target, scopeId, ids).
-        Get(fields)
+        Get(nil, fields)
     defer rows.Close()
     for rows.Next() {
         err := rows.Scan(values...)
@@ -569,16 +574,17 @@ func (cfg *Configuration) getTargetsByScope(target string, scopeId int64) []User
 func (cfg *Configuration) openDB(fn string) (err error) {
     //TODO: https://github.com/mattn/go-sqlite3#user-authentication
     //var db interface{}
-    cfg.DB, err = sql.Open("sqlite3", fn)
+    database, err := sql.Open("sqlite3", fn)
     if nil != err {
         return
     }
-    err = cfg.MakeTables(tables)
+    db.Bind(database)
+    err = db.MakeTables(tables)
     if nil != err {
-        cfg.DB.Close()
+        db.Close()
         return
     }
-    cfg.MakeTables(tableUpdates) // ignore errors
+    db.MakeTables(tableUpdates) // ignore errors
     return
 }
 

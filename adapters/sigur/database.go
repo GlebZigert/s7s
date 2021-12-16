@@ -63,7 +63,7 @@ func (sigur *Sigur) dbListDevices() map[int] Device {
         "type": &dev.Type,
         "name": &dev.Name}
     
-    rows, values := sigur.Table("DEVICES").Get(fields)
+    rows, values, _ := sigur.Table("DEVICES").Get(nil, fields)
     defer rows.Close() // TODO: defer triggered for this rows?
 
     for rows.Next() {
@@ -85,7 +85,7 @@ func (sigur *Sigur) loadRules() []AccessRule {
         "POWERIDX": &rule.PowerIdx,
         "NAME": &rule.Name}
     
-    rows, values := sigur.Table("ACCESSRULES").Get(fields)
+    rows, values, _ := sigur.Table("ACCESSRULES").Get(nil, fields)
     defer rows.Close() // TODO: defer triggered for this rows?
 
     for rows.Next() {

@@ -9,9 +9,9 @@ import (
 func (cfg *Configuration) deviceZone(serviceId, deviceId int64) (zoneId int64) {
     fields := dblayer.Fields {"target_id": &zoneId}
 
-    rows, values := cfg.Table("external_links").
+    rows, values, _ := db.Table("external_links").
         Seek("link = ? AND scope_id = ? AND source_id = ?", "zone-device", serviceId, deviceId).
-        Get(fields)
+        Get(nil, fields)
     defer rows.Close()
 
     if rows.Next() {
@@ -26,9 +26,9 @@ func (cfg *Configuration) deviceZone(serviceId, deviceId int64) (zoneId int64) {
 func (cfg *Configuration) getDeviceName(serviceId, deviceId int64) (name string) {
     fields := dblayer.Fields{"name": &name}
 
-    rows, values := cfg.Table("devices").
+    rows, values, _ := db.Table("devices").
         Seek("service_id = ? AND id = ?", serviceId, deviceId).
-        Get(fields, 1)
+        Get(nil, fields, 1)
     
     if rows.Next() {
         _ = rows.Scan(values...)
@@ -43,9 +43,9 @@ func (cfg *Configuration) getOneDevice(fields dblayer.Fields, serviceId int64, h
     if nil == fields {
         fields = dblayer.Fields{"id": &id}
     }
-    rows, values := cfg.Table("devices").
+    rows, values, _ := db.Table("devices").
         Seek("service_id = ? AND handle = ?", serviceId, handle).
-        Get(fields, 1)
+        Get(nil, fields, 1)
     
     if rows.Next() {
         err = rows.Scan(values...)
@@ -65,9 +65,9 @@ func (cfg *Configuration) GlobalDeviceId(serviceId int64, handle, name string) (
     if 0 == id {
         fields["service_id"] = serviceId
         fields["handle"] = handle
-        id = cfg.Table("devices").Insert(fields)
+        id, _ = db.Table("devices").Insert(nil, fields)
     } else {
-        cfg.Table("devices").Seek(id).Update(fields)
+        db.Table("devices").Seek(id).Update(nil, fields)
     }
     return
 }
@@ -82,7 +82,7 @@ func (cfg *Configuration) LoadDevices(serviceId int64) (list []Device) {
         "last_seen":    &dev.LastSeen,
         "data":         &dev.Data}
 
-    rows, values := cfg.Table("devices").Seek("handle IS NOT NULL AND service_id = ?", serviceId).Get(fields)
+    rows, values, _ := db.Table("devices").Seek("handle IS NOT NULL AND service_id = ?", serviceId).Get(nil, fields)
     
     for rows.Next() {
         err := rows.Scan(values...)
@@ -105,7 +105,7 @@ func (cfg *Configuration) SaveDevice(serviceId int64, dev *Device, data interfac
         fields["data"], _ = json.Marshal(data)
     }
 
-    cfg.Table("devices").Save(fields)
+    db.Table("devices").Save(nil, fields)
 }
 
 func (cfg *Configuration) DeleteDevice(id int64) (err error) {
@@ -113,13 +113,13 @@ func (cfg *Configuration) DeleteDevice(id int64) (err error) {
         "handle":       nil,
         "last_seen":    time.Now()} // deletion time
 
-    cfg.Table("devices").Seek(id).Update(fields)
-    cfg.Table("external_links").Delete("link = ? AND target_id = ?", "user-device", id)
+    db.Table("devices").Seek(id).Update(nil, fields)
+    db.Table("external_links").Delete(nil, "link = ? AND target_id = ?", "user-device", id)
     return
 }
 
 func (cfg *Configuration) TouchDevice(serviceId int64, dev *Device) {
     dev.LastSeen = time.Now()
     fields := dblayer.Fields {"last_seen": dev.LastSeen}
-    cfg.Table("devices").Seek(dev.Id).Update(fields)
+    db.Table("devices").Seek(dev.Id).Update(nil, fields)
 }

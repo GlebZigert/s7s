@@ -32,11 +32,11 @@ func (cfg *Configuration) loadRules(hwOnly bool) []*Rule{
         "end_date": &rule.EndDate,
         "priority": &rule.Priority}
 
-    dataset := cfg.Table("accessrules")
+    dataset := db.Table("accessrules")
     if hwOnly {
         dataset = dataset.Seek("priority = 0")
     }
-    rows, values := dataset.Get(fields)
+    rows, values, _ := dataset.Get(nil, fields)
     defer rows.Close() // TODO: defer triggered for this rows?
 
     idPos := make(map[int64]int)
@@ -61,7 +61,7 @@ func (cfg *Configuration) loadRules(hwOnly bool) []*Rule{
         "from": &tr.From,
         "to": &tr.To}
     
-    rows, values = cfg.Table("timeranges").Seek("rule_id", ids).Get(fields)
+    rows, values, _ = db.Table("timeranges").Seek("rule_id", ids).Get(nil, fields)
     defer rows.Close() // TODO: defer triggered for this rows?
     
     for rows.Next() {
@@ -76,7 +76,7 @@ func (cfg *Configuration) loadRules(hwOnly bool) []*Rule{
 
 func (cfg *Configuration) dbCountHWRules() (count int64) {
     fld := dblayer.Fields {"COUNT(*)": &count}
-    rows, values := cfg.Table("accessrules").Seek("priority = 0").Get(fld)
+    rows, values, _ := db.Table("accessrules").Seek("priority = 0").Get(nil, fld)
     defer rows.Close() // TODO: defer triggered for this rows?
     
     if rows.Next() {
@@ -96,19 +96,19 @@ func (cfg *Configuration) dbUpdateRules(rule *Rule) {
         "priority": &rule.Priority}
     
     if 0 >= rule.Id { // new
-        rule.Id = cfg.Table("accessrules").Insert(fld)
+        rule.Id, _ = db.Table("accessrules").Insert(nil, fld)
         if cfg.dbCountHWRules() > MAX_HARDWARE_RULES {
-            cfg.Table("accessrules").Delete(rule.Id)
+            db.Table("accessrules").Delete(nil, rule.Id)
             rule.Id = 0
         }
     } else { // update
-        cfg.Table("timeranges").Delete("rule_id", rule.Id)
-        cfg.Table("accessrules").Seek(rule.Id).Update(fld)
+        db.Table("timeranges").Delete(nil, "rule_id", rule.Id)
+        db.Table("accessrules").Seek(rule.Id).Update(nil, fld)
     }
     if rule.Id > 0 {
-        table := cfg.Table("timeranges")
+        table := db.Table("timeranges")
         for _, tr := range rule.TimeRanges {
-            table.Insert(dblayer.Fields {
+            table.Insert(nil, dblayer.Fields {
                 "rule_id": &rule.Id,
                 "direction": &tr.Direction,
                 "from": &tr.From,
@@ -118,8 +118,8 @@ func (cfg *Configuration) dbUpdateRules(rule *Rule) {
 }
 
 func (cfg *Configuration) dbDeleteRule(id int64) {
-    //cfg.Table("external_links").Delete(`link="user-rule" AND target_id`, id)
-    cfg.Table("external_links").Delete(`link="user-zone" AND flags`, id)
-    cfg.Table("timeranges").Delete("rule_id", id)
-    cfg.Table("accessrules").Delete(id)
+    //db.Table("external_links").Delete(nil, `link="user-rule" AND target_id`, id)
+    db.Table("external_links").Delete(nil, `link="user-zone" AND flags`, id)
+    db.Table("timeranges").Delete(nil, "rule_id", id)
+    db.Table("accessrules").Delete(nil, id)
 }

@@ -19,9 +19,9 @@ import (
 func (cfg *Configuration) getServiceName(serviceId int64) (name string) {
     fields := dblayer.Fields{"title": &name}
 
-    rows, values := cfg.Table("services").
+    rows, values, _ := db.Table("services").
         Seek(serviceId).
-        Get(fields, 1)
+        Get(nil, fields, 1)
     
     if rows.Next() {
         _ = rows.Scan(values...)
@@ -52,7 +52,7 @@ func (cfg *Configuration) newService(s *api.Settings) {
             "db_login": &s.DBLogin,
             "db_password": dbPassword}
     
-    s.Id = cfg.Table("services").Insert(fld)
+    s.Id, _ = db.Table("services").Insert(nil, fld)
 }
 
 func (cfg *Configuration) updService(s api.Settings) {
@@ -77,14 +77,14 @@ func (cfg *Configuration) updService(s api.Settings) {
         dbPassword = encrypt(s.DBPassword)
         fld["db_password"] = &dbPassword
     }
-    cfg.Table("services").Seek(s.Id).Update(fld)
+    db.Table("services").Seek(s.Id).Update(nil, fld)
     //cfg.UpdateRows("services", fld, s.Id)
 }
 
 func (cfg *Configuration) dbDeleteService(id int64) {
-    //cfg.Table("services").Delete(id)
+    //db.Table("services").Delete(nil, id)
     timestamp := time.Now().Unix()
-    cfg.Table("services").Seek(id).Update(dblayer.Fields{"archived": timestamp})
+    db.Table("services").Seek(id).Update(nil, dblayer.Fields{"archived": timestamp})
 }
 
 func (cfg *Configuration) loadServices() (list []*api.Settings) {
@@ -102,7 +102,7 @@ func (cfg *Configuration) loadServices() (list []*api.Settings) {
         "db_login":     &s.DBLogin,
         "db_password":  &s.DBPassword}
 
-    rows, values := cfg.Table("services").Seek("archived IS NULL").Order("id").Get(fields)
+    rows, values, _ := db.Table("services").Seek("archived IS NULL").Order("id").Get(nil, fields)
     defer rows.Close()
     
     for rows.Next() {
