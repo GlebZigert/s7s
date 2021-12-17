@@ -54,7 +54,7 @@ func (cfg *Configuration) dbLoadUserPicture(id int64) []byte {
     var picture []byte
     fields := dblayer.Fields {"photo": &picture}
     rows, values, _ := db.Table("users").Seek(id).Get(nil, fields)
-    defer rows.Close() // TODO: defer triggered for this rows?
+    defer rows.Close()
     if rows.Next() {
         err := rows.Scan(values...)
         catch(err)

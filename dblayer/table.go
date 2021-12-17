@@ -27,13 +27,15 @@ var LogTables []string
 type Fields map[string] interface{}
 
 type DBLayer struct {
-    db  *sql.DB
+    db          *sql.DB
+    timeout     time.Duration
 }
 
 type QUD struct { // Query-Update-Delete
+    DBLayer
     table   string
-    db      *sql.DB
-    tx      *sql.Tx
+    //db      *sql.DB
+    //tx      *sql.Tx
     cond    string      // WHERE a = ? AND b = ?
     group   string
     order   string
@@ -56,13 +58,15 @@ func logQuery(table, q string, p interface{}) {
 func (dbl *DBLayer) MakeTables(tables []string) (err error){
     for i := 0; i < len(tables) && nil == err; i++ {
         //log.Println(tables[i])
-        _, err = dbl.db.Exec(tables[i])
+        ctx, _ := context.WithTimeout(context.TODO(), dbl.timeout)
+        _, err = dbl.db.ExecContext(ctx, tables[i])
     }
     return
 }
 
-func (dbl *DBLayer) Bind(db *sql.DB) (err error) {
+func (dbl *DBLayer) Bind(db *sql.DB, timeout int) (err error) {
     dbl.db = db
+    dbl.timeout = time.Duration(timeout) * time.Millisecond
     return
 }
 
@@ -73,18 +77,14 @@ func (dbl *DBLayer) Close() (err error) {
 
 func (dbl *DBLayer) Table(t string) *QUD {
     // TODO: maybe db: &dbl.DB ?
-    return &QUD{table: t, db: dbl.db}
+    //return &QUD{table: t, db: dbl.db}
+    return &QUD{table: t, DBLayer: *dbl}
 }
 
 func (dbl *DBLayer) Tx(ms int) (*sql.Tx, error) {
     ctx := context.Background()
     ctx, _ = context.WithTimeout(ctx, time.Duration(ms) * time.Millisecond)
     return dbl.db.BeginTx(ctx, nil)
-}
-
-func (qud *QUD) Tx(tx *sql.Tx) *QUD {
-    qud.tx = tx
-    return qud
 }
 
 func (qud *QUD) Order(o string) *QUD {
@@ -199,14 +199,14 @@ func (qud *QUD) Seek(args ...interface{}) *QUD {
 }
 
 func (qud *QUD) Get(tx *sql.Tx, mymap Fields, limits ...int64) (*sql.Rows, []interface{}, error) {
-    return qud.RealGet(tx, "", mymap, limits...)
+    return qud.get(tx, "", mymap, limits...)
 }
 
 func (qud *QUD) GetDistinct(tx *sql.Tx, mymap Fields, limits ...int64) (*sql.Rows, []interface{}, error) {
-    return qud.RealGet(tx, "DISTINCT", mymap, limits...)
+    return qud.get(tx, "DISTINCT", mymap, limits...)
 }
 
-func (qud *QUD) RealGet(tx *sql.Tx, hint string, mymap Fields, limits ...int64) (res *sql.Rows, values []interface{}, err error) {
+func (qud *QUD) get(tx *sql.Tx, hint string, mymap Fields, limits ...int64) (res *sql.Rows, values []interface{}, err error) {
     keys := ""
     values = make([]interface{}, len(mymap))
 
@@ -244,10 +244,9 @@ func (qud *QUD) RealGet(tx *sql.Tx, hint string, mymap Fields, limits ...int64) 
     
     logQuery(qud.table, q, qud.params)
     
-    //res, err := qud.execQuery(tx, q, qud.params)    
-
     if nil == tx {
-        res, err = qud.db.Query(q, qud.params...)
+        ctx, _ := context.WithTimeout(context.TODO(), qud.timeout)
+        res, err = qud.db.QueryContext(ctx, q, qud.params...)
     } else {
         res, err = tx.Query(q, qud.params...)
     }
@@ -305,7 +304,8 @@ func (qud *QUD) Delete(tx *sql.Tx, args ...interface{}) (err error) {
 
 func (qud *QUD) execQuery(tx *sql.Tx, q string, params []interface{}) (sql.Result, error) {
     if nil == tx {
-        return qud.db.Exec(q, params...)
+        ctx, _ := context.WithTimeout(context.TODO(), qud.timeout)
+        return qud.db.ExecContext(ctx, q, params...)
     } else {
         return tx.Exec(q, params...)
     }
@@ -330,11 +330,4 @@ func JoinSlice(a []int64) string {
         b[i] = strconv.FormatInt(v, 10)
     }
     return strings.Join(b, ", ")
-}
-
-func catch(err error, q string, p interface{}) {
-    if nil != err {
-        s := fmt.Sprintf("%s : %s : %s", err, q, p)
-        panic(errors.New(s))
-    }
 }

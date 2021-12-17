@@ -15,7 +15,7 @@ import (
 
 const (
     authSalt = "iATdT7R4JKGg1h1YeDPp:Zl6fyUw10sgh1EGxnyKQ"
-    txTimeout = 3000 // query transaction timeout, ms
+    qTimeout = 10 // db query default timeout, msec
 )
 
 var db dblayer.DBLayer
@@ -578,7 +578,7 @@ func (cfg *Configuration) openDB(fn string) (err error) {
     if nil != err {
         return
     }
-    db.Bind(database)
+    db.Bind(database, qTimeout)
     err = db.MakeTables(tables)
     if nil != err {
         db.Close()
