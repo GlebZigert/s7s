@@ -15,7 +15,7 @@ import (
 
 const (
     authSalt = "iATdT7R4JKGg1h1YeDPp:Zl6fyUw10sgh1EGxnyKQ"
-    qTimeout = 10 // db query default timeout, msec
+    qTimeout = 500 // db query default timeout, msec
 )
 
 var db dblayer.DBLayer
@@ -41,7 +41,12 @@ func (cfg *Configuration) Run() {
     
     //cfg.DB.SetMaxOpenConns(1)
     
-    cfg.cacheRelations()
+    cfg.lastError = cfg.cacheRelations()
+    if nil != cfg.lastError {
+        cfg.lastError = fmt.Errorf("Database problem: %w", cfg.lastError)
+        return
+    }
+    
     cfg.setupApi()
 
     go cfg.forbiddenVisitorsDetector(ctx)
@@ -157,7 +162,7 @@ func (cfg *Configuration) ProcessEvent(e *api.Event) {
     return cfg.findAlgorithms(e.ServiceId, e.DeviceId, e.FromState, e.Event)
 }*/
 
-func (cfg *Configuration) cacheRelations() {
+func (cfg *Configuration) cacheRelations() (err error) {
     parents := make(map[int64] []int64)
     children := make(map[int64] []int64)
     var userId, parentId int64
@@ -169,12 +174,17 @@ func (cfg *Configuration) cacheRelations() {
     // TODO: children_id is always greater than parent_id, but until transfer between groups happens (or use timestamp for group change?)
     //
     cond := "parent_id > 0 AND type = 1 AND archived = false" // user root can't have linked devices etc.
-    rows, values, _ := db.Table("users").Order("id").Seek(cond).Get(nil, fields)
+    rows, values, err := db.Table("users").Order("id").Seek(cond).Get(nil, fields)
+    if nil != err {
+        return
+    }
     defer rows.Close()
 
     for rows.Next() {
-        err := rows.Scan(values...)
-        catch(err)
+        err = rows.Scan(values...)
+        if nil != err {
+            return
+        }
         parents[userId] = append(parents[userId], parentId)
         parents[userId] = append(parents[userId], parents[parentId]...)
     }
@@ -192,6 +202,8 @@ func (cfg *Configuration) cacheRelations() {
     defer cfg.Unlock()
     cfg.cache.parents = parents
     cfg.cache.children = children
+    
+    return
 }
 
 // get userId by login and password
