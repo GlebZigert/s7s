@@ -70,10 +70,11 @@ func (cfg *Configuration) detectForbiddenVisitors(forbiddenVisitors map[int64] i
         }
         
         if !allowed {
-            cfg.cache.RLock()
-            parentId := parents[userId]
+            /*cfg.cache.RLock()
             users := append(cfg.cache.parents[parentId], parentId, userId)
-            cfg.cache.RUnlock()
+            cfg.cache.RUnlock()*/
+            parentId := parents[userId]
+            users, _ := cfg.cache.expandParents(userId, parentId) // TODO: handle err
             allowed = intersected(zones[zoneId], users)
         }
 
@@ -196,9 +197,10 @@ func (cfg *Configuration) RequestPassage(zoneId int64, card, pin string) (userId
         return
     }
 
-    cfg.cache.RLock()
-    users := append(cfg.cache.parents[user.ParentId], user.ParentId, userId)
-    cfg.cache.RUnlock()
+    //cfg.cache.RLock()
+    //users := append(cfg.cache.parents[user.ParentId], user.ParentId, userId)
+    //cfg.cache.RUnlock()
+    users, _ := cfg.cache.expandParents(userId, user.ParentId) // TODO: handle err
     
     // 3. check for anti-passback
     if cfg.visitorLocation(userId) == zoneId {

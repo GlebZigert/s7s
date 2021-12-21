@@ -5,6 +5,8 @@ import (
     "strings"
     "crypto/md5"
     "encoding/hex"
+    "database/sql"
+
     "../../dblayer"
     "../../api"
 )
@@ -217,50 +219,84 @@ func (cfg *Configuration) dbUpdateUser(user *User, filter map[string] interface{
         }
 
         if newGroup {
-            cfg.cacheRelations() // TODO: just update map, don't use DB
+            cfg.cache.checkReset(0) // TODO: just update map, don't use DB
         }
     }
 }
 
 // for internal usage - recursively delete whole branch
-func (cfg *Configuration) deleteBranch(ids []int64) {
+func (cfg *Configuration) deleteBranch(tx *sql.Tx, ids []int64) (err error) {
     var groups []int64
     var userId int64
     cond := "type = 1 AND archived = false AND parent_id"
     // fing subgroups
     fields := dblayer.Fields {"id": &userId}
-    rows, _, _ := db.Table("users").Seek(cond, ids).Get(nil, fields)
-    for rows.Next() {
-        err := rows.Scan(&userId)
-        catch(err)
-        groups = append(groups, userId)
-    }; rows.Close() // don't use defer due to recursion
+    rows, _, err := db.Table("users").Seek(cond, ids).Get(tx, fields)
+    if nil != err {
+        return
+    }
+    for rows.Next() && nil == err {
+        err = rows.Scan(&userId)
+        if nil == err {
+            groups = append(groups, userId)
+        }
+    }
+    rows.Close() // close immediately, don't use defer due to recursion
+    if nil == err {
+        err = rows.Err()
+    }
+    if nil != err {
+        return
+    }
     
     // "delete" sub-subnodes if needed
     if len(groups) > 0 {
-        cfg.deleteBranch(groups)
+        err = cfg.deleteBranch(tx, groups)
     }
-
-    // if no errors, "delete" direct subnodes of current parents list
+    
+    // "delete" direct subnodes of current parents list
     fields = dblayer.Fields{"archived": true}
-    db.Table("users").Seek(cond, ids).Update(nil, fields)
-    db.Table("cards").Delete(nil, "user_id", ids)
-    db.Table("external_links").Delete(nil, `link IN ("user-zone", "user-device") AND source_id`, ids)
+    if nil == err {
+        _, err = db.Table("users").Seek(cond, ids).Update(tx, fields)
+    }
+    if nil == err {
+        db.Table("cards").Delete(tx, "user_id", ids)
+    }
+    if nil == err {
+        db.Table("external_links").Delete(tx, `link IN ("user-zone", "user-device") AND source_id`, ids)
+    }
+    return
 }
 
-func (cfg *Configuration) dbDeleteUser(id int64) {
+func (cfg *Configuration) dbDeleteUser(id int64) (err error) {
+	tx, err := db.Tx(qTimeout)
+    if nil != err {
+        return
+    }
+    
     // delete from the end of branch (prevent loss of nodes in case of error)
-    cfg.deleteBranch([]int64{id})
+    err = cfg.deleteBranch(tx, []int64{id})
     // if was no errors, delete "root" of all barnch
-    db.Table("users").Seek(id).Update(nil, "archived = true")
-    db.Table("cards").Delete(nil, "user_id = ?", id)
-    db.Table("external_links").Delete(nil, `link IN ("user-zone", "user-device") AND source_id = ?`, id)
+    if nil == err {
+        _, err = db.Table("users").Seek(id).Update(nil, "archived = true")
+    }
+    if nil == err {
+        err = db.Table("cards").Delete(nil, "user_id = ?", id)
+    }
+    if nil == err {
+        err = db.Table("external_links").Delete(nil, `link IN ("user-zone", "user-device") AND source_id = ?`, id)
+    }
     // TODO: clean broken links for user links, if users "deleted" instead "archived"
     // SELECT ul.user_id FROM user_links ul LEFT JOIN users u ON ul.user_id = u.id AND u.archived = false WHERE u.id IS NULL;
-   
-    if _, ok := cfg.cache.parents[id]; ok { // rebuild cache if userId is group
-        cfg.cacheRelations()
+    if nil == err {
+        err = tx.Commit()
+    } else {
+        tx.Rollback() // don't overwrite existing error
     }
+    
+    cfg.cache.checkReset(id)
+    
+    return
 }
 
 func (cfg *Configuration) loadUsers() (list []User) {
@@ -301,21 +337,6 @@ func (cfg *Configuration) loadUsers() (list []User) {
         if pos, ok := userMap[userId]; ok {
             list[pos].Cards = append(list[pos].Cards, card)
         }
-    }
-    return
-}
-func (cfg *Configuration) childrenList(parentId int64) (list []int64) {
-    var id int64
-    fields := dblayer.Fields {"id": &id}
-
-    rows, values, _ := db.Table("users").
-        Seek("archived = false AND parent_id = ?", parentId).
-        Get(nil, fields)
-    defer rows.Close()
-    for rows.Next() {
-        err := rows.Scan(values...)
-        catch(err)
-        list = append(list, id)
     }
     return
 }

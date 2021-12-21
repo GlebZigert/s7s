@@ -239,14 +239,15 @@ func (cfg *Configuration) updateUser(cid int64, data []byte) (interface{}, bool)
     cfg.Log("Update/create user:", *user)
     if 0 != user.Id && nil != filter["devices"] {
         // TODO: check real modifications, not just updates
-        list := []int64{user.Id}
+        /*list := []int64{user.Id}
         children = cfg.childrenList(user.Id)
         cfg.cache.RLock()
         for _, id := range children {
             list = append(list, cfg.cache.children[id]...)
         }
         cfg.cache.RUnlock()
-        children = append(children, list...)
+        children = append(children, list...)*/
+        children, _ = cfg.cache.expandChildren(user.Id) // TODO: handle err
         cfg.Log("User permissions updated", children)
         
     }

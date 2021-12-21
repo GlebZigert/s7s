@@ -32,20 +32,19 @@ func (cfg *Configuration) Run() {
     var ctx context.Context
     ctx, cfg.Cancel = context.WithCancel(context.Background())
 
-    dbFilename := cfg.GetStorage() + ".db?_synchronous=NORMAL&_journal_mode=WAL"
-    cfg.lastError = cfg.openDB(dbFilename) // _busy_timeout=10000
-    if nil != cfg.lastError {
-        cfg.lastError = fmt.Errorf("Database problem: %w", cfg.lastError)
+    dbFilename := cfg.GetStorage() + ".db?_synchronous=NORMAL&_journal_mode=WAL" // _busy_timeout=10000
+    
+    if err := cfg.openDB(dbFilename); nil != err {
+        cfg.lastError = fmt.Errorf("Database problem: %w", err)
         return
     }
     
     //cfg.DB.SetMaxOpenConns(1)
     
-    cfg.lastError = cfg.cacheRelations()
-    if nil != cfg.lastError {
-        cfg.lastError = fmt.Errorf("Database problem: %w", cfg.lastError)
+    /*if err := cfg.cacheRelations(); nil != err {
+        cfg.lastError = fmt.Errorf("Database problem: %w", err)
         return
-    }
+    }*/
     
     cfg.setupApi()
 
@@ -162,49 +161,6 @@ func (cfg *Configuration) ProcessEvent(e *api.Event) {
     return cfg.findAlgorithms(e.ServiceId, e.DeviceId, e.FromState, e.Event)
 }*/
 
-func (cfg *Configuration) cacheRelations() (err error) {
-    parents := make(map[int64] []int64)
-    children := make(map[int64] []int64)
-    var userId, parentId int64
-    
-    fields := dblayer.Fields{
-        "id": &userId,
-        "parent_id": &parentId}
-
-    // TODO: children_id is always greater than parent_id, but until transfer between groups happens (or use timestamp for group change?)
-    //
-    cond := "parent_id > 0 AND type = 1 AND archived = false" // user root can't have linked devices etc.
-    rows, values, err := db.Table("users").Order("id").Seek(cond).Get(nil, fields)
-    if nil != err {
-        return
-    }
-    defer rows.Close()
-
-    for rows.Next() {
-        err = rows.Scan(values...)
-        if nil != err {
-            return
-        }
-        parents[userId] = append(parents[userId], parentId)
-        parents[userId] = append(parents[userId], parents[parentId]...)
-    }
-    
-    for userId = range parents {
-        for _, parentId := range parents[userId] {
-            children[parentId] = append(children[parentId], userId)
-        }
-    }
-    
-    cfg.Log("PARENTS", parents)
-    cfg.Log("CHILDREN", children)
-    
-    cfg.Lock()
-    defer cfg.Unlock()
-    cfg.cache.parents = parents
-    cfg.cache.children = children
-    
-    return
-}
 
 // get userId by login and password
 func (cfg *Configuration) Authenticate(login, token string) (id, role int64) {
@@ -239,140 +195,6 @@ func (cfg *Configuration) Authenticate(login, token string) (id, role int64) {
     return
 }
 
-// get list of permitted devices for user in serviceId
-// if serviceId = 0, then list of permitted services
-/*func (cfg *Configuration) _Authorize(userId, serviceId int64) map[int64]int64 {
-    user := cfg.getUser(userId)
-    if user != nil && user.Role == 1 {
-        return nil // admin role
-    }
-    
-    list := make(map[int64]int64) // [deviceId] => flags
-    
-    devices := cfg.loadUserLinks(userId, "user-device")
-    cfg.cache.RLock()
-    // resulting array may contain duplicates with different flags
-    devices = append(devices, cfg.cache.devLinks[user.ParentId]...)
-    cfg.cache.RUnlock()
-    
-    for i:= range devices {
-        if 0 == serviceId { // list of [serviceId] = > flags
-            list[devices[i][0]] = 1
-        } else if devices[i][0] == serviceId { // list of [deviceId] = > combined flags (own | parent)
-            list[devices[i][1]] = list[devices[i][1]] | devices[i][2]
-        }
-    }
-    return list
-}*/
-
-// get list of permitted devices for user in serviceId
-// if serviceId = 0, then list of permitted services
-/*func (cfg *Configuration) _Authorize(userId, serviceId int64, mask int64) (list map[int64]int64) {
-    list = make(map[int64]int64) // [deviceId] => flags
-    user := cfg.GetUser(userId)
-    if user == nil {
-        // TODO: possible buggy concept?
-        return // admin role, can anything
-    }
-    switch user.Role {
-        case api.ARM_ADMIN: list[0] = api.AM_CONTROL; return
-        case api.ARM_SECRET: list[0] = api.AM_WATCH; return
-    }
-    
-    cfg.cache.RLock()
-    users := append(cfg.cache.parents[user.ParentId], user.Id, user.ParentId)
-    cfg.cache.RUnlock()
-
-    var deviceId, flags int64
-    flags = 1 // for services list
-    var fields dblayer.Fields
-    var params []interface{}
-    cond := "link = 'user-device' AND flags & ? > 0 AND source_id"
-    if 0 == serviceId { // visible services
-        fields = dblayer.Fields{"DISTINCT scope_id": &deviceId}
-        params = append(params, cond, mask, users)
-    } else { // devices in service
-        fields = dblayer.Fields{"target_id": &deviceId, "flags": &flags}
-        cond = "scope_id = ? AND " + cond
-        params = append(params, cond, serviceId, mask, users)
-    }
-
-    rows, values := db.Table("external_links").
-        Seek(params...).
-        Get(nil, fields)
-    defer rows.Close()
-
-    for rows.Next() {
-        err := rows.Scan(values...)
-        catch(err)
-        val, _ := list[deviceId]
-        list[deviceId] = val | flags
-    }
-
-    //cfg.Log("### AUTHORIZED:", userId, serviceId, list)
-    return list
-}*/
-
-// @arg == nil => services list
-// @arg == int64 => available devices in service
-// @arg == []int64 => devices list
-/*func (cfg *Configuration) Authorize(userId int64, arg interface{}) (list map[int64]int64) {
-    list = make(map[int64]int64) // [deviceId] => flags
-    user := cfg.GetUser(userId)
-    if user == nil {
-        // TODO: possible buggy concept?
-        return // admin role, can do anything
-    }
-    switch user.Role {
-        case api.ARM_ADMIN: list[0] = api.AM_CONTROL; return
-        case api.ARM_SECRET: list[0] = api.AM_WATCH; return
-    }
-    
-    cfg.cache.RLock()
-    users := append(cfg.cache.parents[user.ParentId], user.Id, user.ParentId)
-    cfg.cache.RUnlock()
-
-    var deviceId, flags int64
-    flags = 1 // for services list
-    var fields dblayer.Fields
-    var params []interface{}
-    cond := "link = 'user-device' AND source_id"
-
-    if serviceId, ok := arg.(int64); ok {
-        if 0 == serviceId { // visible services
-            fields = dblayer.Fields{"DISTINCT scope_id": &deviceId}
-            params = append(params, cond, users)
-        } else { // devices in service
-            fields = dblayer.Fields{"target_id": &deviceId, "flags": &flags}
-            cond = "scope_id = ? AND " + cond
-            params = append(params, cond, serviceId, mask, users)
-        }
-    } else if devices, ok := arg.([]int64); ok && len(devices) > 0 {
-        cond = "target_id IN IN(?" + strings.Repeat(", ?", len(devices)-1) + ") AND " + cond
-        params = append(params, cond)
-        for _, v := range devices {
-            params = append(params, v)
-        }
-        params = append(params, serviceId, users)
-    }
-
-    if nil != params {
-        rows, values := db.Table("external_links").
-            Seek(params...).
-            Get(nil, fields)
-        defer rows.Close()
-
-        for rows.Next() {
-            err := rows.Scan(values...)
-            catch(err)
-            val, _ := list[deviceId]
-            list[deviceId] = val | flags
-        }
-    }
-
-    //cfg.Log("### AUTHORIZED:", userId, serviceId, list)
-    return list
-}*/
 
 // not all devices are really "deleted", so don't use serviceId
 // devices == nil => check services
@@ -389,9 +211,14 @@ func (cfg *Configuration) Authorize(userId int64, devices []int64) (list map[int
     if nil == user || len(list) > 0 || len(devices) == 0 {
         return // in any case, if list[i] == 0, then user can't do anything
     }
-    cfg.cache.RLock()
+    /*cfg.cache.RLock()
     users := append(cfg.cache.parents[user.ParentId], user.Id, user.ParentId)
-    cfg.cache.RUnlock()
+    cfg.cache.RUnlock()*/
+    users, err := cfg.cache.expandParents(user.Id, user.ParentId)
+    //cfg.Log("EXPAND", users, err)
+    if nil != err {
+        return
+    }
 
     var deviceId, flags int64
     flags = 1 // for services list

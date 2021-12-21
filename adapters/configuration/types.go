@@ -133,16 +133,19 @@ type Configuration struct {
 
     subscribers []chan interface{}
     
-    cache struct {
-        sync.RWMutex
-        //ruleLinks map[int64] []UserLink // for groups only
-        //devLinks map[int64] []UserLink // for groups only
-        children map[int64] []int64
-        parents map[int64] []int64}
-
+    cache RelationsCache
     //reply   dispatcher.Reply
     //db              *sql.DB
 }
+
+type RelationsCache struct {
+    sync.RWMutex
+    //ruleLinks map[int64] []UserLink // for groups only
+    //devLinks map[int64] []UserLink // for groups only
+    children map[int64] []int64
+    parents map[int64] []int64
+}
+
 
 type Filterable interface {
     GetList() []int64
