@@ -191,7 +191,7 @@ func (cfg *Configuration) RequestPassage(zoneId int64, card, pin string) (userId
     }
     
     // 2. get user info and and it's parent_id
-    user := cfg.GetUser(userId)
+    user, _ := cfg.GetUser(userId) // TODO: handle err
     if nil == user {
         errCode = api.ACS_UNKNOWN_CARD // card found, but unknown or deleted user - WTF?
         return
@@ -203,7 +203,8 @@ func (cfg *Configuration) RequestPassage(zoneId int64, card, pin string) (userId
     users, _ := cfg.cache.expandParents(userId, user.ParentId) // TODO: handle err
     
     // 3. check for anti-passback
-    if cfg.visitorLocation(userId) == zoneId {
+    locId, _ := cfg.visitorLocation(userId) // TODO: handle err
+    if locId == zoneId {
         errCode = api.ACS_ANTIPASSBACK // already in zone
         return
     }
@@ -269,23 +270,29 @@ func (cfg *Configuration) checkZone(zoneId int64, users []int64) (pass bool) {
 }
 
 // location (zone) for specified user
-func (cfg *Configuration) visitorLocation(userId int64) (zoneId int64) {
+func (cfg *Configuration) visitorLocation(userId int64) (zoneId int64, err error) {
     var timestamp int64
     fields := dblayer.Fields{
         "zone_id": &zoneId,
         "MAX(time)": &timestamp}
 
     startTime := time.Now().AddDate(0, 0, -passtroughScanDeep).Unix()
-    rows, values, _ := db.Table("events").
+    rows, values, err := db.Table("events").
         Seek("zone_id > 0 AND user_id = ? AND time > ? AND event", userId, startTime, passtroughEvents).
         Group("user_id").
         Get(nil, fields)
 
+    if nil != err {
+        return
+    }
+    
     defer rows.Close()
 
     if rows.Next() {
-        err := rows.Scan(values...)
-        catch(err)
+        err = rows.Scan(values...)
+    }
+    if nil == err {
+        err = rows.Err()
     }
     return
 }

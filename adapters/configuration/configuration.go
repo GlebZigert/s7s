@@ -83,26 +83,30 @@ func (cfg *Configuration) notifySubscribers(msg interface{}) {
 }
 
 ///////////////////// API INTERFACE //////////////////////
-func (cfg *Configuration) StartNewShift(userId int64) {
-    if ok, _ := cfg.shiftStarted(userId); !ok {
+func (cfg *Configuration) StartNewShift(userId int64) (err error) {
+    shiftId, err := cfg.currentShiftId(userId)
+    if shiftId == 0 && nil == err {
         events := api.EventsList{api.Event{
             Class: api.EC_USER_SHIFT_STARTED,
             UserId: userId}}
         cfg.Broadcast("Events", events)
     }
+    return
 }
 
-func (cfg *Configuration) CompleteShift(userId int64) {
-    if ok, _ := cfg.shiftStarted(userId); ok {
+func (cfg *Configuration) CompleteShift(userId int64) (err error) {
+    shiftId, err := cfg.currentShiftId(userId)
+    if shiftId > 0 && nil == err {
         events := api.EventsList{api.Event{
             Class: api.EC_USER_SHIFT_COMPLETED,
             UserId: userId}}
         cfg.Broadcast("Events", events)
     }
+    return
 }
 
 
-func (cfg *Configuration) ProcessEvent(e *api.Event) {
+func (cfg *Configuration) ProcessEvent(e *api.Event) (err error) {
     //TODO: maybe implementing scanner & valuer is a better choice?
     var commands [][4]int64 // [serviceId, deviceId, commandCode, argument]
     if 0 == e.Time {
@@ -115,7 +119,10 @@ func (cfg *Configuration) ProcessEvent(e *api.Event) {
             e.Text = api.DescribeEvent(e.Event)
         }
     }
-    e.Algorithms = cfg.findDevAlgorithms(e)
+    e.Algorithms, err = cfg.findDevAlgorithms(e)
+    if nil != err {
+        return
+    }
     for i := range e.Algorithms {
         commands = append(commands, [4]int64{
             e.Algorithms[i].TargetServiceId,
@@ -129,8 +136,6 @@ func (cfg *Configuration) ProcessEvent(e *api.Event) {
         e.Commands = string(cmds)
     }
     
-    cfg.dbLogEvent(e)
-    
     // prepare event for broadcasting
     
     if "" == e.ServiceName {
@@ -141,20 +146,38 @@ func (cfg *Configuration) ProcessEvent(e *api.Event) {
         }
     }
     if e.UserId > 0 && e.UserName == "" {
-        user := cfg.GetUser(e.UserId)
+        var user *User
+        user, err = cfg.GetUser(e.UserId)
+        if nil != err {
+            return
+        }
         e.UserName = user.Name + " " + user.Surename
     }
     if 0 == e.ZoneId && e.DeviceId > 0 {
         // check that device in zone
-        e.ZoneId = cfg.deviceZone(e.ServiceId, e.DeviceId)
+        e.ZoneId, err = cfg.deviceZone(e.ServiceId, e.DeviceId)
+        if nil != err {
+            return
+        }
     }
     if e.ZoneId > 0 && e.ZoneName == "" {
-        zone := cfg.getZone(e.ZoneId)
+        var zone *Zone
+        zone, err = cfg.getZone(e.ZoneId)
         e.ZoneName = zone.Name
+        if nil != err {
+            return
+        }
     }
     if e.DeviceId > 0 && e.DeviceName == "" {
-        e.DeviceName = cfg.getDeviceName(e.ServiceId, e.DeviceId)
+        e.DeviceName, err = cfg.getDeviceName(e.ServiceId, e.DeviceId)
+        if nil != err {
+            return
+        }
     }
+    
+    // store event
+    err = cfg.dbLogEvent(e)
+    return
 }
 
 /*func (cfg *Configuration) CheckEvent(e *api.Event) (algos []Algorithm) {
@@ -200,7 +223,7 @@ func (cfg *Configuration) Authenticate(login, token string) (id, role int64) {
 // devices == nil => check services
 func (cfg *Configuration) Authorize(userId int64, devices []int64) (list map[int64]int64) {
     list = make(map[int64]int64) // [deviceId] => flags
-    user := cfg.GetUser(userId)
+    user, _ := cfg.GetUser(userId) // TODO: handle err
     //cfg.Log("AUTHORIZING:", userId, user)
     if user != nil {
         switch user.Role {

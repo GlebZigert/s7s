@@ -6,35 +6,47 @@ import (
     "../../dblayer"
 )
 
-func (cfg *Configuration) deviceZone(serviceId, deviceId int64) (zoneId int64) {
+func (cfg *Configuration) deviceZone(serviceId, deviceId int64) (zoneId int64, err error) {
     fields := dblayer.Fields {"target_id": &zoneId}
 
-    rows, values, _ := db.Table("external_links").
+    rows, values, err := db.Table("external_links").
         Seek("link = ? AND scope_id = ? AND source_id = ?", "zone-device", serviceId, deviceId).
         Get(nil, fields)
+    if nil != err {
+        return
+    }
     defer rows.Close()
 
     if rows.Next() {
-        err := rows.Scan(values...)
-        catch(err)
+        err = rows.Scan(values...)
+    }
+    if nil == err {
+        err = rows.Err()
     }
 
     return
 }
 
 
-func (cfg *Configuration) getDeviceName(serviceId, deviceId int64) (name string) {
+func (cfg *Configuration) getDeviceName(serviceId, deviceId int64) (name string, err error) {
     fields := dblayer.Fields{"name": &name}
 
-    rows, values, _ := db.Table("devices").
+    rows, values, err := db.Table("devices").
         Seek("service_id = ? AND id = ?", serviceId, deviceId).
         Get(nil, fields, 1)
+    if nil != err {
+        return
+    }
+    defer rows.Close()
     
     if rows.Next() {
-        _ = rows.Scan(values...)
+        err = rows.Scan(values...)
     }
-    rows.Close()
-    cfg.Log("GDN:", name, serviceId, deviceId)
+    if nil == err {
+        err = rows.Err()
+    }
+
+    //cfg.Log("GDN:", name, serviceId, deviceId)
     return
 }
 

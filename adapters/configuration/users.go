@@ -21,8 +21,8 @@ import (
 //        {id: 3, text: "Посетитель"},
 //        {id: 4, text: "Автомобиль"}
 
-func (cfg *Configuration) shiftStarted(userId int64) (bool, int64) {
-    var timestamp, lastEvent, id int64
+func (cfg *Configuration) currentShiftId(userId int64) (id int64, err error) {
+    var timestamp, lastEvent int64
     shiftEvents := []int64{api.EC_USER_SHIFT_STARTED, api.EC_USER_SHIFT_COMPLETED}
 
     fields := dblayer.Fields{
@@ -30,21 +30,26 @@ func (cfg *Configuration) shiftStarted(userId int64) (bool, int64) {
         "class": &lastEvent,
         "MAX(time)": &timestamp}
 
-    rows, values, _ := db.Table("events").
+    rows, values, err := db.Table("events").
         Seek("service_id = 0 AND user_id = ? AND class", userId, shiftEvents).
         Group("user_id").
         Get(nil, fields)
 
+    if nil != err {
+        return
+    }
     defer rows.Close()
     
     if rows.Next() {
-        err := rows.Scan(values...)
-        catch(err)
+        err = rows.Scan(values...)
+    }
+    if nil == err {
+        err = rows.Err()
     }
     if lastEvent != api.EC_USER_SHIFT_STARTED {
         id = 0
     }
-    return lastEvent == api.EC_USER_SHIFT_STARTED, id
+    return
 }
 
 
@@ -341,8 +346,8 @@ func (cfg *Configuration) loadUsers() (list []User) {
     return
 }
 
-func (cfg *Configuration) GetUser(id int64) *User {
-    user := new(User)
+func (cfg *Configuration) GetUser(id int64) (user *User, err error) {
+    user = new(User)
     //cfg.tables["users"].query("fields").where("cond")
     //db.Table("users").Find("cond").Get(nil, "list")
     fields := dblayer.Fields {
@@ -359,16 +364,22 @@ func (cfg *Configuration) GetUser(id int64) *User {
         "position":     &user.Position,
         "login":        &user.Login}
 
-    rows, values, _ := db.Table("users").Seek("archived = false AND id = ?", id).Get(nil, fields)
+    rows, values, err := db.Table("users").Seek("archived = false AND id = ?", id).Get(nil, fields)
+    if nil != err {
+        return
+    }
     defer rows.Close()
 
     if rows.Next() {
-        err := rows.Scan(values...)
-        catch(err)
-        return user
+        err = rows.Scan(values...)
     }
-
-    return nil
+    if nil == err {
+        err = rows.Err()
+    }
+    if nil != err {
+        user = nil
+    }
+    return user, err
 }
 
 

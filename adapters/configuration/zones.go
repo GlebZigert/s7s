@@ -31,16 +31,21 @@ func (cfg *Configuration) loadZones() (list []Zone) {
     return
 }
 
-func (cfg *Configuration) getZone(id int64) (zone *Zone) {
+func (cfg *Configuration) getZone(id int64) (zone *Zone, err error) {
     zone = new(Zone)
     fields := zoneFields(zone)
 
-    rows, values, _ := db.Table("zones").Seek(id).Get(nil, fields)
+    rows, values, err := db.Table("zones").Seek(id).Get(nil, fields)
+    if nil != err {
+        return
+    }
     defer rows.Close()
 
     if rows.Next() {
-        err := rows.Scan(values...)
-        catch(err)
+        err = rows.Scan(values...)
+    }
+    if nil == err {
+        err = rows.Err()
     }
     return
 }

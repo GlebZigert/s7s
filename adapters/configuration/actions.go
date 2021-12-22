@@ -62,7 +62,7 @@ func (cfg *Configuration) describeEvent(cid int64, data []byte) (interface{}, bo
 func (cfg *Configuration) loadJournal(cid int64, data []byte) (interface{}, bool) {
     var serviceId int64
     json.Unmarshal(data, &serviceId)
-    res := cfg.dbLoadJournal(cid, serviceId)
+    res, _ := cfg.dbLoadJournal(cid, serviceId) // TODO: handle err
     //log.Println("FFF:", filter)
     return res, false // don't broadcast
 }

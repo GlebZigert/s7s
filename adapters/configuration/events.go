@@ -59,7 +59,7 @@ func (cfg *Configuration) dbDescribeEvent(event *api.Event) bool {
     return  num > 0 && nil != err
 }
 
-func (cfg *Configuration) dbLoadJournal(userId, serviceId int64) (list api.EventsList) {
+func (cfg *Configuration) dbLoadJournal(userId, serviceId int64) (list api.EventsList, err error) {
     //user := cfg.GetUser(userId)
     //devices := cfg.LoadLinks(userId, "user-device")
 
@@ -72,7 +72,11 @@ func (cfg *Configuration) dbLoadJournal(userId, serviceId int64) (list api.Event
                         LEFT JOIN users u ON e.user_id = u.id`)
     
     from := time.Now().AddDate(0, 0, -2).Unix()
-    _, fromId := cfg.shiftStarted(userId)
+    //var fromId int64
+    fromId, err := cfg.currentShiftId(userId)
+    if nil != err {
+        return
+    }
     //cfg.Log("SHIFT EVENT ID #", fromId)
     // TODO: load events starting from session opening
     rows, values, _ := table.
@@ -161,10 +165,11 @@ func (cfg *Configuration) loadEvents(filter *EventFilter) (list []api.Event){
     return
 }
 
-func (cfg *Configuration) dbLogEvent(event *api.Event) {
+func (cfg *Configuration) dbLogEvent(event *api.Event) (err error) {
     fields := eventFields(event)
     delete(fields, "id")
-    event.Id, _ = db.Table("events").Insert(nil, fields)
+    event.Id, err = db.Table("events").Insert(nil, fields)
+    return
 }
 
 func (cfg *Configuration) importEvent(event *api.Event) {
