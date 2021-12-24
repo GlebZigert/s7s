@@ -172,6 +172,24 @@ func (cfg *Configuration) dbLogEvent(event *api.Event) (err error) {
     return
 }
 
+func (cfg *Configuration) dbLogEvents(events api.EventsList) (err error) {
+	tx, err := db.Tx(qTimeout)
+    if nil != err {
+        return
+    }
+    for i := 0; i < len(events) && nil != err; i++ {
+        fields := eventFields(&events[i])
+        delete(fields, "id")
+        events[i].Id, err = db.Table("events").Insert(tx, fields)
+    }
+    
+    if nil == err {
+        return tx.Commit()
+    }
+    // TODO: what if rollback failed?
+    return tx.Rollback()
+}
+
 func (cfg *Configuration) importEvent(event *api.Event) {
     event.Id = 0 // just in case
     ev := new(api.Event)

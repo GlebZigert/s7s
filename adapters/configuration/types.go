@@ -220,7 +220,7 @@ type ConfigAPI interface {
     // automatic actions (algorithms)
     //CheckEvent(event *api.Event) []Algorithm
     //ResetAlarm(serviceId, deviceId int64)
-    ProcessEvent(event *api.Event)
+    ProcessEvents(event api.EventsList) error
     ImportEvents([]api.Event)
     GetLastEvent(serviceId int64) *api.Event
 
@@ -243,9 +243,9 @@ type ConfigAPI interface {
     EnterZone(event api.Event)
     //UsersWithLinks(int64)           []*User
     
-    StartNewShift(userId int64)
-    CompleteShift(userId int64)
-    GetUser(id int64) *User 
+    StartNewShift(userId int64) error
+    CompleteShift(userId int64) error
+    GetUser(id int64) (*User, error)
     GetUser_for_Axxon(id int64) *User
 }
 

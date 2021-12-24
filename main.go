@@ -23,7 +23,7 @@ func main() {
 	
     go func() {
         <-c
-        log.Println("Let's stop")
+        log.Println("TERM signal recieved, let's stop")
         cancel()
 	}()
     

@@ -14,7 +14,7 @@ import (
 )
 
 import (
-    "../api"    
+    "../api"
 	"../adapters/rif"
     //"../adapters/sigur"
     "../adapters/axxon"
@@ -79,11 +79,14 @@ func Run(ctx context.Context, host string) (err error) {
             d.useService(service)
         }
     }
+    
+    d.queueServer(ctx)
     log.Println("Dispatcher startup completed")
     d.httpServer(ctx, host)
     // if nil == ctx.Err() => troubles with HTTP server
     // exit in any case
     d.shutdown()
+    
     return
 }
 
@@ -174,7 +177,7 @@ func (dispatcher *Dispatcher) loggedIn(userId int64) (really bool) {
 
 func (dispatcher *Dispatcher) loginError(ws *websocket.Conn, class int64) {
     ev := api.Event{Event: class, Class: api.EC_ERROR}
-    dispatcher.cfg.ProcessEvent(&ev)
+    dispatcher.broadcastEvent(&ev)
     payload := fmt.Sprintf(`{"service": 0, "action": "Error", "task": 0, "data": {"class": %d, "text": "%s"}}`, class, ev.Text)
     //log.Println("ERR PAYLOAD:", payload)
     websocket.Message.Send(ws, payload) 
@@ -186,7 +189,7 @@ func (dispatcher *Dispatcher) serveClient(userId int64, ws *websocket.Conn) {
         delete(dispatcher.clients, userId)
         dispatcher.Unlock()
         log.Println("Stop serving #", userId)
-        dispatcher.cfg.ProcessEvent(&api.Event{
+        dispatcher.broadcastEvent(&api.Event{
             Class: api.EC_USER_LOGGED_OUT,
             UserId: userId})
     }()
@@ -233,7 +236,7 @@ func (dispatcher *Dispatcher) changeUser(userId int64, ws *websocket.Conn, cred 
     clientId, role := dispatcher.cfg.Authenticate(cred.Login, cred.Token)
 
     if clientId == 0 {
-        dispatcher.cfg.ProcessEvent(&api.Event{
+        dispatcher.broadcastEvent(&api.Event{
             Class: api.EC_LOGIN_FAILED,
             Text: api.DescribeClass(api.EC_LOGIN_FAILED) + " (" + cred.Login + ")"})
         return nil, api.EC_LOGIN_FAILED
@@ -260,7 +263,7 @@ func (dispatcher *Dispatcher) changeUser(userId int64, ws *websocket.Conn, cred 
     dispatcher.Unlock()
 
     if errClass > 0 {
-        dispatcher.cfg.ProcessEvent(&api.Event{
+        dispatcher.broadcastEvent(&api.Event{
             Class: errClass,
             UserId: clientId})
 
@@ -268,18 +271,19 @@ func (dispatcher *Dispatcher) changeUser(userId int64, ws *websocket.Conn, cred 
     }
     if userId > 0 {
         dispatcher.cfg.CompleteShift(userId)
-        dispatcher.cfg.ProcessEvent(&api.Event{
+        dispatcher.broadcastEvent(&api.Event{
             Class: api.EC_USER_LOGGED_OUT,
             UserId: userId})
     }
 
-    dispatcher.cfg.ProcessEvent(&api.Event{
+    dispatcher.broadcastEvent(&api.Event{
         Class: api.EC_USER_LOGGED_IN,
         UserId: clientId})
     
     dispatcher.cfg.StartNewShift(clientId)
     
-    return dispatcher.cfg.GetUser(clientId), 0
+    user, _ := dispatcher.cfg.GetUser(clientId) // TODO: handle err
+    return user, 0
 }
 
 func (dispatcher *Dispatcher) do(userId int64, q *Query) {
@@ -320,6 +324,11 @@ func (dispatcher *Dispatcher) do(userId int64, q *Query) {
                 dispatcher.deleteService(res)
         }
     }
+}
+
+func (dispatcher *Dispatcher) broadcastEvent(event *api.Event) {
+    reply := api.ReplyMessage{Service: 0, Action: "Events", Task: 0, Data: api.EventsList{*event}}
+    dispatcher.broadcast(0, &reply)
 }
 
 func (dispatcher *Dispatcher) reply(cid int64, reply *api.ReplyMessage) {
@@ -368,14 +377,19 @@ func (dispatcher *Dispatcher) broadcast(exclude int64, reply *api.ReplyMessage) 
     // serviceId + deviceState (AND ...) -> targetServiceId+deviceId+commandId
     // so all services should implement #GetDeviceState(id or complex key - string)
     // and #SendCommand(deviceId, commandId, params?)
-    // maybe use chanhels for command queue?
+    // maybe use channels for command queue?
 
+    var err error
+    var list []int64
+    
     events, _ := reply.Data.(api.EventsList)
     
     if events != nil {
-        dispatcher.processEvents(reply.Service, events)
+        err = dispatcher.processEvents(reply.Service, events)
     }
-    var list []int64
+    if nil != err {
+        return // dont't broadcast failed events
+    }
 
     dispatcher.RLock()
     for i := range dispatcher.clients {
@@ -393,22 +407,29 @@ func (dispatcher *Dispatcher) broadcast(exclude int64, reply *api.ReplyMessage) 
     }
 }
 
-func (dispatcher *Dispatcher) processEvents(serviceId int64, events api.EventsList) {
+func (dispatcher *Dispatcher) processEvents(serviceId int64, events api.EventsList) error {
+    // fill service name
     dispatcher.RLock()
     title := dispatcher.services[serviceId].GetSettings().Title
     dispatcher.RUnlock()
     for j := range events {
         events[j].ServiceId = serviceId
         events[j].ServiceName = title
-        dispatcher.cfg.ProcessEvent(&events[j])
     }
+
+    // forward to core
+    err := dispatcher.cfg.ProcessEvents(events)
+    if nil != err {
+        
+    }
+    return err
 }
 
 // check for automatic algorihms, special events, and so
 func (dispatcher *Dispatcher) scanAlgorithms(events api.EventsList) {
     var aEvents api.EventsList
     for j := range events {
-        algos := events[j].Algorithms//dispatcher.cfg.CheckEvent(&events[j])
+        algos := events[j].Algorithms
         for i := range algos {
             //log.Println("!!! ALGO:", algos[i])
             aEvents = append(aEvents, api.Event{Class: api.EC_ALGO_STARTED, Text: "Запуск алгоритма " + algos[i].Name})

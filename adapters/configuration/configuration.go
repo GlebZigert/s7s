@@ -106,7 +106,18 @@ func (cfg *Configuration) CompleteShift(userId int64) (err error) {
 }
 
 
-func (cfg *Configuration) ProcessEvent(e *api.Event) (err error) {
+func (cfg *Configuration) ProcessEvents(events api.EventsList) (err error) {
+    for i := 0; i < len(events) && nil != err; i++ {
+        err = cfg.processEvent(&events[i])
+    }
+
+    // store event
+    err = cfg.dbLogEvents(events)
+    
+    return err
+}
+
+func (cfg *Configuration) processEvent(e *api.Event) (err error) {
     //TODO: maybe implementing scanner & valuer is a better choice?
     var commands [][4]int64 // [serviceId, deviceId, commandCode, argument]
     if 0 == e.Time {
@@ -142,7 +153,9 @@ func (cfg *Configuration) ProcessEvent(e *api.Event) (err error) {
         if 0 == e.ServiceId {
             e.ServiceName = "Система"
         } else {
-            e.ServiceName = cfg.getServiceName(e.ServiceId)
+            // TODO: service name filled by dispatcher
+            //e.ServiceName = cfg.getServiceName(e.ServiceId)
+            cfg.Log("!!!!!!! unknown ServiceName for event")
         }
     }
     if e.UserId > 0 && e.UserName == "" {
@@ -163,20 +176,15 @@ func (cfg *Configuration) ProcessEvent(e *api.Event) (err error) {
     if e.ZoneId > 0 && e.ZoneName == "" {
         var zone *Zone
         zone, err = cfg.getZone(e.ZoneId)
-        e.ZoneName = zone.Name
         if nil != err {
             return
         }
+        e.ZoneName = zone.Name
     }
     if e.DeviceId > 0 && e.DeviceName == "" {
         e.DeviceName, err = cfg.getDeviceName(e.ServiceId, e.DeviceId)
-        if nil != err {
-            return
-        }
     }
     
-    // store event
-    err = cfg.dbLogEvent(e)
     return
 }
 
