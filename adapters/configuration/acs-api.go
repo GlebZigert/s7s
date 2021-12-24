@@ -31,7 +31,7 @@ func (cfg *Configuration) forbiddenVisitorsDetector(ctx context.Context) {
     for {
         select {
             case <-ctx.Done():
-                return
+            return // TODO: return -> break?
             case <-timer.C:
                 cfg.detectForbiddenVisitors(forbiddenVisitors)
         }
@@ -41,7 +41,7 @@ func (cfg *Configuration) forbiddenVisitorsDetector(ctx context.Context) {
         timer.Reset(next.Sub(now))
     }
     
-    cfg.Log("detectForbiddenVisitors() stopped")
+    cfg.Log("detectForbiddenVisitors() stopped") // TODO: unreachable
 }
 
 func (cfg *Configuration) detectForbiddenVisitors(forbiddenVisitors map[int64] int64) {

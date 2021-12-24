@@ -166,7 +166,8 @@ type Action func (cid int64, json []byte) (interface{}, bool)
 type Broadcast func (int64, *ReplyMessage)
 
 type ReplyMessage struct {
-	Service int64       `json:"service"`
+    UserId  int64       `json:"-"`
+    Service int64       `json:"service"`
     Action  string      `json:"action"`
     Task    int         `json:"task"`
     Data    interface{} `json:"data"`

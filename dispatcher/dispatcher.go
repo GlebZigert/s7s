@@ -69,7 +69,8 @@ func Run(ctx context.Context, host string) (err error) {
     }
     
     //d.useService(cfg)
-    
+    go d.queueServer(ctx)
+
     settings := d.cfg.Get()
     for _, s := range settings {
         service := factory(api.NewAPI(s, d.broadcast, d.cfg))
@@ -80,7 +81,6 @@ func Run(ctx context.Context, host string) (err error) {
         }
     }
     
-    d.queueServer(ctx)
     log.Println("Dispatcher startup completed")
     d.httpServer(ctx, host)
     // if nil == ctx.Err() => troubles with HTTP server
@@ -332,44 +332,10 @@ func (dispatcher *Dispatcher) broadcastEvent(event *api.Event) {
 }
 
 func (dispatcher *Dispatcher) reply(cid int64, reply *api.ReplyMessage) {
-    log.Println("Reply to", cid, ">", reply.Service, reply.Action, "task", reply.Task)
-    //reply := ReplyMessage{Service: service, Action: action, Task: 0, Data: data}
-    //log.Println(header)
-
-    dispatcher.RLock()
-    client, ok := dispatcher.clients[cid]
-    dispatcher.RUnlock()
-    if !ok {
-        return
-    }
-
-    data := reply.Data // store original data
-    if events, ok := reply.Data.(api.EventsList); ok {
-        // filter by devices permissions
-        log.Println("::: APPLY EV FILTER :::", len(events), " events for svc #", reply.Service)
-        idList := events.GetList()
-        devFilter := dispatcher.cfg.Authorize(cid, idList)
-        reply.Data = events.Filter(cid, devFilter, api.ARMFilter[client.role])
-    } else if original, ok := reply.Data.(configuration.Filterable); ok {
-        // filter by devices permissions
-        log.Println("::: APPLY DEV FILTER :::", reply.Service, reply.Action)
-        // INFO: perform filtering inside services to handle special conditions such as groups (virtual elements)
-        idList := original.GetList()
-        filter := dispatcher.cfg.Authorize(cid, idList)
-        reply.Data = original.Filter(filter)
-    } else {
-        log.Println("::: FILTER FAILED :::", reply.Service, reply.Action)
-    }
-    
-    if nil != reply.Data {
-        res, err := json.Marshal(reply)
-        if err != nil {
-            panic(err)
-        }
-        websocket.Message.Send(client.ws, string(res))
-    }
-    reply.Data = data // restore data
+    reply.UserId = cid
+    inbox <-reply
 }
+
 
 func (dispatcher *Dispatcher) broadcast(exclude int64, reply *api.ReplyMessage) {
     // TODO:
@@ -379,17 +345,17 @@ func (dispatcher *Dispatcher) broadcast(exclude int64, reply *api.ReplyMessage) 
     // and #SendCommand(deviceId, commandId, params?)
     // maybe use channels for command queue?
 
-    var err error
+    //var err error
     var list []int64
     
-    events, _ := reply.Data.(api.EventsList)
+    /*events, _ := reply.Data.(api.EventsList)
     
     if events != nil {
         err = dispatcher.processEvents(reply.Service, events)
     }
     if nil != err {
         return // dont't broadcast failed events
-    }
+    }*/
 
     dispatcher.RLock()
     for i := range dispatcher.clients {
@@ -402,9 +368,9 @@ func (dispatcher *Dispatcher) broadcast(exclude int64, reply *api.ReplyMessage) 
         dispatcher.reply(cid, reply)
     }
     
-    if events != nil {// process events if needed
+    /*if events != nil {// process events if needed
         dispatcher.scanAlgorithms(events)
-    }
+    }*/
 }
 
 func (dispatcher *Dispatcher) processEvents(serviceId int64, events api.EventsList) error {
