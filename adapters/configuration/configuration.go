@@ -229,8 +229,9 @@ func (cfg *Configuration) Authenticate(login, token string) (id, role int64) {
 
 // not all devices are really "deleted", so don't use serviceId
 // devices == nil => check services
-func (cfg *Configuration) Authorize(userId int64, devices []int64) (list map[int64]int64) {
+func (cfg *Configuration) Authorize(userId int64, devices []int64) (list map[int64]int64, err error) {
     list = make(map[int64]int64) // [deviceId] => flags
+    
     user, _ := cfg.GetUser(userId) // TODO: handle err
     //cfg.Log("AUTHORIZING:", userId, user)
     if user != nil {
@@ -265,9 +266,12 @@ func (cfg *Configuration) Authorize(userId int64, devices []int64) (list map[int
     }
     params = append(params, users)
 
-    rows, values, _ := db.Table("external_links").
+    rows, values, err := db.Table("external_links").
         Seek(params...).
         Get(nil, fields)
+    if nil != err {
+        return
+    }
     defer rows.Close()
 
     for rows.Next() {
@@ -277,7 +281,7 @@ func (cfg *Configuration) Authorize(userId int64, devices []int64) (list map[int
         list[deviceId] = val | flags
     }
     //cfg.Log("### AUTHORIZED:", userId, devices, list)
-    return list
+    return
 }
 
 /*

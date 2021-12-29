@@ -333,7 +333,7 @@ func (dispatcher *Dispatcher) broadcastEvent(event *api.Event) {
 
 func (dispatcher *Dispatcher) reply(cid int64, reply *api.ReplyMessage) {
     reply.UserId = cid
-    inbox <-reply
+    outbox <-*reply
 }
 
 
@@ -441,9 +441,10 @@ func (dispatcher *Dispatcher) preprocessQuery(userId *int64, ws *websocket.Conn,
                     if 0 != settings.Id {
                         idList := service.GetList()
                         //log.Println("ListAllDevices", idList)
-                        filter := dispatcher.cfg.Authorize(*userId, idList)
+                        filter, err := dispatcher.cfg.Authorize(*userId, idList)
                         //log.Println("FILTER", filter)
-                        if len(filter) > 0 {
+                        // TODO: handle err (report db failure)
+                        if nil == err && len(filter) > 0 {
                             list = append(list, *settings)
                         }
                     }

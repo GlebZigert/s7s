@@ -209,13 +209,13 @@ func (maps MapList) Filter(filter map[int64]int64) interface{} {
 /********************************************************************************/
 
 type ConfigAPI interface {
-    Get()               []*api.Settings
+    Get()           []*api.Settings
     GetError()      error
     //Subscribe()                     chan interface{}
     //Unsubscribe(chan interface{})
     
     Authenticate(string, string)  (iserId, role int64)
-    Authorize(userId int64, devices []int64) map[int64]int64
+    Authorize(userId int64, devices []int64) (map[int64]int64, error)
     
     // automatic actions (algorithms)
     //CheckEvent(event *api.Event) []Algorithm

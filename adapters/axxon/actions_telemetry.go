@@ -22,7 +22,7 @@ const (
 //fmt.Println("cid               ",cid)
 //filter := svc.cfg.Authorize(cid, svc.Settings.Id, api.AM_WATCH | api.AM_CONTROL)
     // TODO: real filter
-    filter := svc.cfg.Authorize(cid, []int64{})
+    filter, _ := svc.cfg.Authorize(cid, []int64{})
 
 
 //Проверка на доступ
