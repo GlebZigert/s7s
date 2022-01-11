@@ -49,7 +49,9 @@ func (cfg *Configuration) dbDeleteAlgorithm(id int64) (err error) {
 
 func (cfg *Configuration) dbUpdateAlgorithm(algorithm *api.Algorithm) {
     fields := AlgorithmFields(algorithm)
-    db.Table("algorithms").Save(nil, fields)
+    cfg.Log("Save ALGO:", algorithm)
+    err := db.Table("algorithms").Save(nil, fields)
+    cfg.Log("Save ALGO:", err)
 }
 
 func (cfg *Configuration) findDevAlgorithms(e *api.Event) (list []api.Algorithm, err error) {
@@ -62,7 +64,6 @@ func (cfg *Configuration) findDevAlgorithms(e *api.Event) (list []api.Algorithm,
         fromZone, err = cfg.visitorLocation(e.UserId)
         q := "user_id = ? AND (zone_id = ? AND event = ? OR zone_id = ? AND event = ?)"
         source = source.Seek(q, e.UserId, e.ZoneId, api.EC_ENTER_ZONE, fromZone, api.EC_EXIT_ZONE)
-
     } else if e.ServiceId > 0 {
         q := "service_id = ? AND device_id = ? AND (from_state = ? OR from_state < 0) AND (event = ? OR event < 0)"
         source = source.Seek(q, e.ServiceId, e.DeviceId, e.FromState, e.Event)
@@ -80,7 +81,7 @@ func (cfg *Configuration) findDevAlgorithms(e *api.Event) (list []api.Algorithm,
     }
     defer rows.Close()
 
-    for rows.Next() && nil != err {
+    for rows.Next() && nil == err {
         err = rows.Scan(values...)
         if nil == err {
             list = append(list, *algorithm)

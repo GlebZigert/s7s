@@ -103,13 +103,13 @@ func (qud *QUD) Save(tx *sql.Tx, fields Fields) (err error) {
         pId = tmp.(*int64)
     }
     if !ok { // new WITHOUT id field
-        _, err = qud.Insert(nil, fields)
+        _, err = qud.Insert(tx, fields)
     } else if 0 == *pId { // new WITH id
         delete(fields, "id")
-        *pId, err = qud.Insert(nil, fields)
+        *pId, err = qud.Insert(tx, fields)
     } else { // update
         delete(fields, "id")
-        _, err = qud.Seek(*pId).Update(nil, fields)
+        _, err = qud.Seek(*pId).Update(tx, fields)
     }
     //qud.reset()
     return
@@ -135,7 +135,8 @@ func (qud *QUD) Insert(tx *sql.Tx, fields Fields) (id int64, err error) {
     logQuery(qud.table, q, values)
     
     //var res sql.Result
-    res, err := qud.execQuery(tx, q, qud.params)
+    qud.params = values
+    res, err := qud.execQuery(tx, q)
     if nil == err {
         id, err = res.LastInsertId()
     }
@@ -277,7 +278,7 @@ func (qud *QUD) Update(tx *sql.Tx, fld interface{}) (numRows int64, err error) {
 
     logQuery(qud.table, q, qud.params)
     
-    res, err := qud.execQuery(tx, q, qud.params)
+    res, err := qud.execQuery(tx, q)
     
     if nil == err {
         numRows, err = res.RowsAffected()
@@ -294,18 +295,18 @@ func (qud *QUD) Delete(tx *sql.Tx, args ...interface{}) (err error) {
     q := "DELETE FROM " + qud.table + qud.cond
     logQuery(qud.table, q, qud.params)
     
-    _, err = qud.execQuery(tx, q, qud.params)
+    _, err = qud.execQuery(tx, q)
 
     qud.reset()
     return
 }
 
-func (qud *QUD) execQuery(tx *sql.Tx, q string, params []interface{}) (sql.Result, error) {
+func (qud *QUD) execQuery(tx *sql.Tx, q string) (sql.Result, error) {
     if nil == tx {
         ctx, _ := context.WithTimeout(context.TODO(), qud.timeout)
-        return qud.db.ExecContext(ctx, q, params...)
+        return qud.db.ExecContext(ctx, q, qud.params...)
     } else {
-        return tx.Exec(q, params...)
+        return tx.Exec(q, qud.params...)
     }
 }
 

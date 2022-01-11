@@ -52,9 +52,11 @@ func (cache *RelationsCache) childrenList(parentId int64) (list []int64, err err
         return
     }
     defer rows.Close()
-    for rows.Next() && nil != err {
+    for rows.Next() && nil == err {
         err = rows.Scan(values...)
-        list = append(list, id)
+        if nil == err {
+            list = append(list, id)
+        }
     }
     if nil == err {
         err = rows.Err()

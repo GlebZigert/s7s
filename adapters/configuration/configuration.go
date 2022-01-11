@@ -23,6 +23,7 @@ var db dblayer.DBLayer
 func init() {
     //dblayer.LogTables = []string{}
     dblayer.LogTables = []string {
+        //"algorithms",
         /*"events",
         "external_links",
         "services"*/}
@@ -107,16 +108,18 @@ func (cfg *Configuration) CompleteShift(userId int64) (err error) {
 
 
 func (cfg *Configuration) ProcessEvents(events api.EventsList) (err error) {
-    for i := 0; i < len(events) && nil != err; i++ {
+    for i := 0; i < len(events) && nil == err; i++ {
         err = cfg.processEvent(&events[i])
     }
+    if nil == err {
+        // store events
+        err = cfg.dbLogEvents(events)
+    }
 
-    // store event
-    err = cfg.dbLogEvents(events)
-    
-    return err
+    return
 }
 
+// add extra info to event: algos, text/names etc.
 func (cfg *Configuration) processEvent(e *api.Event) (err error) {
     //TODO: maybe implementing scanner & valuer is a better choice?
     var commands [][4]int64 // [serviceId, deviceId, commandCode, argument]
@@ -130,6 +133,7 @@ func (cfg *Configuration) processEvent(e *api.Event) (err error) {
             e.Text = api.DescribeEvent(e.Event)
         }
     }
+
     e.Algorithms, err = cfg.findDevAlgorithms(e)
     if nil != err {
         return
@@ -158,7 +162,7 @@ func (cfg *Configuration) processEvent(e *api.Event) (err error) {
             cfg.Log("!!!!!!! unknown ServiceName for event")
         }
     }
-    if e.UserId > 0 && e.UserName == "" {
+    if e.UserId > 0 && "" == e.UserName {
         var user *User
         user, err = cfg.GetUser(e.UserId)
         if nil != err {
@@ -173,7 +177,7 @@ func (cfg *Configuration) processEvent(e *api.Event) (err error) {
             return
         }
     }
-    if e.ZoneId > 0 && e.ZoneName == "" {
+    if e.ZoneId > 0 && "" == e.ZoneName {
         var zone *Zone
         zone, err = cfg.getZone(e.ZoneId)
         if nil != err {
@@ -181,7 +185,7 @@ func (cfg *Configuration) processEvent(e *api.Event) (err error) {
         }
         e.ZoneName = zone.Name
     }
-    if e.DeviceId > 0 && e.DeviceName == "" {
+    if e.DeviceId > 0 && "" == e.DeviceName {
         e.DeviceName, err = cfg.getDeviceName(e.ServiceId, e.DeviceId)
     }
     

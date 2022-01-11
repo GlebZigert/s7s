@@ -373,62 +373,6 @@ func (dispatcher *Dispatcher) broadcast(exclude int64, reply *api.ReplyMessage) 
     }*/
 }
 
-func (dispatcher *Dispatcher) processEvents(serviceId int64, events api.EventsList) error {
-    // fill service name
-    dispatcher.RLock()
-    title := dispatcher.services[serviceId].GetSettings().Title
-    dispatcher.RUnlock()
-    for j := range events {
-        events[j].ServiceId = serviceId
-        events[j].ServiceName = title
-    }
-
-    // forward to core
-    err := dispatcher.cfg.ProcessEvents(events)
-    if nil != err {
-        
-    }
-    return err
-}
-
-// check for automatic algorihms, special events, and so
-func (dispatcher *Dispatcher) scanAlgorithms(events api.EventsList) {
-    var aEvents api.EventsList
-    for j := range events {
-        algos := events[j].Algorithms
-        for i := range algos {
-            //log.Println("!!! ALGO:", algos[i])
-            aEvents = append(aEvents, api.Event{Class: api.EC_ALGO_STARTED, Text: "Запуск алгоритма " + algos[i].Name})
-        }
-        
-        if len(aEvents) > 0 {
-            reply := api.ReplyMessage{Service: 0, Action: "Events", Data: aEvents}
-            //log.Println("ALGO EVENTS:", reply)
-            dispatcher.broadcast(0, &reply)
-        }
-
-        for i := range algos {
-            if algos[i].TargetZoneId > 0 {
-                dispatcher.doZoneCommand(0, algos[i].TargetZoneId, algos[i].Command)
-            } else {
-                cmd := api.Command{
-                    algos[i].TargetDeviceId,
-                    algos[i].Command,
-                    algos[i].Argument}
-                res, _ := json.Marshal(&cmd)
-                /*if err != nil {
-                    panic(err)
-                }*/
-
-                q := Query{algos[i].TargetServiceId, "ExecCommand", 0, res}
-                //log.Println("!!! QUERY:", q)
-                //log.Println("!!! CMD:", cmd)
-                dispatcher.do(0, &q)
-            }
-        }
-    }
-}
-
 func (dispatcher *Dispatcher) preprocessQuery(userId *int64, ws *websocket.Conn, q Query) interface{} {
     if 0 == q.Service {
         //log.Println("!!! Preprocess:", q.Service, q.Action)

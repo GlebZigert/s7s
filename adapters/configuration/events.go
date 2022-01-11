@@ -177,17 +177,20 @@ func (cfg *Configuration) dbLogEvents(events api.EventsList) (err error) {
     if nil != err {
         return
     }
-    for i := 0; i < len(events) && nil != err; i++ {
+    for i := 0; i < len(events) && nil == err; i++ {
         fields := eventFields(&events[i])
         delete(fields, "id")
         events[i].Id, err = db.Table("events").Insert(tx, fields)
     }
     
     if nil == err {
-        return tx.Commit()
+        return tx.Commit() // TODO: what if commit failed? It's time to panic?
     }
-    // TODO: what if rollback failed?
-    return tx.Rollback()
+    
+    for i := range events {
+        events[i].Id = 0 // mark events unprocessed
+    }
+    return tx.Rollback() // TODO: what if rollback failed? It's time to panic?
 }
 
 func (cfg *Configuration) importEvent(event *api.Event) {
