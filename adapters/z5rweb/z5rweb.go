@@ -27,8 +27,6 @@ const (
 )
 
 func (svc *Z5RWeb) Run() {
-    svc.Settings.Status.TCP = "offline"
-    
     svc.cfg = svc.Configuration.(configuration.ConfigAPI)
     rand.Seed(time.Now().UnixNano())
     svc.nextMessageId = int64(1e6 + rand.Intn(1e6)) // TODO: use timestamp?
@@ -57,7 +55,7 @@ func (svc *Z5RWeb) Run() {
     go svc.monitorDevices(ctx)
     
     svc.setupApi()
-    svc.ReportStartup()
+    svc.SetServiceStatus(api.EC_SERVICE_READY)
 }
 
 // Return all devices IDs for user filtering
@@ -221,7 +219,7 @@ func (svc *Z5RWeb) loadDevices() {
         svc.devices[dev.Id] = &dev
         svc.Unlock()
     }
-    svc.SetTCPStatus("online")
+    //svc.SetTCPStatus("online")
     svc.Log("::::::::::::::::: DEVICES LOADED !", svc.Settings.Id, len(svc.devices))
 }
 
@@ -357,7 +355,7 @@ func (svc *Z5RWeb) Shutdown() {
     if nil != svc.httpLog {
         svc.httpLog.Close()
     }
-    svc.ReportShutdown()
+    svc.SetServiceStatus(api.EC_SERVICE_SHUTDOWN)
 }
 
 func (svc *Z5RWeb) setupApi() {

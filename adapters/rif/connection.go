@@ -10,6 +10,7 @@ import (
 	"encoding/xml"
 	"strings"
 	"time"
+    "../../api"
 //	"golang.org/x/net/html/charset"
 )
 
@@ -38,7 +39,7 @@ func (rif *Rif) connect(ctx context.Context) {
 		if err != nil {
 			//log.Print("No connection, retry in 5s...")
 			if (newTry) {
-                rif.SetServiceStatus("offline", "offline")
+                rif.SetServiceStatus(api.EC_SERVICE_OFFLINE, api.EC_DATABASE_UNAVAILABLE)
                 newTry = false
 			}
 			//time.Sleep(time.Duration(500)*time.Millisecond);

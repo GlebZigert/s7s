@@ -347,7 +347,7 @@ func (dispatcher *Dispatcher) broadcast(exclude int64, reply *api.ReplyMessage) 
 
     //var err error
     var list []int64
-    
+    log.Println("BroadC", reply)
     /*events, _ := reply.Data.(api.EventsList)
     
     if events != nil {
@@ -364,6 +364,11 @@ func (dispatcher *Dispatcher) broadcast(exclude int64, reply *api.ReplyMessage) 
         }
     }
     dispatcher.RUnlock()
+    
+    if 0 == len(list) { // if no clients connected
+        dispatcher.reply(0, reply)
+    }
+    
     for _, cid := range list {
         dispatcher.reply(cid, reply)
     }

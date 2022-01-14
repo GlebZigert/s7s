@@ -125,6 +125,32 @@ func (api *API) Sleep(ctx context.Context, delay time.Duration) bool {
     }
 }
 
+func (api *API) SetServiceStatus(states ...int64) {
+    var events EventsList
+    keys := map[string] *int64 {
+        "self": &api.Settings.Status.Self,
+        "tcp": &api.Settings.Status.TCP,
+        "db": &api.Settings.Status.DB}
+    api.Log("S-S:", states)
+    for _, sid := range states {
+        ptr := keys[serviceStatuses[sid]]
+        if nil != ptr {
+            api.Settings.Status.Lock()
+            if *ptr != sid { // don't duplicate
+                *ptr = sid
+                events = append(events, Event{Class: sid})
+            }
+            api.Settings.Status.Unlock()
+        } else {
+            api.Err("Unknown service status:", sid)
+        }
+    }
+    api.Log("S-S:", states, events)
+    if len(events) > 0 {
+        api.Broadcast("Events", events)
+    }
+}
+/*
 func (api *API) ReportStartup() {
     api.Broadcast("Events", EventsList{Event{
         Class: EC_SERVICE_STARTED,
@@ -194,3 +220,4 @@ func (api *API) SetTCPStatus(value string) {
 func (api *API) SetDBStatus(value string) {
     api.SetServiceStatus("", value)
 }
+*/

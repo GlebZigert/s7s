@@ -156,7 +156,7 @@ svc.telemetrySessions=make(map[int]telemetrySession)
 
  //   svc.getDateTime("20210429T081819")
 
-    go svc.SetTCPStatus("online")
+    //go svc.SetTCPStatus("online")
 
     
 

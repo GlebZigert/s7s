@@ -28,9 +28,6 @@ var responses = map[int64] []int64 {
     101: []int64{101, 111, 150, 1000, 1004}}
 
 func (svc *Rif) Run() {
-    svc.Settings.Status.TCP = "offline"
-    svc.Settings.Status.DB = "offline"
-
     //svc.name = name
 	//svc.Reply = reply
     //svc.openDB(svc.GetStorage() + ".db")
@@ -56,7 +53,7 @@ func (svc *Rif) Run() {
 	
     
     svc.setupApi()
-    svc.ReportStartup()
+    svc.SetServiceStatus(api.EC_SERVICE_READY)
 }
 
 /*
@@ -83,7 +80,7 @@ func (svc *Rif) Shutdown() {
     if nil != svc.xmlLog {
         svc.xmlLog.Close()
     }
-    svc.ReportShutdown()
+    svc.SetServiceStatus(api.EC_SERVICE_SHUTDOWN)
     //time.Sleep(12 * time.Second) // emulate hanging
 }
 
@@ -153,7 +150,8 @@ func (svc *Rif) scanEvents(events []_Event) {
         //time.Sleep(200 * time.Millisecond)
         svc.queryEventsChan <-events[len(events)-1].Id
     } else { // all events are pumped
-        svc.SetDBStatus("online")
+        //svc.SetDBStatus("online")
+        svc.SetServiceStatus(api.EC_DATABASE_READY)
     }
 }
 
@@ -255,7 +253,7 @@ func (svc *Rif) populate(devices []_Device) {
     }
     svc.Log("Use", len(svc.devices), "devices of", len(devices))
     svc.Unlock()
-    svc.SetTCPStatus("online")
+    svc.SetServiceStatus(api.EC_SERVICE_ONLINE)//svc.SetTCPStatus("online")
 }
 
 func (svc *Rif) update(devices []_Device) {

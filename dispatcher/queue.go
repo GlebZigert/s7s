@@ -45,7 +45,7 @@ func (dispatcher *Dispatcher) queueServer(ctx context.Context) {
             queue = append(queue, &msg)
         }
         if len(queue) > maxQueueSize {
-            log.Println("Queue overflow:", len(queue), "of", maxQueueSize)
+            log.Println("Queue overflow:", len(queue), "of", maxQueueSize, "- trim old messages")
             queue = queue[(maxQueueSize - len(queue)):]
         }
         n, err := dispatcher.scanQueue(queue)
@@ -126,7 +126,7 @@ func (dispatcher *Dispatcher) processReply(reply *api.ReplyMessage) (err error) 
     client, ok := dispatcher.clients[cid]
     dispatcher.RUnlock()
     if !ok {
-        return // discard message, client disconnected
+        return // abort sending, client disconnected or no clients at all (cid == 0)
     }
 
     var filter map[int64]int64

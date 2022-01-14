@@ -22,19 +22,17 @@ const (
 
 func (svc *Parus) Run() {
     rand.Seed(time.Now().UnixNano())
-    svc.Settings.Status.TCP = "offline"
     
     svc.cfg = svc.Configuration.(configuration.ConfigAPI)
 
     svc.loadDevices()
-    svc.SetTCPStatus("online")
     
     var ctx context.Context
     ctx, svc.Cancel = context.WithCancel(context.Background())
     go svc.pollDevices(ctx)
     
     svc.setupApi()
-    svc.ReportStartup()
+    svc.SetServiceStatus(api.EC_SERVICE_READY)
 }
 
 // Return all devices IDs for user filtering
@@ -138,7 +136,7 @@ func (svc *Parus) loadDevices() {
 func (svc *Parus) Shutdown() {
     svc.Log("Shutting down...")
     svc.Cancel()
-    svc.ReportShutdown()
+    svc.SetServiceStatus(api.EC_SERVICE_SHUTDOWN)
 }
 
 func (svc *Parus) setupApi() {
