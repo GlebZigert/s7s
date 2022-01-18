@@ -182,6 +182,7 @@ func (svc *Rif) pollEventLog(ctx context.Context) {
 func (svc *Rif) getEventLog(nextId int64) {
     var cmd string
     if 0 == nextId {
+        // get real last stored event id from the db
         lastEvent := svc.cfg.GetLastEvent(svc.Settings.Id)
         if nil != lastEvent {
             nextId = lastEvent.ExternalId + 1
@@ -253,7 +254,8 @@ func (svc *Rif) populate(devices []_Device) {
     }
     svc.Log("Use", len(svc.devices), "devices of", len(devices))
     svc.Unlock()
-    svc.SetServiceStatus(api.EC_SERVICE_ONLINE)//svc.SetTCPStatus("online")
+    // TODO: db in not really n/a, need deep check
+    svc.SetServiceStatus(api.EC_SERVICE_ONLINE, api.EC_DATABASE_UNAVAILABLE)
 }
 
 func (svc *Rif) update(devices []_Device) {

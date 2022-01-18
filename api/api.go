@@ -131,12 +131,12 @@ func (api *API) SetServiceStatus(states ...int64) {
         "self": &api.Settings.Status.Self,
         "tcp": &api.Settings.Status.TCP,
         "db": &api.Settings.Status.DB}
-    api.Log("S-S:", states)
+    //api.Log("S-S:", states)
     for _, sid := range states {
         ptr := keys[serviceStatuses[sid]]
         if nil != ptr {
             api.Settings.Status.Lock()
-            if *ptr != sid { // don't duplicate
+            if *ptr != sid { // don't duplicate events/states
                 *ptr = sid
                 events = append(events, Event{Class: sid})
             }
@@ -145,7 +145,7 @@ func (api *API) SetServiceStatus(states ...int64) {
             api.Err("Unknown service status:", sid)
         }
     }
-    api.Log("S-S:", states, events)
+    //api.Log("S-S:", states, events)
     if len(events) > 0 {
         api.Broadcast("Events", events)
     }

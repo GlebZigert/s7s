@@ -347,7 +347,7 @@ func (dispatcher *Dispatcher) broadcast(exclude int64, reply *api.ReplyMessage) 
 
     //var err error
     var list []int64
-    log.Println("BroadC", reply)
+    //log.Println("BroadC", reply)
     /*events, _ := reply.Data.(api.EventsList)
     
     if events != nil {
