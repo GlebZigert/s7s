@@ -3,6 +3,7 @@ package dispatcher
 import (
     "sync"
     "net/http"
+    "context"
 //    "database/sql"
     "encoding/json"
     "golang.org/x/net/websocket"
@@ -31,7 +32,7 @@ type Service interface {
     GetSettings()   *api.Settings
     GetList()       []int64
     Do(int64, string, []byte) (interface{}, bool)
-    Run()
+    Run(configuration.ConfigAPI) error
     Shutdown()
 }
 
@@ -59,6 +60,7 @@ type ZoneCommand struct {
 type Dispatcher struct {
     // TODO: mutex required?
     sync.RWMutex
+    ctx             context.Context
     cfg             configuration.ConfigAPI
 	services		map[int64] Service
 	clients			map[int64] Client

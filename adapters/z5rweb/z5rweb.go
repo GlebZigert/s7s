@@ -26,8 +26,14 @@ const (
     wrongPinsInterval = 60 // seconds
 )
 
-func (svc *Z5RWeb) Run() {
-    svc.cfg = svc.Configuration.(configuration.ConfigAPI)
+func (svc *Z5RWeb) Run(cfg configuration.ConfigAPI) (err error) {
+    var ctx context.Context
+    ctx, svc.Cancel = context.WithCancel(context.Background())
+    svc.cfg = cfg
+    svc.Stopped = make(chan struct{})
+    defer close(svc.Stopped)
+    
+    
     rand.Seed(time.Now().UnixNano())
     svc.nextMessageId = int64(1e6 + rand.Intn(1e6)) // TODO: use timestamp?
     
@@ -40,58 +46,46 @@ func (svc *Z5RWeb) Run() {
     
     //svc.openDB(svc.GetStorage() + ".db")
 
-    var err error
     svc.httpLog, err = os.OpenFile(svc.GetStorage() + ".json", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+    if nil != err {
+        return
+    }
+    defer svc.httpLog.Close()
+    
+    err = svc.loadDevices()
     if err != nil {
-        svc.Log(err)
+        return
     }
     
-    svc.loadDevices()
-    //svc.subscription = svc.cfg.Subscribe()
-    go svc.subscriptionLoop()
-    
-    var ctx context.Context
-    ctx, svc.Cancel = context.WithCancel(context.Background())
     go svc.monitorDevices(ctx)
     
     svc.setupApi()
     svc.SetServiceStatus(api.EC_SERVICE_READY)
+
+    <-ctx.Done()
+    ////////////////////////////////////////////////////////////
+    
+    svc.Log("Shutting down...")
+    svc.SetServiceStatus(api.EC_SERVICE_SHUTDOWN)
+    return
+}
+
+func (svc *Z5RWeb) Shutdown() {
+    svc.RLock()
+    ret := nil == svc.Cancel || nil == svc.Stopped
+    svc.RUnlock()
+    if ret {
+        return
+    }
+
+    svc.Cancel()
+    <-svc.Stopped
 }
 
 // Return all devices IDs for user filtering
 func (cfg *Z5RWeb) GetList() []int64 {
     return nil
 }
-
-
-/*func (svc *Z5RWeb) waitDevices(ctx context.Context) {
-    // TODO:
-    // 1. find last active devices MAX(lastSeen) - 1.5 * svc.Settings.KeepAlive
-    // 2. wait them all until T + 1.5 * KeepAlive
-    if svc.Sleep(ctx, time.Duration(svc.Settings.KeepAlive * 3 / 2) * time.Second) {
-        svc.Lock()
-        svc.ready = true
-        svc.Unlock()
-        go svc.SetTCPStatus("online")
-    }
-}*/
-
-/*func (svc *Z5RWeb) setLastUser(deviceId, userId int64) {
-    svc.Lock()
-    defer svc.Unlock()
-    svc.lastUsers[deviceId] = userId
-}
-
-func (svc *Z5RWeb) getLastUser(deviceId int64) int64 {
-    svc.RLock()
-    defer svc.RUnlock()
-    return svc.lastUsers[deviceId]
-    //id, ok := svc.lastUsers[deviceId]
-    //if ok {
-//        delete(svc.lastUsers, deviceId)
-  //  }
-    return id
-}*/
 
 func (svc *Z5RWeb) ZoneCommand(userId, zoneCommand int64, devList []int64) {
     var modes = map[int64]int64{
@@ -203,9 +197,9 @@ func (svc *Z5RWeb) setState(devId, code int64, text, card, dts string) api.Event
     return dev.States[0]
 }
 
-func (svc *Z5RWeb) loadDevices() {
+func (svc *Z5RWeb) loadDevices() (err error) {
     svc.devices = make(map[int64] *Device)
-    devices := svc.cfg.LoadDevices(svc.Settings.Id)
+    devices, err := svc.cfg.LoadDevices(svc.Settings.Id)
 
     for i := range devices {
         dev := Device{Device: devices[i]}
@@ -221,6 +215,7 @@ func (svc *Z5RWeb) loadDevices() {
     }
     //svc.SetTCPStatus("online")
     svc.Log("::::::::::::::::: DEVICES LOADED !", svc.Settings.Id, len(svc.devices))
+    return
 }
 
 
@@ -339,23 +334,6 @@ func (svc *Z5RWeb) getLastCard(devId, reader int64) (last string) {
 
 func makePair(devId, reader int64) string {
     return strconv.FormatInt(devId, 10) + "-" + strconv.FormatInt(reader, 10)
-}
-
-
-func (svc *Z5RWeb) subscriptionLoop() {
-    for msg := range svc.subscription {
-        svc.Log("Got message:", msg)
-    }
-}
-
-func (svc *Z5RWeb) Shutdown() {
-    svc.Log("Shutting down...")
-    svc.Cancel()
-    //svc.cfg.Unsubscribe(svc.subscription)
-    if nil != svc.httpLog {
-        svc.httpLog.Close()
-    }
-    svc.SetServiceStatus(api.EC_SERVICE_SHUTDOWN)
 }
 
 func (svc *Z5RWeb) setupApi() {

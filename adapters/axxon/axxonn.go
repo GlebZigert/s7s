@@ -72,7 +72,7 @@ func (cfg *Axxon) GetList() []int64 {
     return nil
 }
 
-func (svc *Axxon) Run() {
+func (svc *Axxon) Run() error {
     svc.username = "func (svc *Axxon) Run()"
     svc.username = "User"
 	svc.password = "12345"
@@ -179,6 +179,7 @@ go backgroundTask(svc)
 
 }
   //  svc.request_to_axxon("archive/list/"+"ASTRAAXXON/DeviceIpint.2/SourceEndpoint.video:0:1")
+return nil
 }
 
 

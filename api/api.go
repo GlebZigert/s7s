@@ -29,13 +29,12 @@ func DescribeClass(code int64) (text string) {
 
 
 // subscribe for messages from Configuration
-func NewAPI(s *Settings, broadcast Broadcast, cfg interface{}) *API {
+func NewAPI(s *Settings, broadcast Broadcast) *API {
 //    s.Status.TCP = "offline"
 //    s.Status.DB = "offline"
     return &API{
         name: s.Type + "-" + strconv.FormatInt(s.Id, 10),
         broadcast: broadcast,
-        Configuration: cfg,
         Settings: s}
 }
 
@@ -100,6 +99,13 @@ func (api *API) Do(cid int64, action string, json []byte) (data interface{}, bro
 
 // used to notify clients when event happened (was no any queries from client)
 func (api *API) Broadcast(action string, data interface{}) {
+    if events, _ := data.(EventsList); len(events) > 0 {
+        for i := range events {
+            events[i].ServiceId = api.Settings.Id
+            events[i].ServiceName = api.Settings.Title
+        }
+    }
+    
     reply := ReplyMessage{Service: api.Settings.Id, Action: action, Task: 0, Data: data}
     api.broadcast(0, &reply)
 }

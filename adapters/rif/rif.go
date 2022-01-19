@@ -27,61 +27,50 @@ var responses = map[int64] []int64 {
     100: []int64{100, 110, 151, 1001, 1003},
     101: []int64{101, 111, 150, 1000, 1004}}
 
-func (svc *Rif) Run() {
-    //svc.name = name
-	//svc.Reply = reply
-    //svc.openDB(svc.GetStorage() + ".db")
+func (svc *Rif) Run(cfg configuration.ConfigAPI) (err error) {
+    var ctx context.Context
+    ctx, svc.Cancel = context.WithCancel(context.Background())
+    svc.cfg = cfg
+    svc.Stopped = make(chan struct{})
+    defer close(svc.Stopped)
 
     // log
-    var err error
     svc.xmlLog, err = os.OpenFile(svc.GetStorage() + ".xml", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
     if err != nil {
-        svc.Log(err)
+        return
     }
-    //svc.SetServiceStatus("offline", "offline")
+    defer svc.xmlLog.Close()
     
-    svc.cfg = svc.Configuration.(configuration.ConfigAPI)
     svc.waitReply = make(map[string]int64)
     svc.queryEventsChan = make(chan int64, 1)
     
-    var ctx context.Context
-    ctx, svc.Cancel = context.WithCancel(context.Background())
-
     go svc.connect(ctx)
     go svc.keepAlive(ctx, svc.Settings.KeepAlive)
     go svc.pollEventLog(ctx)
-	
     
     svc.setupApi()
     svc.SetServiceStatus(api.EC_SERVICE_READY)
+    
+    <-ctx.Done()
+    ////////////////////////////////////////////////////////
+    
+    log.Println(svc.GetName(), "Shutting down...")
+    svc.closeConnection()
+    svc.SetServiceStatus(api.EC_SERVICE_SHUTDOWN)
+    
+    return
 }
 
-/*
-func (svc *Rif) Reconfigure(s *api.Settings) {
-    // TODO: use mutex for critical section
-    if (svc.Settings.Host != s.Host ||
-        svc.Settings.KeepAlive != s.KeepAlive ||
-        "" != s.Login && svc.Settings.Login != s.Login ||
-        "" != s.Password && svc.Settings.Password != s.Password) {
-        
-        svc.Settings.Host = s.Host
-        svc.Settings.KeepAlive = s.KeepAlive
-        svc.Settings.Login = s.Login
-        svc.Settings.Password = s.Password    
-        
-//        svc.resetConnection()
-    }
-}*/
-
 func (svc *Rif) Shutdown() {
-    log.Println(svc.GetName(), "Shutting down...")
-    svc.Cancel() // call it before close connection!
-    svc.closeConnection()
-    if nil != svc.xmlLog {
-        svc.xmlLog.Close()
+    svc.RLock()
+    ret := nil == svc.Cancel || nil == svc.Stopped
+    svc.RUnlock()
+    if ret {
+        return
     }
-    svc.SetServiceStatus(api.EC_SERVICE_SHUTDOWN)
-    //time.Sleep(12 * time.Second) // emulate hanging
+
+    svc.Cancel()
+    <-svc.Stopped
 }
 
 // Return all devices IDs for user filtering

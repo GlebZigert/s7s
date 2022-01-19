@@ -29,13 +29,13 @@ func init() {
         "services"*/}
 }
 
-func (cfg *Configuration) Run() {
+func (cfg *Configuration) Run(_ ConfigAPI) (err error) {
     var ctx context.Context
     ctx, cfg.Cancel = context.WithCancel(context.Background())
 
     dbFilename := cfg.GetStorage() + ".db?_synchronous=NORMAL&_journal_mode=WAL" // _busy_timeout=10000
     
-    if err := cfg.openDB(dbFilename); nil != err {
+    if err = cfg.openDB(dbFilename); nil != err {
         cfg.lastError = fmt.Errorf("Database problem: %w", err)
         return
     }
@@ -50,6 +50,7 @@ func (cfg *Configuration) Run() {
     cfg.setupApi()
 
     go cfg.forbiddenVisitorsDetector(ctx)
+    return
 }
 
 func (cfg *Configuration) Shutdown() {
@@ -156,11 +157,7 @@ func (cfg *Configuration) processEvent(e *api.Event) (err error) {
     if "" == e.ServiceName {
         if 0 == e.ServiceId {
             e.ServiceName = "Система"
-        } else {
-            // TODO: service name filled by dispatcher
-            //e.ServiceName = cfg.getServiceName(e.ServiceId)
-            cfg.Log("!!!!!!! unknown ServiceName for event")
-        }
+        } 
     }
     if e.UserId > 0 && "" == e.UserName {
         var user *User

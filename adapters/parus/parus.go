@@ -20,19 +20,39 @@ const (
     errThreshold = 3
 )
 
-func (svc *Parus) Run() {
-    rand.Seed(time.Now().UnixNano())
-    
-    svc.cfg = svc.Configuration.(configuration.ConfigAPI)
-
-    svc.loadDevices()
-    
+func (svc *Parus) Run(cfg configuration.ConfigAPI) (err error) {
     var ctx context.Context
     ctx, svc.Cancel = context.WithCancel(context.Background())
+    svc.cfg = cfg
+    svc.Stopped = make(chan struct{})
+    defer close(svc.Stopped)
+
+    rand.Seed(time.Now().UnixNano())
+    svc.loadDevices()
+    
     go svc.pollDevices(ctx)
     
     svc.setupApi()
     svc.SetServiceStatus(api.EC_SERVICE_READY)
+    
+    <-ctx.Done()
+    //////////////////////////////////////////////////////////////////
+
+    svc.Log("Shutting down...")
+    svc.SetServiceStatus(api.EC_SERVICE_SHUTDOWN)
+    return
+}
+
+func (svc *Parus) Shutdown() {
+    svc.RLock()
+    ret := nil == svc.Cancel || nil == svc.Stopped
+    svc.RUnlock()
+    if ret {
+        return
+    }
+
+    svc.Cancel()
+    <-svc.Stopped
 }
 
 // Return all devices IDs for user filtering
@@ -119,7 +139,7 @@ func (svc *Parus) analyzeStatus(dev *Device, stateClass int64) {
 func (svc *Parus) loadDevices() {
     svc.Lock()
     svc.devices = make(map[int64] *Device)
-    devices := svc.cfg.LoadDevices(svc.Settings.Id)
+    devices, _ := svc.cfg.LoadDevices(svc.Settings.Id) // TODO: handle err
     for i := range devices {
         dev := Device{Device: devices[i]}
         if "" != dev.Data {
@@ -131,12 +151,6 @@ func (svc *Parus) loadDevices() {
     }
     svc.Unlock()
     //svc.Log(":::::::::::::::::", len(svc.devices), "DEVICES LOADED for service", svc.Settings.Id)
-}
-
-func (svc *Parus) Shutdown() {
-    svc.Log("Shutting down...")
-    svc.Cancel()
-    svc.SetServiceStatus(api.EC_SERVICE_SHUTDOWN)
 }
 
 func (svc *Parus) setupApi() {

@@ -84,7 +84,7 @@ func (cfg *Configuration) GlobalDeviceId(serviceId int64, handle, name string) (
     return
 }
 
-func (cfg *Configuration) LoadDevices(serviceId int64) (list []Device) {
+func (cfg *Configuration) LoadDevices(serviceId int64) (list []Device, err error) {
     dev := new(Device) 
     fields := dblayer.Fields {
         "id":           &dev.Id,
@@ -94,15 +94,22 @@ func (cfg *Configuration) LoadDevices(serviceId int64) (list []Device) {
         "last_seen":    &dev.LastSeen,
         "data":         &dev.Data}
 
-    rows, values, _ := db.Table("devices").Seek("handle IS NOT NULL AND service_id = ?", serviceId).Get(nil, fields)
+    rows, values, err := db.Table("devices").Seek("handle IS NOT NULL AND service_id = ?", serviceId).Get(nil, fields)
     
-    for rows.Next() {
-        err := rows.Scan(values...)
-        catch(err)
-        list = append(list, *dev)
+    if nil != err {
+        return
     }
-    rows.Close()
-   return
+    
+    defer rows.Close()
+    for rows.Next() {
+        err = rows.Scan(values...)
+        if nil != err {
+            break
+        }
+        list = append(list, *dev)        
+    }
+    
+    return
 }
 
 func (cfg *Configuration) SaveDevice(serviceId int64, dev *Device, data interface{}) {

@@ -73,7 +73,7 @@ func (dispatcher *Dispatcher) scanQueue(queue []*api.ReplyMessage) (n int, err e
         events, _ := queue[n].Data.(api.EventsList)
         if len(events) > 0 && 0 == events[0].Id {
             // not yet processed/stored events
-            err = dispatcher.processEvents(queue[n].Service, events)
+            err = dispatcher.cfg.ProcessEvents(events)
             if nil == err {
                 dispatcher.scanAlgorithms(events)
             }
@@ -96,21 +96,6 @@ func (dispatcher *Dispatcher) scanQueue(queue []*api.ReplyMessage) (n int, err e
     
     return // num of processed messages
 }
-
-func (dispatcher *Dispatcher) processEvents(serviceId int64, events api.EventsList) error {
-    // events may not contain serviceId or service name, so fill them
-    dispatcher.RLock()
-    title := dispatcher.services[serviceId].GetSettings().Title
-    dispatcher.RUnlock()
-    for j := range events {
-        events[j].ServiceId = serviceId
-        events[j].ServiceName = title
-    }
-
-    // forward to core
-    return dispatcher.cfg.ProcessEvents(events)
-}
-
 
 func (dispatcher *Dispatcher) processReply(reply *api.ReplyMessage) (err error) {
     cid := reply.UserId

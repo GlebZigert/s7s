@@ -7,6 +7,7 @@ import (
 	"time"
     "sync"
 //    "io/ioutil"
+    "errors"
     "context"
     "encoding/json"
 //    "encoding/base64"
@@ -17,7 +18,7 @@ import (
     "../api"
 	"../adapters/rif"
     //"../adapters/sigur"
-    "../adapters/axxon"
+    //"../adapters/axxon"
     "../adapters/z5rweb"
     "../adapters/ipmon"
     "../adapters/parus"
@@ -25,6 +26,7 @@ import (
 )
 
 const (
+    serviceRestartDelay = 5 // seconds
     maxClients = 100
     loginTimeout = 3 // seconds
     keepAliveInterval = 10 + 2 //seconds
@@ -34,20 +36,13 @@ const (
 func factory(api *api.API) Service {
     var service Service
     switch (*api).Settings.Type {
-        case "configuration":
-            service = &configuration.Configuration{API: *api}
-        case "rif":
-            service = &rif.Rif{API: *api}
-        /*case "sigur":
-            service = &sigur.Sigur{API: *api}*/
-        case "axxon":
-            service = &axxon.Axxon{API: *api}
-        case "z5rweb":
-            service = &z5rweb.Z5RWeb{API: *api}
-        case "ipmon":
-            service = &ipmon.IPMon{API: *api}
-        case "parus":
-            service = &parus.Parus{API: *api}
+        case "configuration": service = &configuration.Configuration{API: *api}
+        case "rif": service = &rif.Rif{API: *api}
+        //case "sigur": service = &sigur.Sigur{API: *api}
+        //case "axxon": service = &axxon.Axxon{API: *api}
+        case "z5rweb": service = &z5rweb.Z5RWeb{API: *api}
+        case "ipmon": service = &ipmon.IPMon{API: *api}
+        case "parus": service = &parus.Parus{API: *api}
     }
     return service
 }
@@ -55,29 +50,28 @@ func factory(api *api.API) Service {
 func Run(ctx context.Context, host string) (err error) {
     //seedFilter()
     var d = Dispatcher{
+        ctx: ctx,
         queue: make(chan string, 10),
         services: make(map[int64] Service),
         clients: make(map[int64] Client)}
 
-    cfg := factory(api.NewAPI(&api.Settings{Id: 0, Type: "configuration"}, d.broadcast, nil))
+    cfg := factory(api.NewAPI(&api.Settings{Id: 0, Type: "configuration"}, d.broadcast))
     d.services[0] = cfg
-    d.services[0].Run()
-    d.cfg = cfg.(configuration.ConfigAPI)
-    err = d.cfg.GetError()
+    err = d.services[0].Run(nil)
     if nil != err {
         return
     }
     
-    //d.useService(cfg)
+    d.cfg = cfg.(configuration.ConfigAPI)    
     go d.queueServer(ctx)
 
     settings := d.cfg.Get()
     for _, s := range settings {
-        service := factory(api.NewAPI(s, d.broadcast, d.cfg))
+        service := factory(api.NewAPI(s, d.broadcast))
         if nil == service {
             log.Println("[Dispatcher] Unknown service type:", s)
         } else {
-            d.useService(service)
+            go d.runService(service)
         }
     }
     
@@ -150,30 +144,58 @@ func (dispatcher *Dispatcher) shutdownService(id int64) {
         shutdown()
         log.Println("Finished #", id)
     } else {
-        log.Println("Unknown service #", id)
+        log.Println("It's a new service? Can't shutdown unknown #", id)
+    }
+}
+
+// should be called async! don't call twice for the same service
+func (dispatcher *Dispatcher) runService(service Service) {
+    settings := service.GetSettings()
+    id := settings.Id
+    dispatcher.Lock()
+    if nil == dispatcher.services[id] {
+        dispatcher.services[id] = service
+    } else {
+        id = 0
+    }
+    dispatcher.Unlock()
+    
+    if 0 == id {
+        return
+    }
+    
+    for nil == dispatcher.ctx.Err() {
+        // TODO: dispatcher shutdown can happens here!
+        // service should exit with NOT NIL error only in case of real failure
+        err := serviceWrapper(service, dispatcher.cfg)
+        if nil == err {
+            break
+        }
+        log.Println("Service", service.GetName(), "crashed, restart in", serviceRestartDelay, "seconds:", err)
+        time.Sleep(serviceRestartDelay * time.Second)
     }
     dispatcher.Lock()
     delete(dispatcher.services, id)
     dispatcher.Unlock()
+    //log.Println("runService: service stopped", service.GetName())
 }
 
-func (dispatcher *Dispatcher) useService(service Service) {
-    settings := service.GetSettings()
-    id := settings.Id
-    dispatcher.Lock()
-    dispatcher.services[id] = service
-    dispatcher.Unlock()
-    go service.Run() // run async
-    log.Println("UseService: service started", service.GetName())
+func serviceWrapper(service Service, cfg configuration.ConfigAPI) (err error) {
+    defer func() {
+        if r := recover(); r != nil {
+            switch x := r.(type) {
+                case error: err = x
+                default: err = errors.New(fmt.Sprint(r))
+            }
+        }
+    }()
+    return service.Run(cfg)
 }
 
 func (dispatcher *Dispatcher) loggedIn(userId int64) (really bool) {
     _, really = dispatcher.clients[userId]
     return
 }
-
-
-
 
 func (dispatcher *Dispatcher) loginError(ws *websocket.Conn, class int64) {
     ev := api.Event{Event: class, Class: api.EC_ERROR}
@@ -302,8 +324,17 @@ func (dispatcher *Dispatcher) do(userId int64, q *Query) {
         log.Println("[Dispatcher] Unknown action (or nil result)", q.Action, "for #", q.Service)
         return
     }
+
+    /////////////// POST-PROCESSING ////////////////
+    if 0 == q.Service {
+        switch q.Action {
+            case "UpdateService": dispatcher.updateService(res) // TODO: control wrong settings
+            case "DeleteService": dispatcher.deleteService(res)
+        }
+    }
+
+    /// REPLY
     reply := api.ReplyMessage{Service: q.Service, Action: q.Action, Task: q.Task, Data: res}
-    
     // send to client...
     if 0 != userId {
         dispatcher.reply(userId, &reply)
@@ -314,16 +345,7 @@ func (dispatcher *Dispatcher) do(userId int64, q *Query) {
         q.Task = 0
         dispatcher.broadcast(userId, &reply)
     }
-    
-    /////////////// POSTPROCESSING ////////////////
-    if 0 == q.Service {
-        switch q.Action {
-            case "UpdateService":
-            dispatcher.updateService(res) // TODO: control wrong settings
-            case "DeleteService":
-                dispatcher.deleteService(res)
-        }
-    }
+
 }
 
 func (dispatcher *Dispatcher) broadcastEvent(event *api.Event) {
@@ -466,11 +488,11 @@ func (dispatcher *Dispatcher) updateService(data interface{}) {
     //log.Println("[Diaspatcher] updating service", s)
     dispatcher.shutdownService(s.Id)
     // (Re-)Create service
-    service := factory(api.NewAPI(s, dispatcher.broadcast, dispatcher.cfg))
+    service := factory(api.NewAPI(s, dispatcher.broadcast))
     if nil == service {
         log.Println("[Dispatcher] Wrong settings:", s)
     } else {
-        dispatcher.useService(service)
+        go dispatcher.runService(service) // run async!
     }
 }
 

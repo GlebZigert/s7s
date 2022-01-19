@@ -227,7 +227,7 @@ type ConfigAPI interface {
     GlobalDeviceId(systemId int64, handle, name string) (id int64)
     SaveDevice(serviceId int64, device *Device, data interface{})
     DeleteDevice(id int64) error
-    LoadDevices(serviceId int64) []Device
+    LoadDevices(serviceId int64) ([]Device, error)
     TouchDevice(serviceId int64, dev *Device)
     
     LoadLinks(sourceId int64, link string) (list []ExtLink)
