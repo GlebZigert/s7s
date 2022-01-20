@@ -11,8 +11,7 @@ import (
 type IPMon struct {
     sync.RWMutex
     api.API
-    cfg     configuration.ConfigAPI
-    
+
     devices         map[int64] *Device
 }
 

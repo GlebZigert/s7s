@@ -340,7 +340,7 @@ fmt.Printf("[current_dev_state] ",current_dev_state)
             if len(ee)>0{
 
          
-                   svc.cfg.ImportEvents(ee)
+                   core.ImportEvents(ee)
             svc.Broadcast("Events", ee)
             }
                 
@@ -401,7 +401,7 @@ fmt.Println("======================")
             Reaction:   "REACTION",
             Time:       parseTime(time. Now().String()).Unix()})
  
-    svc.cfg.ImportEvents(ee)
+    core.ImportEvents(ee)
 
     svc.Broadcast("Events", ee)
 }

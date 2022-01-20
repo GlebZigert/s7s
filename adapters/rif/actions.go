@@ -16,7 +16,7 @@ var cmdList = map[int64]string {
 func (svc *Rif) resetAlarm(cid int64, data []byte) (interface{}, bool) {
     var id int64
     json.Unmarshal(data, &id)
-    //svc.cfg.DeleteDevice(id)
+    //core.DeleteDevice(id)
 
     svc.RLock()
     defer svc.RUnlock()

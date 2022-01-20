@@ -119,11 +119,6 @@ type VisitorLocation struct {
     ZoneId      int64   `json:"zoneId"`
 }
 
-
-//type Fields dblayer.Fields
-
-type Action func (cid int, json []byte)
-
 type Configuration struct {
     sync.RWMutex
     //dblayer.DBLayer

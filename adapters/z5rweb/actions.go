@@ -34,7 +34,7 @@ import (
 func (svc *Z5RWeb) resetAlarm(cid int64, data []byte) (interface{}, bool) {
     var id int64
     json.Unmarshal(data, &id)
-    //svc.cfg.DeleteDevice(id)
+    //core.DeleteDevice(id)
 
     svc.RLock()
     defer svc.RUnlock()
@@ -122,8 +122,8 @@ func (svc *Z5RWeb) updateDevice(cid int64, data []byte) (interface{}, bool) {
         //dev.ExternalZone = device.ExternalZone
         //dev.InternalZone = device.InternalZone
         dev.Zones = device.Zones
-        svc.cfg.SaveDevice(svc.Settings.Id, &dev.Device, nil)
-        svc.cfg.SaveLinks(dev.Id, "device-zone", dev.Zones)
+        core.SaveDevice(svc.Settings.Id, &dev.Device, nil)
+        core.SaveLinks(dev.Id, "device-zone", dev.Zones)
         return *dev, true // broadcast
     }
     return "Устройство не найдено", false // don't broadcast error
@@ -132,7 +132,7 @@ func (svc *Z5RWeb) updateDevice(cid int64, data []byte) (interface{}, bool) {
 func (svc *Z5RWeb) deleteDevice(cid int64, data []byte) (interface{}, bool) {
     var id int64
     json.Unmarshal(data, &id)
-    svc.cfg.DeleteDevice(id)
+    core.DeleteDevice(id)
 
     svc.Lock()
     delete(svc.devices, id)

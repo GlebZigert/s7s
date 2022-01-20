@@ -10,7 +10,7 @@ import (
 func (svc *IPMon) resetAlarm(cid int64, data []byte) (interface{}, bool) {
     var id int64
     json.Unmarshal(data, &id)
-    //svc.cfg.DeleteDevice(id)
+    //core.DeleteDevice(id)
 
     svc.RLock()
     defer svc.RUnlock()
@@ -54,7 +54,7 @@ func (svc *IPMon) updateDevice(cid int64, data []byte) (interface{}, bool) {
     }
     dev.Name = device.Name
     dev.IP = device.IP
-    svc.cfg.SaveDevice(svc.Settings.Id, &dev.Device, &dev.DeviceData)
+    core.SaveDevice(svc.Settings.Id, &dev.Device, &dev.DeviceData)
     if nil == svc.devices[dev.Id] {
         svc.devices[dev.Id] = dev
     }
@@ -65,7 +65,7 @@ func (svc *IPMon) updateDevice(cid int64, data []byte) (interface{}, bool) {
 func (svc *IPMon) deleteDevice(cid int64, data []byte) (interface{}, bool) {
     var id int64
     json.Unmarshal(data, &id)
-    svc.cfg.DeleteDevice(id)
+    core.DeleteDevice(id)
 
     svc.Lock()
     delete(svc.devices, id)

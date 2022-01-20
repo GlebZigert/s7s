@@ -7,7 +7,6 @@ import (
     "time"
     "../../api"
     "../../dblayer"
-    "../configuration"
 )
 
 type Reply func (int, string, string, interface{})
@@ -16,7 +15,6 @@ type Rif struct {
     sync.RWMutex
     dblayer.DBLayer
     api.API
-    cfg     configuration.ConfigAPI
     xmlLog  *os.File
     
 	// use int key only for session, for long-term storage use [type-num1-num2-num3] key

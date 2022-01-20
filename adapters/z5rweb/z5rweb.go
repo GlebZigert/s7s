@@ -26,10 +26,12 @@ const (
     wrongPinsInterval = 60 // seconds
 )
 
+var core configuration.ConfigAPI
+
 func (svc *Z5RWeb) Run(cfg configuration.ConfigAPI) (err error) {
+    core = cfg
     var ctx context.Context
     ctx, svc.Cancel = context.WithCancel(context.Background())
-    svc.cfg = cfg
     svc.Stopped = make(chan struct{})
     defer close(svc.Stopped)
     
@@ -138,11 +140,11 @@ func (svc *Z5RWeb) setState(devId, code int64, text, card, dts string) api.Event
     if 0 == userId && "" != card {
         //TODO: get from cfg by card# ?
         //userId = svc.getLastUser(dev.Id)
-        userId = svc.cfg.UserByCard(card)
+        userId = core.UserByCard(card)
         if 0 == userId {
             card = svc.getLastCard(devId, reader)
             if "" != card {
-                userId = svc.cfg.UserByCard(card)
+                userId = core.UserByCard(card)
                 //svc.cleanLastCard(dev.Id, reader)
             }
         }
@@ -190,8 +192,8 @@ func (svc *Z5RWeb) setState(devId, code int64, text, card, dts string) api.Event
     
     
     /*if code == 16 || code == 17 {
-        //state.RelatedDevices = svc.cfg.SameZoneDevices(dev.Id) // for event filtering
-        svc.cfg.EnterZone(*state)
+        //state.RelatedDevices = core.SameZoneDevices(dev.Id) // for event filtering
+        core.EnterZone(*state)
     }*/
     
     return dev.States[0]
@@ -199,7 +201,7 @@ func (svc *Z5RWeb) setState(devId, code int64, text, card, dts string) api.Event
 
 func (svc *Z5RWeb) loadDevices() (err error) {
     svc.devices = make(map[int64] *Device)
-    devices, err := svc.cfg.LoadDevices(svc.Settings.Id)
+    devices, err := core.LoadDevices(svc.Settings.Id)
 
     for i := range devices {
         dev := Device{Device: devices[i]}
@@ -208,7 +210,7 @@ func (svc *Z5RWeb) loadDevices() (err error) {
         dev.States[0].Text = api.DescribeClass(dev.States[0].Class)
         dev.States[0].DeviceId = dev.Id
         dev.States[0].DeviceName = dev.Name
-        dev.Zones = svc.cfg.LoadLinks(dev.Id, "device-zone")
+        dev.Zones = core.LoadLinks(dev.Id, "device-zone")
         svc.Lock()
         svc.devices[dev.Id] = &dev
         svc.Unlock()
@@ -236,7 +238,7 @@ func (svc *Z5RWeb) findDevice(handle string) (*Device, int64) {
 }
 
 func (svc *Z5RWeb) appendDevice(dev *Device) {
-    svc.cfg.SaveDevice(svc.Settings.Id, &dev.Device, nil)
+    core.SaveDevice(svc.Settings.Id, &dev.Device, nil)
     devId := dev.Id
     dev.States[0].DeviceId = dev.Id
     dev.States[0].DeviceName = dev.Name

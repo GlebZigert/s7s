@@ -204,7 +204,7 @@ for i:=0;i<len( svc.m_camera_list.Cameras);i++{
     var globalDeviceId int64
 
 
-    globalDeviceId=svc.cfg.GlobalDeviceId(svc.Settings.Id,m_camera.DisplayID,m_camera.DisplayName)
+    globalDeviceId=core.GlobalDeviceId(svc.Settings.Id,m_camera.DisplayID,m_camera.DisplayName)
 
 
 //Проверяем есть ли в системе устройство с этим глобал айди
@@ -1207,8 +1207,8 @@ func (svc *Axxon) request_URL_for_globalDeviceId(cid int64, data []byte) (interf
      //fmt.Println(globalDeviceId)   
 
     //ar cameraId string
-    //cameraId,xxx:=svc.cfg.get_for_globalDeviceId(globalDeviceId)    
-//cameraId,xxx,res:=svc.cfg.Get_for_globalDeviceId(globalDeviceId)
+    //cameraId,xxx:=core.get_for_globalDeviceId(globalDeviceId)    
+//cameraId,xxx,res:=core.Get_for_globalDeviceId(globalDeviceId)
 //if res==true{
 //fmt.Println(xxx)
 
@@ -1784,7 +1784,7 @@ func (svc *Axxon) ResetAlarm(cid int64, data []byte) (interface{}, bool) {
   fmt.Println("[ResetAlarm]") 
     var id int64
     json.Unmarshal(data, &id)
-    //svc.cfg.DeleteDevice(id)
+    //core.DeleteDevice(id)
 
     svc.RLock()
     defer svc.RUnlock()

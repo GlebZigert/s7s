@@ -20,9 +20,9 @@ const (
 	
 )
 //fmt.Println("cid               ",cid)
-//filter := svc.cfg.Authorize(cid, svc.Settings.Id, api.AM_WATCH | api.AM_CONTROL)
+//filter := core.Authorize(cid, svc.Settings.Id, api.AM_WATCH | api.AM_CONTROL)
     // TODO: real filter
-    filter, _ := svc.cfg.Authorize(cid, []int64{})
+    filter, _ := core.Authorize(cid, []int64{})
 
 
 //Проверка на доступ
@@ -146,7 +146,7 @@ func (svc *Axxon) Telemetry_command(cid int64, data []byte) (interface{}, bool){
 
 	if res==2{
 
-		user:=svc.cfg.GetUser_for_Axxon(another_cid)
+		user:=core.GetUser_for_Axxon(another_cid)
 
 		fmt.Println("Камерой управляет другой пользователь:\n")
 		fmt.Println(user.Name," ",user.Surename)
@@ -164,7 +164,7 @@ func (svc *Axxon) Telemetry_command(cid int64, data []byte) (interface{}, bool){
 
 	if res==1{
 
-		svc.cfg.GetUser_for_Axxon(cid)
+		core.GetUser_for_Axxon(cid)
 
 		//fmt.Println("Камерой управляет другой пользователь:\n")
 		//fmt.Println(user.Name," ",user.Surename)

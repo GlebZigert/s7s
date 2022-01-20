@@ -27,10 +27,12 @@ var responses = map[int64] []int64 {
     100: []int64{100, 110, 151, 1001, 1003},
     101: []int64{101, 111, 150, 1000, 1004}}
 
+var core configuration.ConfigAPI
+
 func (svc *Rif) Run(cfg configuration.ConfigAPI) (err error) {
+    core = cfg
     var ctx context.Context
     ctx, svc.Cancel = context.WithCancel(context.Background())
-    svc.cfg = cfg
     svc.Stopped = make(chan struct{})
     defer close(svc.Stopped)
 
@@ -115,7 +117,7 @@ func (svc *Rif) scanEvents(events []_Event) {
         }
         
         handle := svc.makeHandle(&events[i])
-        devId := svc.cfg.GlobalDeviceId(svc.Settings.Id, handle, events[i].DeviceName)
+        devId := core.GlobalDeviceId(svc.Settings.Id, handle, events[i].DeviceName)
         ee = append(ee, api.Event {
             ExternalId: events[i].Id,
             Event:      events[i].Event,
@@ -133,7 +135,7 @@ func (svc *Rif) scanEvents(events []_Event) {
     } else {
         //svc.Log("Empty events list")
     }
-    svc.cfg.ImportEvents(ee)
+    core.ImportEvents(ee)
     if eventsPacketSize == len(events) {
         // read more events
         //time.Sleep(200 * time.Millisecond)
@@ -172,7 +174,7 @@ func (svc *Rif) getEventLog(nextId int64) {
     var cmd string
     if 0 == nextId {
         // get real last stored event id from the db
-        lastEvent, err := svc.cfg.GetLastEvent(svc.Settings.Id)
+        lastEvent, err := core.GetLastEvent(svc.Settings.Id)
         if nil != err {
             return
         }
@@ -214,7 +216,7 @@ func (svc *Rif) populate(devices []_Device) {
         } else {
             //fixedId = svc.getDeviceId(&devices[i])
             handle := svc.makeHandle(&devices[i])
-            fixedId = svc.cfg.GlobalDeviceId(svc.Settings.Id, handle, devices[i].Name)
+            fixedId = core.GlobalDeviceId(svc.Settings.Id, handle, devices[i].Name)
         }
         
         // ignore duplicates (linked with or "nested" into devices, not groups?)

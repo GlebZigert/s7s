@@ -109,7 +109,7 @@ type Settings struct {
     //URL        string
     Login           string   `json:"login"`
     Password        string   `json:"-"`
-    NewPassword     string  `json:"password"` // input from extrenal form 
+    NewPassword     string  `json:"password"` // input from external form 
     KeepAlive       int      `json:"keepAlive"`
     
     DBHost          string   `json:"dbHost"`   // host:port
@@ -117,7 +117,7 @@ type Settings struct {
     DBName          string   `json:"dbName"`
     DBLogin         string   `json:"dbLogin"`
     DBPassword      string   `json:"-"`
-    NewDBPassword   string   `json:"newDBPassword"` // input from extrenal form 
+    NewDBPassword   string   `json:"newDBPassword"` // input from external form 
     
     Status     struct {
         sync.RWMutex
@@ -128,13 +128,6 @@ type Settings struct {
 }
 
 //type ServicesList []Settings // for filtering
-
-
-type Task struct {
-    ClientId    int
-    TaskId      int
-}
-
 
 /*func (services ServicesList) GetList() []int64 {
     return nil
