@@ -172,7 +172,10 @@ func (svc *Rif) getEventLog(nextId int64) {
     var cmd string
     if 0 == nextId {
         // get real last stored event id from the db
-        lastEvent := svc.cfg.GetLastEvent(svc.Settings.Id)
+        lastEvent, err := svc.cfg.GetLastEvent(svc.Settings.Id)
+        if nil != err {
+            return
+        }
         if nil != lastEvent {
             nextId = lastEvent.ExternalId + 1
         }

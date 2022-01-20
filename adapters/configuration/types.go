@@ -222,7 +222,7 @@ type ConfigAPI interface {
     //ResetAlarm(serviceId, deviceId int64)
     ProcessEvents(event api.EventsList) error
     ImportEvents([]api.Event)
-    GetLastEvent(serviceId int64) *api.Event
+    GetLastEvent(serviceId int64) (*api.Event, error)
 
     GlobalDeviceId(systemId int64, handle, name string) (id int64)
     SaveDevice(serviceId int64, device *Device, data interface{})

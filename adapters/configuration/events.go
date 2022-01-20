@@ -222,18 +222,20 @@ func (cfg *Configuration) ImportEvents(events []api.Event) {
     }
 }
 
-func (cfg *Configuration) GetLastEvent(serviceId int64) (event *api.Event){
+func (cfg *Configuration) GetLastEvent(serviceId int64) (event *api.Event, err error) {
     event = new(api.Event)
     fields := eventFields(event)
-    rows, values, _ := db.Table("events").
+    rows, values, err := db.Table("events").
         Seek("external_id > 0 AND service_id = ?", serviceId).
         Order("external_id DESC").
         Get(nil, fields, 1)
     defer rows.Close()
     if rows.Next() {
-        err := rows.Scan(values...)
-        catch(err)
+        err = rows.Scan(values...)
     } else {
+        event = nil
+    }
+    if err != nil {
         event = nil
     }
     return
