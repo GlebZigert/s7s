@@ -216,7 +216,7 @@ type ConfigAPI interface {
     //CheckEvent(event *api.Event) []Algorithm
     //ResetAlarm(serviceId, deviceId int64)
     ProcessEvents(event api.EventsList) error
-    ImportEvents([]api.Event)
+    ImportEvents([]api.Event) error
     GetLastEvent(serviceId int64) (*api.Event, error)
 
     GlobalDeviceId(systemId int64, handle, name string) (id int64)

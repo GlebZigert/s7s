@@ -54,7 +54,6 @@ const (
 const (
     AM_WATCH = 1
     AM_CONTROL = 2
-    AM_RELATED_AP = 4 // related access point (same zone)
 )
 
 var ClassText = map[int64] string {

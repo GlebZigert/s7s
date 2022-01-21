@@ -68,7 +68,7 @@ func (svc *Rif) Shutdown() {
     ret := nil == svc.Cancel || nil == svc.Stopped
     svc.RUnlock()
     if ret {
-        return
+        return // shutdown called before Run
     }
 
     svc.Cancel()
@@ -108,7 +108,8 @@ func (svc *Rif) ZoneCommand(userId, zoneCommand int64, devList []int64) {
     }
 }
 
-func (svc *Rif) scanEvents(events []_Event) {
+
+func (svc *Rif) scanJourEvents(events []_Event) {
     //svc.Log(">>> EA:", len(events))
     ee := make([]api.Event, 0, len(events))
     for i:= range events {
@@ -135,7 +136,10 @@ func (svc *Rif) scanEvents(events []_Event) {
     } else {
         //svc.Log("Empty events list")
     }
-    core.ImportEvents(ee)
+    if err := core.ImportEvents(ee); nil != err {
+        // TODO: set service status "internal error"?
+        return // core db problems?
+    }
     if eventsPacketSize == len(events) {
         // read more events
         //time.Sleep(200 * time.Millisecond)
@@ -176,7 +180,7 @@ func (svc *Rif) getEventLog(nextId int64) {
         // get real last stored event id from the db
         lastEvent, err := core.GetLastEvent(svc.Settings.Id)
         if nil != err {
-            return
+            return // something happens with core database
         }
         if nil != lastEvent {
             nextId = lastEvent.ExternalId + 1

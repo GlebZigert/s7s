@@ -503,6 +503,12 @@ func (cfg *Configuration) setupApi() {
         "DeleteUser": cfg.deleteUser})
 }
 
+// check database error
+func (cfg *Configuration) cdbe(err error) {
+    if nil != err {
+        cfg.Log("Database problem:", err)
+    }
+}
 
 //////////////////////////////////////////////////////////////////////
 func findString(s string, list []string) int {

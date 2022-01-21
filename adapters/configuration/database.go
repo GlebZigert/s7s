@@ -32,8 +32,6 @@ func (cfg *Configuration) LoadLinks(sourceId int64, link string) (list []ExtLink
 
 
 func (cfg *Configuration) SaveLinks(sourceId int64, linkType string, list []ExtLink) (err error){
-    defer func(){cfg.Log(err)}()
-    cfg.Log("SAVING LINKS", sourceId, linkType, list)
     tx, err := db.Tx(qTimeout)
     if nil != err {
         return

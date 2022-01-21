@@ -82,7 +82,7 @@ func (rif *Rif) connect(ctx context.Context) {
                         switch p.Type {
                             case "InitialStatus": rif.populate(p.Devices)
                             case "EventsAndStates": rif.update(p.Devices)
-                            case "ListJourRecord": rif.scanEvents(p.Events)
+                            case "ListJourRecord": rif.scanJourEvents(p.Events)
                             default: rif.Warn("Unknown RIFPlusPacket type:", p.Type)
                         }
                     }
