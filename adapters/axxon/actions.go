@@ -277,7 +277,7 @@ func (svc *Axxon) request_to_axxon(req string) (string,error){
 			return "",err
 		}
 		bodyString := string(bodyBytes)
-			fmt.Println("ответ:  ",bodyString)
+		//	fmt.Println("ответ:  ",bodyString)
 
 		return bodyString,nil
 

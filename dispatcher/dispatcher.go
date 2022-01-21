@@ -177,7 +177,7 @@ func (dispatcher *Dispatcher) runService(service Service) {
     dispatcher.Lock()
     delete(dispatcher.services, id)
     dispatcher.Unlock()
-    //log.Println("runService: service stopped", service.GetName())
+    log.Println("runService: service stopped", service.GetName())
 }
 
 func serviceWrapper(service Service, cfg configuration.ConfigAPI) (err error) {

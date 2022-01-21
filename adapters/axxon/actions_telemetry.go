@@ -18,11 +18,60 @@ func (svc *Axxon) get_sessionId(cid int64, point string) (int64, int64, int64){
 			ANOTHER_USER_USE_CAMERA = 2
 			
 		)
-	
-		var xx []int64
-		xx[0]=svc.Settings.Id
-	filter,_ := svc.cfg.Authorize(cid, xx)
 
+	//Пробьем уровень авторизации для нужной нам камеры 
+	//по ее point найдем ее id
+
+	fmt.Println(" \n")
+	fmt.Println("ищем :",point)
+fmt.Println(" \n")			
+
+	for i:=0;i<len(svc.devList);i++{
+
+
+		var str=strings.Replace(svc.devList[i].TelemetryControlID,"hosts/","",1)
+		fmt.Println("найден :",str)
+	
+
+	if strings.Replace(str,"hosts/","",1)==point{
+
+		fmt.Println("[01]")	
+		var id = svc.devList[i].id
+
+		var xx =[]int64{id}
+		fmt.Println("[02]")	
+	//	xx[0]=id
+		fmt.Println("[03]")	
+
+		fmt.Println("[1]")		
+		auth_arr,_ := svc.cfg.Authorize(cid, xx)
+
+		fmt.Println("[2]")		
+		var res =auth_arr[0]
+
+		fmt.Println(" \n")
+				fmt.Println("результат: ",res)
+		fmt.Println(" \n")		
+
+		if res<2{
+
+			fmt.Println(" \n")
+			fmt.Println("Нет доступа к упралению телеметрией\n")
+			fmt.Println(" \n")					
+			return -1,YOU_YAVE_NO_ACCESS, -1
+		}		
+		
+	}
+
+	}
+
+	fmt.Println("[03]")	
+//	point=strings.Replace(point,"hosts/","",1)
+	
+//		var xx []int64
+//		xx[0]=svc.Settings.Id
+//	filter,_ := svc.cfg.Authorize(cid, xx)
+/*
 	for i:=0;i<len(svc.devList);i++{
 
 		if svc.devList[i].TelemetryControlID==point{
@@ -38,13 +87,14 @@ func (svc *Axxon) get_sessionId(cid int64, point string) (int64, int64, int64){
 			}
 		}
 	}
+	*/
 
 	var sessionId int64
 	sessionId=-1
 
 	free_camera:=true
 			
-			
+	fmt.Println("[3]")				
 	for _, session := range svc.telemetrySessions {
 		if session.point==point{
 			free_camera=false
@@ -106,11 +156,11 @@ func (svc *Axxon) Telemetry_command(cid int64, data []byte) (interface{}, bool){
 
 
 
-/*
+
     fmt.Println("\n")	
     fmt.Println("[Telemetry_command]")
     fmt.Println("\n")    
-*/
+
     var str string
     str=string(data[:])
     str=strings.Replace(str,"\"","",2)
@@ -131,11 +181,12 @@ func (svc *Axxon) Telemetry_command(cid int64, data []byte) (interface{}, bool){
 	
 	command:=words[0]	
 	point:= strings.Replace(words[1],"hosts/","",1)
+//point:= words[1]
 	sessionId,res,another_cid:=svc.get_sessionId(cid,point)	
 
-//	fmt.Println("sessionId: ",sessionId)
+	fmt.Println("sessionId: ",sessionId)
 
-	//fmt.Println("Камера point: ",point)
+	fmt.Println("Камера point: ",point)
 
 	if res==2{
 
@@ -159,7 +210,7 @@ func (svc *Axxon) Telemetry_command(cid int64, data []byte) (interface{}, bool){
 
 		svc.cfg.GetUser_for_Axxon(cid)
 
-		//fmt.Println("Камерой управляет другой пользователь:\n")
+		fmt.Println("Камерой управляет другой пользователь:\n")
 		//fmt.Println(user.Name," ",user.Surename)
  		answer.Name="No_access"
 

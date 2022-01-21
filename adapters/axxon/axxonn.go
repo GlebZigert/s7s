@@ -3,6 +3,7 @@ package axxon
 import (
 //    "log"
     "fmt"
+    "context"
      "../../api"
     "../configuration"
 	  "strings"
@@ -80,7 +81,15 @@ func backgroundTask(svc *Axxon) {
 
 
 func (svc *Axxon) Run(cfg configuration.ConfigAPI) (err error) {
- //Задаем логин пароль апи порт сервера Aххоn  
+  var ctx context.Context
+  ctx, svc.Cancel = context.WithCancel(context.Background())
+  svc.cfg = cfg
+  svc.Stopped = make(chan struct{})
+  defer close(svc.Stopped)
+
+
+
+  //Задаем логин пароль апи порт сервера Aххоn  
   svc.username=svc.Settings.Login
   svc.password=svc.Settings.Password    
   svc.ipaddr   = strings.Split(svc.Settings.Host,":")[0]
@@ -104,7 +113,6 @@ func (svc *Axxon) Run(cfg configuration.ConfigAPI) (err error) {
 
     
 
-    svc.cfg = cfg
     //go svc.SetTCPStatus("online")
 
     //Обновляем список камер
@@ -122,14 +130,29 @@ func (svc *Axxon) Run(cfg configuration.ConfigAPI) (err error) {
 
 
   }
- 
+
+  <-ctx.Done()
+  //////////////////////////////////////////////////////////////
+  
+  svc.Log("Shutting down...")
+  svc.SetServiceStatus(api.EC_SERVICE_SHUTDOWN)
+  return
+
   return
 }
 
 
 
 func (svc *Axxon) Shutdown() {
-    svc.Log("Shutting down...")
+  svc.RLock()
+  ret := nil == svc.Cancel || nil == svc.Stopped
+  svc.RUnlock()
+  if ret {
+      return
+  }
+
+  svc.Cancel()
+  <-svc.Stopped
 }
 
 
