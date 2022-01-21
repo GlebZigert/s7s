@@ -32,7 +32,9 @@ func (cfg *Configuration) LoadLinks(sourceId int64, link string) (list []ExtLink
 
 
 func (cfg *Configuration) SaveLinks(sourceId int64, linkType string, list []ExtLink) (err error){
-	tx, err := db.Tx(qTimeout)
+    defer func(){cfg.Log(err)}()
+    cfg.Log("SAVING LINKS", sourceId, linkType, list)
+    tx, err := db.Tx(qTimeout)
     if nil != err {
         return
     }
@@ -40,13 +42,13 @@ func (cfg *Configuration) SaveLinks(sourceId int64, linkType string, list []ExtL
     
     table := db.Table("external_links")
     err = table.Delete(tx, "link = ? AND source_id = ?", linkType, sourceId)
-    if nil == err {
+    if nil != err {
         tx.Rollback()
         return
     }
 
     for _, link := range list {
-        _, err = table.Insert(nil, dblayer.Fields {
+        _, err = table.Insert(tx, dblayer.Fields {
             "source_id": sourceId,
             "link": linkType,
             "scope_id": link[0],
