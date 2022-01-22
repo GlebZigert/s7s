@@ -35,19 +35,23 @@ fmt.Println(" \n")
 
 	if strings.Replace(str,"hosts/","",1)==point{
 
-		fmt.Println("[01]")	
+	
 		var id = svc.devList[i].id
 
 		var xx =[]int64{id}
-		fmt.Println("[02]")	
-	//	xx[0]=id
-		fmt.Println("[03]")	
 
-		fmt.Println("[1]")		
-		auth_arr,_ := svc.cfg.Authorize(cid, xx)
+		fmt.Println("cid: ",cid,"; id: ",xx)			
+		auth_arr,err := svc.cfg.Authorize(cid, xx)
 
-		fmt.Println("[2]")		
-		var res =auth_arr[0]
+		fmt.Println("arr: ",auth_arr)
+
+		if err!=nil{
+			fmt.Println("ERROR !!!")
+			fmt.Println(err)
+
+		}
+	
+		var res =auth_arr[id]
 
 		fmt.Println(" \n")
 				fmt.Println("результат: ",res)

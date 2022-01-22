@@ -15,8 +15,17 @@ import (
 // Return all devices IDs for user filtering
 func (svc *Axxon) GetList() []int64 {
   
+  list := make([]int64, 0, len(svc.devList))
+    
+  svc.RLock()
+  defer svc.RUnlock()
+  
+  for _,dev := range svc.devList {
+      list = append(list, dev.id)
+  }
 
-  return nil
+  return list
+
 }
 
 func backgroundTask(svc *Axxon) {
@@ -27,7 +36,7 @@ func backgroundTask(svc *Axxon) {
         count++;
         if count==10{
 
-        /*
+        
 
           fmt.Println(" ")
           fmt.Println(" ")
@@ -36,7 +45,7 @@ func backgroundTask(svc *Axxon) {
           fmt.Println(" ")
           fmt.Println(" ")
 
-        */
+        
           svc.devList_update()
 
           svc.Broadcast("ListDevices", svc.make_devList_for_client())   
@@ -114,6 +123,7 @@ func (svc *Axxon) Run(cfg configuration.ConfigAPI) (err error) {
     
 
     //go svc.SetTCPStatus("online")
+
 
     //Обновляем список камер
     svc.devList_update()

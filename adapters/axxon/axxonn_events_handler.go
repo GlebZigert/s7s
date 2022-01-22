@@ -321,7 +321,7 @@ func (svc *Axxon)  Take_axxon_events() {
 		  
 					//Не шли лист дева йс - шли только тот элемент и то свойство которое менялось. ???
 			//		svc.Broadcast("ListDevices", svc.devList)   
-			svc.devList_update()
+			//svc.devList_update()
 
 			svc.Broadcast("ListDevices", svc.make_devList_for_client())   
   

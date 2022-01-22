@@ -461,11 +461,11 @@ func (svc *Axxon) get_frash_snapshot_from(camera *Camera) string{
 	return snapshot
 }
 
-func (svc *Axxon) make_devList_for_client() []Device{ 
+func (svc *Axxon) make_devList_for_client() DeviceList{ 
 	//Блокируем запись из других потоков
 	svc.RLock()
 	defer svc.RUnlock()
-	var cameras []Device
+	var cameras DeviceList
 
 	for i:=0;i<len(svc.devList);i++{
 		cameras=append(cameras,svc.convert_for_client(&svc.devList[i]))

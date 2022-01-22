@@ -131,7 +131,10 @@ func (dispatcher *Dispatcher) processReply(reply *api.ReplyMessage) (err error) 
         log.Println("::: APPLY DEV FILTER :::", reply.Service, reply.Action)
         // INFO: filtering performed inside services to handle special conditions such as groups (virtual elements)
         idList := original.GetList()
+
         filter, err = dispatcher.cfg.Authorize(cid, idList)
+        log.Println("cid: ",cid)
+        log.Println("filter: ",filter)
         if nil == err {
             reply.Data = original.Filter(filter)
         }

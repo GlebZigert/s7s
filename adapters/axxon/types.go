@@ -132,7 +132,74 @@ type Camera struct {
 }
 
 
+
+
 type devList []dev
+
+type DeviceList []Device
+
+func (devices DeviceList) GetList() []int64 {
+
+    fmt.Println(" ")   
+    fmt.Println(" ")   
+    fmt.Println(" ")           
+    fmt.Println("axxon (devices DeviceList) GetList() ")
+    fmt.Println("len ",len(devices))    
+    fmt.Println(" ")   
+    fmt.Println(" ")   
+    fmt.Println(" ")     
+
+
+  list := make([]int64, 0, len(devices))
+  
+  for _,dev := range devices {
+      list = append(list, dev.Id)
+  }
+
+  return list
+}
+
+
+func (devices DeviceList) Filter(list map[int64]int64) interface{} {
+    fmt.Println(" ")   
+    fmt.Println(" ")   
+    fmt.Println(" ")           
+    fmt.Println("axxon (devices DeviceList) Filter")
+    fmt.Println("len ",len(devices))    
+    fmt.Println(" ")   
+    fmt.Println(" ")   
+    fmt.Println(" ")     
+    var res DeviceList
+
+
+    for i := range devices {
+        
+
+
+
+        // list[0] > 0 => whole service accessible
+        devices[i].AccessMode = list[0]
+        if 0 == devices[i].AccessMode {
+            devices[i].AccessMode = list[devices[i].Id]
+        }
+        if devices[i].AccessMode > 0 {
+            res = append(res, devices[i])
+
+
+        }
+
+        fmt.Println(devices[i].Name,"; access: ",devices[i].AccessMode)
+        
+
+    }
+    if len(res) > 0 {
+        return res
+    } else {
+        return nil
+    }
+}
+
+
 
 //
 type dev struct {
@@ -159,7 +226,7 @@ type Device struct {
  //   State string `json:"State"`
     Intervals intervals
     Frash_Snapshot string `json:"frash_snapshot"`
- //   AccessMode int64 `json:"accessMode"`
+    AccessMode int64 `json:"accessMode"`
 }
 
 type intervals struct {
@@ -240,7 +307,8 @@ func (svc *Axxon) find_alert(id int64,dt time.Time) (bool){
             return false
            
 }
-        
+
+
 
 
 
