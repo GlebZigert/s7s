@@ -50,12 +50,16 @@ fmt.Println(" \n")
 			fmt.Println(err)
 
 		}
+
+		var res = auth_arr[0]
 	
-		var res =auth_arr[id]
+		if(res==0){
+		res =auth_arr[id]		}
 
 		fmt.Println(" \n")
 				fmt.Println("результат: ",res)
-		fmt.Println(" \n")		
+		fmt.Println(" \n")
+		
 
 		if res<2{
 

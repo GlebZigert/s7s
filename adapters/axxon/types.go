@@ -172,6 +172,9 @@ func (devices DeviceList) Filter(list map[int64]int64) interface{} {
     var res DeviceList
 
 
+    fmt.Println("devices: ",devices) 
+    fmt.Println("list: ",list) 
+
     for i := range devices {
         
 
@@ -180,9 +183,12 @@ func (devices DeviceList) Filter(list map[int64]int64) interface{} {
         // list[0] > 0 => whole service accessible
         devices[i].AccessMode = list[0]
         if 0 == devices[i].AccessMode {
+            fmt.Println("[1] ") 
+            fmt.Println("devices[i].Id: ",devices[i].Id) 
             devices[i].AccessMode = list[devices[i].Id]
         }
         if devices[i].AccessMode > 0 {
+            fmt.Println("[2] ") 
             res = append(res, devices[i])
 
 
