@@ -133,8 +133,7 @@ func (dispatcher *Dispatcher) processReply(reply *api.ReplyMessage) (err error) 
         idList := original.GetList()
 
         filter, err = dispatcher.cfg.Authorize(cid, idList)
-        log.Println("cid: ",cid)
-        log.Println("filter: ",filter)
+
         if nil == err {
             reply.Data = original.Filter(filter)
         }
