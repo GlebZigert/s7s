@@ -135,7 +135,7 @@ func (svc *Axxon)  Take_axxon_events() {
 			  for {
 		  
 				if err:=websocket.JSON.Receive(svc.conn,&rcv);err!=nil{
-				  fmt.Println(err)  
+				//  fmt.Println(err)  
 				}else{
 
 					/*

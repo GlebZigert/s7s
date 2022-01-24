@@ -238,26 +238,41 @@ func (svc *Axxon) get_cameraList() error{
 
 func (svc *Axxon) control_connection_status(res bool){
 
+
+	fmt.Println("status: ",api.ClassText[svc.Settings.Status.TCP])
+
 	if(res==false){
 		fmt.Println("[ERROR  http.Get(request)]")
-	}
+		svc.SetServiceStatus(api.EC_SERVICE_OFFLINE)
 
+	}else{
+
+	svc.SetServiceStatus(api.EC_SERVICE_ONLINE)
+	}
 }	
 
 func (svc *Axxon) request_to_axxon(req string) (string,error){
 	request:=svc.msg_to_axxon(req)
 	fmt.Println("запрос: ",request)
+
+	
 	resp, err := http.Get(request) 
 	
 	var res bool
+
 	if err==nil{
 		res=true
+		svc.control_connection_status(res)
 	}else{
 		res=false
+		svc.control_connection_status(res)
+		return "",err
 	}
 
-	svc.control_connection_status(res)
+
 	
+
+
 		if err != nil { 
 			
 			

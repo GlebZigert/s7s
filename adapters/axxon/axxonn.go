@@ -123,7 +123,7 @@ func (svc *Axxon) Run(cfg configuration.ConfigAPI) (err error) {
     
 
     //go svc.SetTCPStatus("online")
-
+    svc.SetServiceStatus(api.EC_SERVICE_ONLINE)
 
     //Обновляем список камер
     svc.devList_update()
