@@ -138,14 +138,12 @@ func (svc *Axxon)  Take_axxon_events() {
 				//  fmt.Println(err)  
 				}else{
 
-					/*
-				  fmt.Println(" \n")
-				  fmt.Println(" \n")
-				  fmt.Println("[1] ")
+					
+
 				  fmt.Println(" ")
 				  fmt.Println("[!!]rcv: ",rcv)
 				  fmt.Println(" ")
-		  */
+		  
 					//если есть принятые сообщения от Axxon
 					if len(rcv.Objects)>0{
 		  
@@ -156,15 +154,18 @@ func (svc *Axxon)  Take_axxon_events() {
 					  for j:=0;j<len(svc.devList);j++    {
 		  
 						//берем fccesspoint устройства по которому будем сверять событие с сервера Axxon
-						point:="hosts/"+svc.devList[j].pointer.VideoStreams[0].AccessPoint
-						  //    fmt.Println("point: ",point)
+						point:=svc.devList[j].pointer.VideoStreams[0].AccessPoint
+						      fmt.Println("Наши камеры: ",point)
 		  
 						//gперебираем все полученные события
+
 						for i := 0; i < len(rcv.Objects); i++ {
 		  
 						  //По accesspoint проверяем, для этой ли камеры это событие
+						  fmt.Println("пришли камеры: ",rcv.Objects[i].Name)
+
 						  if rcv.Objects[i].Name==point{
-						//	fmt.Println("[2] ")
+							fmt.Println("[2] ")
 		  
 							//Далее в зависимости от типа события
 							if rcv.Objects[i].Type=="devicestatechanged"{
@@ -172,9 +173,9 @@ func (svc *Axxon)  Take_axxon_events() {
 		  
 							  //     fmt.Println("обьект: ",rcv.Objects[i].Name,"; тип: ",rcv.Objects[i].Type,"; состояние: ",rcv.Objects[i].State)
 							  //Добавь изменения в listDevices
-							  //    fmt.Println(" ")  
-							  //    fmt.Println("Камера ",point," Изменила состояние на ",rcv.Objects[i].State)  
-							  //    fmt.Println(" ") 
+							      fmt.Println(" ")  
+							      fmt.Println("Камера ",point," Изменила состояние на ",rcv.Objects[i].State)  
+							      fmt.Println(" ") 
 		  
 							  prev_dev_state:=svc.devList[j].state
 		  
@@ -310,7 +311,7 @@ func (svc *Axxon)  Take_axxon_events() {
 				//	 fmt.Println("len(ee) ",len(ee))
 					  if len(ee)>0{
 		  
-				   
+						fmt.Println("Отправляю событие ",ee)
 							 svc.cfg.ImportEvents(ee)
 					  svc.Broadcast("Events", ee)
 					  }

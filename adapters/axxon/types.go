@@ -139,7 +139,7 @@ type devList []dev
 type DeviceList []Device
 
 func (devices DeviceList) GetList() []int64 {
-
+/*
     fmt.Println(" ")   
     fmt.Println(" ")   
     fmt.Println(" ")           
@@ -148,7 +148,7 @@ func (devices DeviceList) GetList() []int64 {
     fmt.Println(" ")   
     fmt.Println(" ")   
     fmt.Println(" ")     
-
+*/
 
   list := make([]int64, 0, len(devices))
   
@@ -161,6 +161,7 @@ func (devices DeviceList) GetList() []int64 {
 
 
 func (devices DeviceList) Filter(list map[int64]int64) interface{} {
+/*
     fmt.Println(" ")   
     fmt.Println(" ")   
     fmt.Println(" ")           
@@ -169,11 +170,12 @@ func (devices DeviceList) Filter(list map[int64]int64) interface{} {
     fmt.Println(" ")   
     fmt.Println(" ")   
     fmt.Println(" ")     
+    */
     var res DeviceList
 
 
-    fmt.Println("devices: ",devices) 
-    fmt.Println("list: ",list) 
+    //fmt.Println("devices: ",devices) 
+    //fmt.Println("list: ",list) 
 
     for i := range devices {
         
@@ -183,12 +185,12 @@ func (devices DeviceList) Filter(list map[int64]int64) interface{} {
         // list[0] > 0 => whole service accessible
         devices[i].AccessMode = list[0]
         if 0 == devices[i].AccessMode {
-            fmt.Println("[1] ") 
-            fmt.Println("devices[i].Id: ",devices[i].Id) 
+      //      fmt.Println("[1] ") 
+      //      fmt.Println("devices[i].Id: ",devices[i].Id) 
             devices[i].AccessMode = list[devices[i].Id]
         }
         if devices[i].AccessMode > 0 {
-            fmt.Println("[2] ") 
+     //     fmt.Println("[2] ") 
             res = append(res, devices[i])
 
 
