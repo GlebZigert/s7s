@@ -18,10 +18,10 @@ type Axxon struct {
  username,password,ipaddr,port string
 
     background_done chan bool
-    axxon_event_handler_done chan bool
+    eventHandler_done chan bool
 
     quit chan bool
-    quit_axxonEventHandler chan bool
+    quit_eventHandler chan bool
     sync.RWMutex
     api.API
     cameraList cameraList

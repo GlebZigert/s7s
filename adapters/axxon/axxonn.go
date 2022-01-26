@@ -6,6 +6,7 @@ import (
     "context"
      "../../api"
     "../configuration"
+//    "golang.org/x/net/websocket"
 	  "strings"
     "time"  
     //  "strconv" 
@@ -113,6 +114,10 @@ func (svc *Axxon) Run(cfg configuration.ConfigAPI) (err error) {
 
  svc.quit = make(chan bool)
  svc.background_done = make(chan bool)
+
+ svc.quit_eventHandler = make(chan bool)
+ svc.eventHandler_done = make(chan bool)
+
 //Проверяем соеднинение с сервером Axxon
   if !svc.test_http_connection(){
     svc.Log("Не удалось установить соединение с сервером Axxon!! Проверьте настройки!!")     
@@ -153,9 +158,16 @@ func (svc *Axxon) Run(cfg configuration.ConfigAPI) (err error) {
   //////////////////////////////////////////////////////////////
 
   svc.quit<-true
- <-svc.background_done
 
+   svc.conn.Close();
+  svc.quit_eventHandler<-true
+ 
+
+ <-svc.background_done
  svc.Log("background DONE") 
+
+ <-svc.eventHandler_done
+ svc.Log("eventHandler DONE") 
   
   svc.Log("Shutting down...")
   svc.SetServiceStatus(api.EC_SERVICE_SHUTDOWN)
