@@ -288,6 +288,7 @@ func (cfg *Configuration) listServices(cid int64, data []byte) (interface{}, boo
         r.DBPassword = ""
         r.Password = ""
     }
+    cfg.Log("################# LIST:", res)
     return res, false
 }
 

@@ -18,7 +18,7 @@ import (
     "../api"
 	"../adapters/rif"
     //"../adapters/sigur"
-    //"../adapters/axxon"
+    "../adapters/axxon"
     "../adapters/z5rweb"
     "../adapters/ipmon"
     "../adapters/parus"
@@ -41,7 +41,7 @@ func factory(api *api.API) Service {
         case "configuration": service = &configuration.Configuration{API: *api}
         case "rif": service = &rif.Rif{API: *api}
         //case "sigur": service = &sigur.Sigur{API: *api}
-        //case "axxon": service = &axxon.Axxon{API: *api}
+        case "axxon": service = &axxon.Axxon{API: *api}
         case "z5rweb": service = &z5rweb.Z5RWeb{API: *api}
         case "ipmon": service = &ipmon.IPMon{API: *api}
         case "parus": service = &parus.Parus{API: *api}
@@ -179,7 +179,7 @@ func (dispatcher *Dispatcher) runService(service Service) {
     dispatcher.Lock()
     delete(dispatcher.services, id)
     dispatcher.Unlock()
-    //log.Println("runService: service stopped", service.GetName())
+    log.Println("runService: service stopped", service.GetName())
 }
 
 func serviceWrapper(service Service, cfg configuration.ConfigAPI) (err error) {
