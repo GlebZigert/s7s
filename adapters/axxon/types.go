@@ -17,6 +17,11 @@ type Axxon struct {
  //Настройки соединения с сервером Axxon    
  username,password,ipaddr,port string
 
+    background_done chan bool
+    axxon_event_handler_done chan bool
+
+    quit chan bool
+    quit_axxonEventHandler chan bool
     sync.RWMutex
     api.API
     cameraList cameraList

@@ -2,7 +2,7 @@ package axxon
 
 import (
 //    "log"
-    "fmt"
+//    "fmt"
     "context"
      "../../api"
     "../configuration"
@@ -33,17 +33,29 @@ func backgroundTask(svc *Axxon) {
     var count=0;
     for _ = range ticker.C {
 
+
+      select {
+      case <-svc.quit:
+        svc.Log(" ")
+        svc.Log("backgroundTask STOPPING...")
+        svc.Log(" ")  
+        svc.background_done<-true
+          return
+      default:
+
+        svc.Log(".")
+
         count++;
         if count==10{
 
         
 
-          fmt.Println(" ")
-          fmt.Println(" ")
-          fmt.Println("ОПРОС СПИСОК КАМЕР ")
+          svc.Log(" ")
+          svc.Log(" ")
+          svc.Log("ОПРОС СПИСОК КАМЕР ")
 
-          fmt.Println(" ")
-          fmt.Println(" ")
+          svc.Log(" ")
+          svc.Log(" ")
 
         
           svc.devList_update()
@@ -56,9 +68,9 @@ func backgroundTask(svc *Axxon) {
         }
 
         if len(svc.telemetrySessions)>0{
-//          fmt.Println("Количество сессий: ",len(svc.telemetrySessions))
+//          svc.Log("Количество сессий: ",len(svc.telemetrySessions))
           for idx, session := range svc.telemetrySessions {
-//              fmt.Println("idx: ",idx,"; cid: ",session.cid,"; point: ",session.point,"; key: ",session.key,"; livetime: ",session.livetime)
+//              svc.Log("idx: ",idx,"; cid: ",session.cid,"; point: ",session.point,"; key: ",session.key,"; livetime: ",session.livetime)
   
               if session.livetime>0{
            //   session.livetime=session.livetime-1
@@ -68,7 +80,7 @@ func backgroundTask(svc *Axxon) {
               }
   
               if session.livetime==0{
-              fmt.Println("Удаляю сессию idx: ",idx,"; cid: ",session.cid,"; point: ",session.point,"; key: ",session.key,"; livetime: ",session.livetime)   
+              svc.Log("Удаляю сессию idx: ",idx,"; cid: ",session.cid,"; point: ",session.point,"; key: ",session.key,"; livetime: ",session.livetime)   
               delete(svc.telemetrySessions,idx)   
   
               }
@@ -78,12 +90,7 @@ func backgroundTask(svc *Axxon) {
           }
 
 
-
-
-
-
-
-
+        }
     }
 }
 
@@ -104,12 +111,13 @@ func (svc *Axxon) Run(cfg configuration.ConfigAPI) (err error) {
   svc.ipaddr   = strings.Split(svc.Settings.Host,":")[0]
   svc.port     = strings.Split(svc.Settings.Host,":")[1]
 
-
+ svc.quit = make(chan bool)
+ svc.background_done = make(chan bool)
 //Проверяем соеднинение с сервером Axxon
   if !svc.test_http_connection(){
-    fmt.Println("Не удалось установить соединение с сервером Axxon!! Проверьте настройки!!")     
+    svc.Log("Не удалось установить соединение с сервером Axxon!! Проверьте настройки!!")     
   }else{
-    fmt.Println("Соединение установлено") 
+    svc.Log("Соединение установлено") 
 
     svc.telemetrySessions=make(map[int]telemetrySession)
 
@@ -143,6 +151,11 @@ func (svc *Axxon) Run(cfg configuration.ConfigAPI) (err error) {
 
   <-ctx.Done()
   //////////////////////////////////////////////////////////////
+
+  svc.quit<-true
+ <-svc.background_done
+
+ svc.Log("background DONE") 
   
   svc.Log("Shutting down...")
   svc.SetServiceStatus(api.EC_SERVICE_SHUTDOWN)
