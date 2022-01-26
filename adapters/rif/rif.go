@@ -45,13 +45,17 @@ func (svc *Rif) Run(cfg configuration.ConfigAPI) (err error) {
     
     svc.waitReply = make(map[string]int64)
     svc.queryEventsChan = make(chan int64, 1)
+    //defer close(svc.queryEventsChan)
+    svc.complaints = make(chan error, 10)
+    //defer close(svc.queryEventsChan)
     
+    go svc.ErrChecker(ctx, svc.complaints, api.EC_SERVICE_READY, api.EC_SERVICE_FAILURE)
     go svc.connect(ctx)
     go svc.keepAlive(ctx, svc.Settings.KeepAlive)
     go svc.pollEventLog(ctx)
     
     svc.setupApi()
-    svc.SetServiceStatus(api.EC_SERVICE_READY)
+    //svc.SetServiceStatus(api.EC_SERVICE_READY)
     
     <-ctx.Done()
     ////////////////////////////////////////////////////////
@@ -109,16 +113,22 @@ func (svc *Rif) ZoneCommand(userId, zoneCommand int64, devList []int64) {
 }
 
 
-func (svc *Rif) scanJourEvents(events []_Event) {
+func (svc *Rif) scanJourEvents(events []_Event) (err error){
+    defer func () {svc.complaints <- err}()
     //svc.Log(">>> EA:", len(events))
+    var devId int64
     ee := make([]api.Event, 0, len(events))
-    for i:= range events {
+    for i := range events {
         if 0 == events[i].Type {
             continue // skip groups
         }
         
         handle := svc.makeHandle(&events[i])
-        devId := core.GlobalDeviceId(svc.Settings.Id, handle, events[i].DeviceName)
+        // TODO: don't use GlobalDeviceId()
+        devId, err = core.GlobalDeviceId(svc.Settings.Id, handle, events[i].DeviceName)
+        if nil != err {
+            break
+        }
         ee = append(ee, api.Event {
             ExternalId: events[i].Id,
             Event:      events[i].Event,
@@ -130,13 +140,19 @@ func (svc *Rif) scanJourEvents(events []_Event) {
             Reaction:   events[i].Reaction,
             Time:       parseTime(events[i].DateTime).Unix()})
     }
+
+    if nil != err {
+        return
+    }
+
     //svc.Log(ee)
     if len(events) > 0 {
         svc.Log("Import", len(events), "events, range", events[0].DateTime, "..", events[len(events)-1].DateTime)
     } else {
         //svc.Log("Empty events list")
     }
-    if err := core.ImportEvents(ee); nil != err {
+    err = core.ImportEvents(ee)
+    if nil != err {
         // TODO: set service status "internal error"?
         return // core db problems?
     }
@@ -148,6 +164,7 @@ func (svc *Rif) scanJourEvents(events []_Event) {
         //svc.SetDBStatus("online")
         svc.SetServiceStatus(api.EC_DATABASE_READY)
     }
+    return
 }
 
 func (svc *Rif) pollEventLog(ctx context.Context) {
@@ -156,11 +173,11 @@ func (svc *Rif) pollEventLog(ctx context.Context) {
         svc.Sleep(ctx, 1 * time.Second)
         select {
             case <-ctx.Done():
-                //return
-                break
 
             case n := <-svc.queryEventsChan:
-                timer.Stop()
+                if !timer.Stop() {
+                    <-timer.C // drain the channel for reuse: https://pkg.go.dev/time#Timer.Stop
+                }
                 //svc.Log("Events request", n)
                 svc.getEventLog(n)
             
@@ -198,29 +215,45 @@ func (svc *Rif) getEventLog(nextId int64) {
     svc.SendCommand(cmd)
 }
 
-func (svc *Rif) populate(devices []_Device) {
-    svc.Lock()
+func (svc *Rif) populate(devices []_Device) (err error) {
+    defer func () {svc.complaints <- err}()
     var fixedId int64
     nextGroup := int64(9e15) // ~Number.MAX_SAFE_INTEGER
 
+    gids := make([]int64, len(devices))
+    for i := 0; i < len(devices) && nil == err; i++ {
+        if 0 == devices[i].Type {
+            gids[i] = nextGroup
+            nextGroup--
+        } else {
+            //fixedId = svc.getDeviceId(&devices[i])
+            handle := svc.makeHandle(&devices[i])
+            gids[i], err = core.GlobalDeviceId(svc.Settings.Id, handle, devices[i].Name)
+            if nil != err {
+                break
+            }
+        }
+    }
+    if nil != err {
+        return
+    }
+    //return fmt.Errorf("AAAAAAAAAAAAAAAA")
+    ////////////////////////////////////////
+
     svc.devices = make(map[int64] *Device) // TODO: check for configuration changes!
     svc.idMap = make(map[int64] int64)
+
+    svc.Lock()
+    defer svc.Unlock()
     
     typeAtLevel := []int{}
-    for i := 0; i < len(devices); i++ {
+    for i := range devices {
+        fixedId = gids[i]
         state := State {
             Id: devices[i].States[0].Id,
             Class: getClassCode(int64(devices[i].States[0].Id), devices[i].Type),
             DateTime: parseTime(devices[i].States[0].DateTime),
             Name: devices[i].States[0].Name,
-        }
-        if 0 == devices[i].Type {
-            fixedId = nextGroup
-            nextGroup--
-        } else {
-            //fixedId = svc.getDeviceId(&devices[i])
-            handle := svc.makeHandle(&devices[i])
-            fixedId = core.GlobalDeviceId(svc.Settings.Id, handle, devices[i].Name)
         }
         
         // ignore duplicates (linked with or "nested" into devices, not groups?)
@@ -251,9 +284,9 @@ func (svc *Rif) populate(devices []_Device) {
         }
     }
     svc.Log("Use", len(svc.devices), "devices of", len(devices))
-    svc.Unlock()
     // TODO: db in not really n/a, need deep check
     svc.SetServiceStatus(api.EC_SERVICE_ONLINE, api.EC_DATABASE_UNAVAILABLE)
+    return
 }
 
 func (svc *Rif) update(devices []_Device) {

@@ -22,7 +22,7 @@ type Rif struct {
     idMap           map[int64] int64
     waitReply       map[string] int64 // ["device:command"] = userId
     queryEventsChan chan int64
-    readyStatus     int // 04 - broadcasted, 02 - events ready, 01 - devices ready
+    complaints      chan error
 
 	//Name    string
     //queue   chan string

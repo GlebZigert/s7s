@@ -86,7 +86,7 @@ var ClassText = map[int64] string {
     // services
     EC_SERVICE_READY: "Служба работает",
     EC_SERVICE_SHUTDOWN: "Служба остановлена",
-    EC_SERVICE_FAILURE: "Сбой в работе внутренней службы",
+    EC_SERVICE_FAILURE: "Внутренней сбой службы",
     EC_SERVICE_ONLINE: "Соединение установлено",
     EC_DATABASE_READY: "БД готова",
     EC_SERVICE_OFFLINE: "Соединение отсутствует",

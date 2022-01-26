@@ -66,9 +66,11 @@ func (cfg *Configuration) getOneDevice(fields dblayer.Fields, serviceId int64, h
     return
 }
 
-func (cfg *Configuration) GlobalDeviceId(serviceId int64, handle, name string) (id int64) {
-    id, err := cfg.getOneDevice(nil, serviceId, handle)
-    catch(err)
+func (cfg *Configuration) GlobalDeviceId(serviceId int64, handle, name string) (id int64, err error) {
+    id, err = cfg.getOneDevice(nil, serviceId, handle)
+    if nil != err {
+        return
+    }
 
     fields := dblayer.Fields {
         "name":         name,
@@ -77,9 +79,9 @@ func (cfg *Configuration) GlobalDeviceId(serviceId int64, handle, name string) (
     if 0 == id {
         fields["service_id"] = serviceId
         fields["handle"] = handle
-        id, _ = db.Table("devices").Insert(nil, fields)
+        id, err = db.Table("devices").Insert(nil, fields)
     } else {
-        db.Table("devices").Seek(id).Update(nil, fields)
+        _, err = db.Table("devices").Seek(id).Update(nil, fields)
     }
     return
 }

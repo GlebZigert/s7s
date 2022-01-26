@@ -88,10 +88,6 @@ type API struct {
 
     Cancel      context.CancelFunc
     Stopped     chan struct{}
-    // using empty type for Config to avoid extra package with shared data types
-    // and access type names without package.* prefixes (e.g. User, not package.User)
-    // in configuration package
-    //Configuration      interface{}
     
     actions     map[string] Action
     //tasks       map[int][int]
@@ -109,7 +105,7 @@ type Settings struct {
     //URL        string
     Login           string   `json:"login"`
     Password        string   `json:"-"`
-    NewPassword     string  `json:"password"` // input from external form 
+    NewPassword     string   `json:"password"` // input from external form
     KeepAlive       int      `json:"keepAlive"`
     
     DBHost          string   `json:"dbHost"`   // host:port
@@ -121,9 +117,9 @@ type Settings struct {
     
     Status     struct {
         sync.RWMutex
-        Self    int64   `json:"self"`
-        TCP     int64   `json:"tcp"`
-        DB      int64   `json:"db"`
+        Self    int64   `json:"self"`   // Internal service status
+        TCP     int64   `json:"tcp"`    // External TCP service connection
+        DB      int64   `json:"db"`     // External DB status
     }    `json:"status"`
 }
 

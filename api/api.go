@@ -60,6 +60,35 @@ func (api *API) Api(actions map[string] Action) {
     api.actions = actions
 }
 
+func (api *API) ErrChecker(ctx context.Context, complaints chan error, okCode, errCode int64) {
+    timer := time.NewTimer(0) // 1->
+    fail := false
+    for nil == ctx.Err() {
+        select {
+            case <-ctx.Done():
+
+            case err := <-complaints:
+                if !timer.Stop() && len(timer.C) > 0 { // ->1
+                    <-timer.C // drain the channel for reuse: https://pkg.go.dev/time#Timer.Stop
+                }
+                if nil != err  {
+                    if !fail {
+                        api.SetServiceStatus(errCode)
+                    }
+                    fail = true
+                } else if fail {
+                    fail = false
+                    timer.Reset(1 * time.Second)
+                }
+
+            case <-timer.C:
+                api.SetServiceStatus(okCode)
+        }
+    }
+    api.Log("Error checker for", okCode, "<->", errCode, "stopped")
+}
+
+
 func (api *API) GetName() string {
     return api.Settings.Type + "-" + strconv.FormatInt(api.Settings.Id, 10)
 }

@@ -36,7 +36,7 @@ func (cfg *Configuration) Run(_ ConfigAPI) (err error) {
     dbFilename := cfg.GetStorage() + ".db?_synchronous=NORMAL&_journal_mode=WAL" // _busy_timeout=10000
     
     if err = cfg.openDB(dbFilename); nil != err {
-        cfg.lastError = fmt.Errorf("Database problem: %w", err)
+        err = fmt.Errorf("Database problem: %w", err)
         return
     }
     
@@ -57,10 +57,6 @@ func (cfg *Configuration) Shutdown() {
     cfg.Log("Shutting down...")
     cfg.Cancel()
     db.Close()
-}
-
-func (cfg *Configuration) GetError() error {
-    return cfg.lastError
 }
 
 // for interface compatibility

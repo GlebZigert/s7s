@@ -124,8 +124,6 @@ type Configuration struct {
     //dblayer.DBLayer
     api.API
     
-    lastError   error
-
     subscribers []chan interface{}
     
     cache RelationsCache
@@ -205,7 +203,6 @@ func (maps MapList) Filter(filter map[int64]int64) interface{} {
 
 type ConfigAPI interface {
     Get()           []*api.Settings
-    GetError()      error
     //Subscribe()                     chan interface{}
     //Unsubscribe(chan interface{})
     
@@ -219,7 +216,7 @@ type ConfigAPI interface {
     ImportEvents([]api.Event) error
     GetLastEvent(serviceId int64) (*api.Event, error)
 
-    GlobalDeviceId(systemId int64, handle, name string) (id int64)
+    GlobalDeviceId(systemId int64, handle, name string) (id int64, err error)
     SaveDevice(serviceId int64, device *Device, data interface{})
     DeleteDevice(id int64) error
     LoadDevices(serviceId int64) ([]Device, error)

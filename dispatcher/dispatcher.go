@@ -29,7 +29,7 @@ const (
     serviceRestartDelay = 5 // seconds
     maxClients = 100
     loginTimeout = 3 // seconds
-    keepAliveInterval = 10 + 2 //seconds
+    keepAliveInterval = 10 + 2 // seconds (time + ping)
     shutdownTimeout = 10 // seconds
 )
 
