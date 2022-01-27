@@ -185,7 +185,7 @@ func (maps MapList) Filter(filter map[int64]int64) interface{} {
     var res MapList
     for _, m := range maps {
         m.Filter(filter)
-        if len(m.Shapes) > 0 {
+        if filter[0] > 0 || len(m.Shapes) > 0 {
             res = append(res, m)
         }
     }
