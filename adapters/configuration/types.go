@@ -119,18 +119,11 @@ type VisitorLocation struct {
     ZoneId      int64   `json:"zoneId"`
 }
 
-
-//type Fields dblayer.Fields
-
-type Action func (cid int, json []byte)
-
 type Configuration struct {
     sync.RWMutex
     //dblayer.DBLayer
     api.API
     
-    lastError   error
-
     subscribers []chan interface{}
     
     cache RelationsCache
@@ -192,7 +185,7 @@ func (maps MapList) Filter(filter map[int64]int64) interface{} {
     var res MapList
     for _, m := range maps {
         m.Filter(filter)
-        if len(m.Shapes) > 0 {
+        if filter[0] > 0 || len(m.Shapes) > 0 {
             res = append(res, m)
         }
     }
@@ -210,7 +203,6 @@ func (maps MapList) Filter(filter map[int64]int64) interface{} {
 
 type ConfigAPI interface {
     Get()           []*api.Settings
-    GetError()      error
     //Subscribe()                     chan interface{}
     //Unsubscribe(chan interface{})
     
@@ -221,10 +213,10 @@ type ConfigAPI interface {
     //CheckEvent(event *api.Event) []Algorithm
     //ResetAlarm(serviceId, deviceId int64)
     ProcessEvents(event api.EventsList) error
-    ImportEvents([]api.Event)
-    GetLastEvent(serviceId int64) *api.Event
+    ImportEvents([]api.Event) error
+    GetLastEvent(serviceId int64) (*api.Event, error)
 
-    GlobalDeviceId(systemId int64, handle, name string) (id int64)
+    GlobalDeviceId(systemId int64, handle, name string) (id int64, err error)
     SaveDevice(serviceId int64, device *Device, data interface{})
     DeleteDevice(id int64) error
     LoadDevices(serviceId int64) ([]Device, error)

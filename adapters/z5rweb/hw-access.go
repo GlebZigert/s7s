@@ -7,7 +7,7 @@ import (
 func (svc *Z5RWeb) checkHWAccess(devId int64) {
     // get actual oldCards
     return
-    cards := svc.cfg.GetCards(devId)
+    cards := core.GetCards(devId)
     
     // get stored on-board oldCards from DB
     oldCards := svc.loadCards()

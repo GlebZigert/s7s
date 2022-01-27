@@ -17,7 +17,6 @@ type Z5RWeb struct {
     sync.RWMutex
     api.API
     dblayer.DBLayer
-    cfg     configuration.ConfigAPI
     httpLog  *os.File
     
     subscription    chan interface{}

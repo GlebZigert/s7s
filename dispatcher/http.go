@@ -86,7 +86,7 @@ func (dispatcher *Dispatcher) httpHandler(w http.ResponseWriter, r *http.Request
 func (dispatcher *Dispatcher) socketServer(ws *websocket.Conn) {
     defer time.Sleep(100 * time.Millisecond)
     var cred Credentials
-    if nil == dispatcher.cfg {
+    if nil == core {
         log.Println("not ready, try later")
         return // not ready, try later
     }

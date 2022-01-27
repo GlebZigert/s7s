@@ -193,66 +193,58 @@ func (cfg *Configuration) dbLogEvents(events api.EventsList) (err error) {
     return tx.Rollback() // TODO: what if rollback failed? It's time to panic?
 }
 
-func (cfg *Configuration) importEvent(event *api.Event) {
+func (cfg *Configuration) importEvent(event *api.Event) (err error) {
     event.Id = 0 // just in case
     ev := new(api.Event)
     fields := eventFields(ev)
-    rows, values, _ := db.Table("events").
+    rows, values, err := db.Table("events").
         Seek("external_id = 0 AND service_id = ? AND device_id = ? AND time = ? AND event = ?",
              event.ServiceId, event.DeviceId, event.Time, event.Event).
         Order("id").Get(nil, fields, 1)
+    if nil != err {
+        return
+    }
     if rows.Next() {
-        err := rows.Scan(values...)
-        rows.Close()
-        catch(err)
+        err = rows.Scan(values...)
         event.Id = ev.Id
-    } else {
-        rows.Close()
     }
+    rows.Close()
+
     if 0 == event.Id {
-        cfg.dbLogEvent(event)
+        err = cfg.dbLogEvent(event)
     } else { // Unknown event, save it
-        db.Table("events").Seek(event.Id).Update(nil, dblayer.Fields{"external_id": event.ExternalId})
+        _, err = db.Table("events").Seek(event.Id).Update(nil, dblayer.Fields{"external_id": event.ExternalId})
     }
+    return
 }
 
-func (cfg *Configuration) ImportEvents(events []api.Event) {
+func (cfg *Configuration) ImportEvents(events []api.Event) (err error) {
+    defer func () {cfg.cdbe(err)}()
     for i := range events {
-        cfg.importEvent(&events[i])
+        err = cfg.importEvent(&events[i])
+        if nil != err {
+            break
+        }
     }
+    return
 }
 
-func (cfg *Configuration) GetLastEvent(serviceId int64) (event *api.Event){
+func (cfg *Configuration) GetLastEvent(serviceId int64) (event *api.Event, err error) {
+    defer func () {cfg.cdbe(err)}()
     event = new(api.Event)
     fields := eventFields(event)
-    rows, values, _ := db.Table("events").
+    rows, values, err := db.Table("events").
         Seek("external_id > 0 AND service_id = ?", serviceId).
         Order("external_id DESC").
         Get(nil, fields, 1)
     defer rows.Close()
     if rows.Next() {
-        err := rows.Scan(values...)
-        catch(err)
+        err = rows.Scan(values...)
     } else {
+        event = nil
+    }
+    if err != nil {
         event = nil
     }
     return
 }
-/*
-func (cfg *Configuration) findAlgorithms(serviceId, deviceId, fromState, event int64) (list []Algorithm) {
-    Algorithm := new(Algorithm)
-    fields := AlgorithmFields(Algorithm)
-
-    rows, values := db.Table("algorithms").
-    Seek("service_id = ? AND device_id = ? AND (from_state = ? OR from_state < 0) AND (event = ? OR event < 0)", serviceId, deviceId, fromState, event).
-        Get(nil, fields)
-    defer rows.Close()
-
-    for rows.Next() {
-        err := rows.Scan(values...)
-        catch(err)
-        list = append(list, *Algorithm)
-    }
-    return
-}
-*/

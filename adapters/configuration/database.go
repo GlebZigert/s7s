@@ -32,7 +32,7 @@ func (cfg *Configuration) LoadLinks(sourceId int64, link string) (list []ExtLink
 
 
 func (cfg *Configuration) SaveLinks(sourceId int64, linkType string, list []ExtLink) (err error){
-	tx, err := db.Tx(qTimeout)
+    tx, err := db.Tx(qTimeout)
     if nil != err {
         return
     }

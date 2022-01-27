@@ -20,10 +20,12 @@ const (
     errThreshold = 3
 )
 
+var core configuration.ConfigAPI
+
 func (svc *Parus) Run(cfg configuration.ConfigAPI) (err error) {
+    core = cfg
     var ctx context.Context
     ctx, svc.Cancel = context.WithCancel(context.Background())
-    svc.cfg = cfg
     svc.Stopped = make(chan struct{})
     defer close(svc.Stopped)
 
@@ -139,7 +141,7 @@ func (svc *Parus) analyzeStatus(dev *Device, stateClass int64) {
 func (svc *Parus) loadDevices() {
     svc.Lock()
     svc.devices = make(map[int64] *Device)
-    devices, _ := svc.cfg.LoadDevices(svc.Settings.Id) // TODO: handle err
+    devices, _ := core.LoadDevices(svc.Settings.Id) // TODO: handle err
     for i := range devices {
         dev := Device{Device: devices[i]}
         if "" != dev.Data {

@@ -189,8 +189,9 @@ func (svc *Axxon) devList_add(camera *Camera) {
 
 
 
-
-	svc.devList=append(svc.devList, dev{id:svc.cfg.GlobalDeviceId(svc.Settings.Id,VIDEOSOURCEID,camera.DisplayName),
+    // TODO: handle error
+    devId, _ := svc.cfg.GlobalDeviceId(svc.Settings.Id,VIDEOSOURCEID,camera.DisplayName)
+    svc.devList=append(svc.devList, dev{id:devId,
 										pointer: camera,
 										VIDEOSOURSEID: VIDEOSOURCEID,
 										TelemetryControlID: TelemetryControlID,

@@ -60,6 +60,35 @@ func (api *API) Api(actions map[string] Action) {
     api.actions = actions
 }
 
+func (api *API) ErrChecker(ctx context.Context, complaints chan error, okCode, errCode int64) {
+    timer := time.NewTimer(0) // 1->
+    fail := false
+    for nil == ctx.Err() {
+        select {
+            case <-ctx.Done():
+
+            case err := <-complaints:
+                if !timer.Stop() && len(timer.C) > 0 { // ->1
+                    <-timer.C // drain the channel for reuse: https://pkg.go.dev/time#Timer.Stop
+                }
+                if nil != err  {
+                    if !fail {
+                        api.SetServiceStatus(errCode)
+                    }
+                    fail = true
+                } else if fail {
+                    fail = false
+                    timer.Reset(1 * time.Second)
+                }
+
+            case <-timer.C:
+                api.SetServiceStatus(okCode)
+        }
+    }
+    api.Log("Error checker for", okCode, "<->", errCode, "stopped")
+}
+
+
 func (api *API) GetName() string {
     return api.Settings.Type + "-" + strconv.FormatInt(api.Settings.Id, 10)
 }
@@ -156,74 +185,3 @@ func (api *API) SetServiceStatus(states ...int64) {
         api.Broadcast("Events", events)
     }
 }
-/*
-func (api *API) ReportStartup() {
-    api.Broadcast("Events", EventsList{Event{
-        Class: EC_SERVICE_STARTED,
-        Text: "Сервис запущен",
-        Time: time.Now().Unix()}})
-}
-
-func (api *API) ReportShutdown() {
-    api.Log("Reporting shutdown")
-    api.Broadcast("Events", EventsList{Event{
-        Class: EC_SERVICE_SHUTDOWN,
-        Text: "Сервис остановлен",
-        Time: time.Now().Unix()}})
-}
-
-func (api *API) SetServiceStatus(tcp, db string) {
-    var events EventsList
-        moreTCP := " " + api.Settings.Status.TCP + " -> " + tcp
-        moreDB := " " + api.Settings.Status.DB + " -> " + db
-
-    api.Settings.Status.Lock()
-    if tcp != "" && api.Settings.Status.TCP != tcp {
-        var event Event
-        if "online" == tcp {
-            event.Class = EC_SERVICE_ONLINE
-            event.Text = "Соединение установлено" + moreTCP
-        } else if "offline" == tcp {
-            event.Class = EC_SERVICE_OFFLINE
-            event.Text = "Соединение потеряно" + moreTCP
-        } else {
-            event.Text = "Неопределённое состояние TCP" + moreTCP
-        }
-        events = append(events, event)
-
-        api.Settings.Status.TCP = tcp
-    }
-    if db != "" && api.Settings.Status.DB != db {
-        var event Event
-        if "online" == db {
-            event.Class = EC_DATABASE_READY
-            event.Text = "БД готова" + moreDB
-        } else if "offline" == db {
-            event.Class = EC_DATABASE_UNAVAILABLE
-            event.Text = "БД недоступна" + moreDB
-        } else {
-            event.Text = "Неопределённое состояние БД" + moreDB
-        }
-        events = append(events, event)
-
-        api.Settings.Status.DB = db
-    }
-    status := api.Settings.Status
-    api.Settings.Status.Unlock()
-    //api.Log(":::::::::::::: STATUS Events:", events)
-    if len(events) > 0 {
-        api.Broadcast("Events", events)
-        api.Broadcast("StatusUpdate", &status) // TODO: it's legacy?
-    }
-}
-
-// TODO: make status boolean?
-func (api *API) SetTCPStatus(value string) {
-    api.SetServiceStatus(value, "")
-}
-
-// TODO: make status boolean?
-func (api *API) SetDBStatus(value string) {
-    api.SetServiceStatus("", value)
-}
-*/

@@ -29,9 +29,11 @@ const (
     serviceRestartDelay = 5 // seconds
     maxClients = 100
     loginTimeout = 3 // seconds
-    keepAliveInterval = 10 + 2 //seconds
+    keepAliveInterval = 10 + 2 // seconds (time + ping)
     shutdownTimeout = 10 // seconds
 )
+
+var core configuration.ConfigAPI
 
 func factory(api *api.API) Service {
     var service Service
@@ -62,10 +64,10 @@ func Run(ctx context.Context, host string) (err error) {
         return
     }
     
-    d.cfg = cfg.(configuration.ConfigAPI)    
+    core = cfg.(configuration.ConfigAPI)    
     go d.queueServer(ctx)
 
-    settings := d.cfg.Get()
+    settings := core.Get()
     for _, s := range settings {
         service := factory(api.NewAPI(s, d.broadcast))
         if nil == service {
@@ -167,7 +169,7 @@ func (dispatcher *Dispatcher) runService(service Service) {
     for nil == dispatcher.ctx.Err() {
         // TODO: dispatcher shutdown can happens here!
         // service should exit with NOT NIL error only in case of real failure
-        err := serviceWrapper(service, dispatcher.cfg)
+        err := serviceWrapper(service, core)
         if nil == err {
             break
         }
@@ -255,7 +257,7 @@ func (dispatcher *Dispatcher) serveClient(userId int64, ws *websocket.Conn) {
 
 func (dispatcher *Dispatcher) changeUser(userId int64, ws *websocket.Conn, cred *Credentials) (*configuration.User, int64) {
     var errClass int64
-    clientId, role := dispatcher.cfg.Authenticate(cred.Login, cred.Token)
+    clientId, role := core.Authenticate(cred.Login, cred.Token)
 
     if clientId == 0 {
         dispatcher.broadcastEvent(&api.Event{
@@ -292,7 +294,7 @@ func (dispatcher *Dispatcher) changeUser(userId int64, ws *websocket.Conn, cred 
         return nil, errClass
     }
     if userId > 0 {
-        dispatcher.cfg.CompleteShift(userId)
+        core.CompleteShift(userId)
         dispatcher.broadcastEvent(&api.Event{
             Class: api.EC_USER_LOGGED_OUT,
             UserId: userId})
@@ -302,9 +304,9 @@ func (dispatcher *Dispatcher) changeUser(userId int64, ws *websocket.Conn, cred 
         Class: api.EC_USER_LOGGED_IN,
         UserId: clientId})
     
-    dispatcher.cfg.StartNewShift(clientId)
+    core.StartNewShift(clientId)
     
-    user, _ := dispatcher.cfg.GetUser(clientId) // TODO: handle err
+    user, _ := core.GetUser(clientId) // TODO: handle err
     return user, 0
 }
 
@@ -412,7 +414,7 @@ func (dispatcher *Dispatcher) preprocessQuery(userId *int64, ws *websocket.Conn,
                     if 0 != settings.Id {
                         idList := service.GetList()
                         //log.Println("ListAllDevices", idList)
-                        filter, err := dispatcher.cfg.Authorize(*userId, idList)
+                        filter, err := core.Authorize(*userId, idList)
                         //log.Println("FILTER", filter)
                         // TODO: handle err (report db failure)
                         if nil == err && len(filter) > 0 {
@@ -462,7 +464,7 @@ func (dispatcher *Dispatcher) doZoneCommand(userId, zoneId, command int64) {
     reply := api.ReplyMessage{Service: 0, Action: "Events", Data: events}
     dispatcher.broadcast(0, &reply)
     
-    list := dispatcher.cfg.LoadLinks(zoneId, "zone-device")
+    list := core.LoadLinks(zoneId, "zone-device")
     for i := range services {
         var devices []int64
         for j := range list {

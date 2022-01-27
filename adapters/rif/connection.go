@@ -14,36 +14,38 @@ import (
 //	"golang.org/x/net/html/charset"
 )
 
-const reconnectInterval = 3 // seconds
+const reconnectInterval = 5 // seconds
 
 func (rif *Rif) connect(ctx context.Context) {
-    var lastTryTime time.Time
+    //var lastTryTime time.Time
     var dialer net.Dialer
-    
+    // INFO: settings are considered immutable, so locking is not required
+    //keepAlive := rif.Settings.KeepAlive + 2 // + ping time
 	host := rif.Settings.Host
 	newTry := true
 
     listCommand := `<RIFPlusPacket type="Commands"><Commands><Command id="0"/><Command id="10000"/></Commands></RIFPlusPacket>`
 
+    var err error
     for !rif.Cancelled(ctx) {
-        rif.Sleep(ctx,
-                  time.Duration(reconnectInterval) * time.Second - time.Now().Sub(lastTryTime));
-        lastTryTime = time.Now()
+        if nil != err { // wait before reconnect
+            rif.Warn("connection loop err:", err)
+            // TODO: report error?
+            // rif.SetServiceStatus(api.EC_SERVICE_OFFLINE, api.EC_DATABASE_UNAVAILABLE)
+            rif.Sleep(ctx, reconnectInterval * time.Second)
+        }
 
         if (newTry) {
-            log.Print(rif.GetName(), ": trying to connect to " + host)
+            rif.Log("Trying to connect to", host)
 		}
-        
+
         dctx, _ := context.WithTimeout(ctx, 500 * time.Millisecond)
-        conn, err := dialer.DialContext(dctx, "tcp", host)
+        var conn net.Conn
+        conn, err = dialer.DialContext(dctx, "tcp", host)
 		if err != nil {
-			//log.Print("No connection, retry in 5s...")
-			if (newTry) {
-                rif.SetServiceStatus(api.EC_SERVICE_OFFLINE, api.EC_DATABASE_UNAVAILABLE)
-                newTry = false
-			}
-			//time.Sleep(time.Duration(500)*time.Millisecond);
-			continue;
+            rif.SetServiceStatus(api.EC_SERVICE_OFFLINE, api.EC_DATABASE_UNAVAILABLE)
+            newTry = false
+			continue
 		}
 
         rif.Lock()
@@ -52,44 +54,36 @@ func (rif *Rif) connect(ctx context.Context) {
         
 		newTry = true
 
-        log.Println(rif.GetName(), ": connected to ", host)
-        // rif.SetTCPStatus("online")  => moved to populate()
+        rif.Log("Connected to", host)
 		
 		netReader := bufio.NewReader(rif.conn)
         rif.SendCommand(listCommand)
         rif.queryEventsChan <-0
 
-        EOF := false
-		for EOF == false {
-            message := ""
-			for {
-				packet, err := netReader.ReadString('>')
-				if err != nil { // io.EOF
-					EOF = true
-					rif.Warn(err)
-					break
-				}
-				message += packet
-				if (strings.Index(packet, "</RIFPlusPacket>") >= 0) {
+        var message, packet string
+        for nil == err {
+            //conn.SetReadDeadline(time.Now().Add(time.Duration(keepAlive) * time.Second))
+            packet, err = netReader.ReadString('>')
+            if err == nil { // io.EOF
+                message += packet
+                if strings.Index(packet, "</RIFPlusPacket>") >= 0 {
                     message = win2utf8(message)
                     rif.logXml("\n\n====================== { { { =====================\n\n" + message)
                     p := RIFPlusPacket{}
-                    if err := xml.Unmarshal([]byte(message), &p); err != nil {
-                        EOF = true // reset connection
-                        rif.Warn(err)
-                        break
-                    } else {
+                    // TODO: ignore parse error?
+                    err = xml.Unmarshal([]byte(message), &p)
+                    if nil == err {
                         switch p.Type {
-                            case "InitialStatus": rif.populate(p.Devices)
+                            case "InitialStatus": err = rif.populate(p.Devices)
                             case "EventsAndStates": rif.update(p.Devices)
-                            case "ListJourRecord": rif.scanEvents(p.Events)
+                            case "ListJourRecord": rif.scanJourEvents(p.Events)
                             default: rif.Warn("Unknown RIFPlusPacket type:", p.Type)
                         }
                     }
-					message = ""
-				}
-			}
-		}
+                    message = ""
+                }
+            }
+        }
         
 		// listen for reply
 		/*netReader, _ := charset.NewReaderLabel("windows-1251", rif.conn)

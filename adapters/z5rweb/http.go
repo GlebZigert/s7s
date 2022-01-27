@@ -136,7 +136,7 @@ func (svc *Z5RWeb) logDevice(dType string, sn int64) {
         svc.Lock()
         device := dev.Device
         svc.Unlock()
-        svc.cfg.TouchDevice(svc.Settings.Id, &device) // TODO: restore it
+        core.TouchDevice(svc.Settings.Id, &device) // TODO: restore it
         
         if !dev.Online {
             dev.Online = true
@@ -177,9 +177,9 @@ func (svc *Z5RWeb) checkAccess(dType string, sn int64, msg *Message) interface{}
         } else {
             card = svc.getLastCard(devId, msg.Reader)
             // try msg.Card as a plain card
-            _, errCode = svc.cfg.RequestPassage(zoneId, msg.Card, "")
+            _, errCode = core.RequestPassage(zoneId, msg.Card, "")
             if 1 == errCode && "" != card { // maybe msg.Card is a PIN?
-                _, errCode = svc.cfg.RequestPassage(zoneId, card, msg.Card)
+                _, errCode = core.RequestPassage(zoneId, card, msg.Card)
             }
         }
         if 0 == errCode {

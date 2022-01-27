@@ -73,7 +73,7 @@ func (dispatcher *Dispatcher) scanQueue(queue []*api.ReplyMessage) (n int, err e
         events, _ := queue[n].Data.(api.EventsList)
         if len(events) > 0 && 0 == events[0].Id {
             // not yet processed/stored events
-            err = dispatcher.cfg.ProcessEvents(events)
+            err = core.ProcessEvents(events)
             if nil == err {
                 dispatcher.scanAlgorithms(events)
             }
@@ -121,7 +121,7 @@ func (dispatcher *Dispatcher) processReply(reply *api.ReplyMessage) (err error) 
         // send processed events & filter list by devices permissions
         log.Println("::: APPLY EV FILTER :::", len(events), " events for svc #", reply.Service)
         idList := events.GetList()
-        filter, err = dispatcher.cfg.Authorize(cid, idList)
+        filter, err = core.Authorize(cid, idList)
         if nil == err {
             reply.Data = events.Filter(cid, filter, api.ARMFilter[client.role])
         }
@@ -131,9 +131,7 @@ func (dispatcher *Dispatcher) processReply(reply *api.ReplyMessage) (err error) 
         log.Println("::: APPLY DEV FILTER :::", reply.Service, reply.Action)
         // INFO: filtering performed inside services to handle special conditions such as groups (virtual elements)
         idList := original.GetList()
-
-        filter, err = dispatcher.cfg.Authorize(cid, idList)
-
+        filter, err = core.Authorize(cid, idList)
         if nil == err {
             reply.Data = original.Filter(filter)
         }
