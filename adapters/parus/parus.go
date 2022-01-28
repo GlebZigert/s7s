@@ -29,8 +29,14 @@ func (svc *Parus) Run(cfg configuration.ConfigAPI) (err error) {
     svc.Stopped = make(chan struct{})
     defer close(svc.Stopped)
 
+    //svc.complaints = make(chan error, 10)
+    //go svc.ErrChecker(ctx, svc.complaints, api.EC_SERVICE_READY, api.EC_SERVICE_FAILURE)
+
     rand.Seed(time.Now().UnixNano())
-    svc.loadDevices()
+    err = svc.loadDevices()
+    if nil != err {
+        return
+    }
     
     go svc.pollDevices(ctx)
     
@@ -138,10 +144,13 @@ func (svc *Parus) analyzeStatus(dev *Device, stateClass int64) {
     }
 }
 
-func (svc *Parus) loadDevices() {
+func (svc *Parus) loadDevices() (err error) {
     svc.Lock()
     svc.devices = make(map[int64] *Device)
-    devices, _ := core.LoadDevices(svc.Settings.Id) // TODO: handle err
+    devices, err := core.LoadDevices(svc.Settings.Id) // TODO: handle err
+    if nil != err {
+        return
+    }
     for i := range devices {
         dev := Device{Device: devices[i]}
         if "" != dev.Data {
@@ -153,6 +162,7 @@ func (svc *Parus) loadDevices() {
     }
     svc.Unlock()
     //svc.Log(":::::::::::::::::", len(svc.devices), "DEVICES LOADED for service", svc.Settings.Id)
+    return
 }
 
 func (svc *Parus) setupApi() {
