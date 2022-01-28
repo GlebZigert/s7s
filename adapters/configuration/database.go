@@ -36,12 +36,12 @@ func (cfg *Configuration) SaveLinks(sourceId int64, linkType string, list []ExtL
     if nil != err {
         return
     }
+    defer func () {completeTx(tx, err)}()
     //defer func() {if nil != err {tx.Rollback()}}()
     
     table := db.Table("external_links")
     err = table.Delete(tx, "link = ? AND source_id = ?", linkType, sourceId)
     if nil != err {
-        tx.Rollback()
         return
     }
 
@@ -55,11 +55,6 @@ func (cfg *Configuration) SaveLinks(sourceId int64, linkType string, list []ExtL
         if nil != err {
             break
         }
-    }
-    if nil != err {
-        tx.Rollback()
-    } else {
-        tx.Commit()
     }
     return
 }

@@ -504,6 +504,15 @@ func (cfg *Configuration) setupApi() {
 }*/
 
 //////////////////////////////////////////////////////////////////////
+
+func completeTx(tx *sql.Tx, err error) {
+    if nil != err {
+        tx.Rollback()
+    } else {
+        tx.Commit()
+    }
+}
+
 func findString(s string, list []string) int {
     for i := range list {
         if list[i] == s {
