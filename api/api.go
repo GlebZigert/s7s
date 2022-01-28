@@ -63,6 +63,7 @@ func (api *API) Api(actions map[string] Action) {
 func (api *API) ErrChecker(ctx context.Context, complaints chan error, okCode, errCode int64) {
     timer := time.NewTimer(0) // 1->
     fail := false
+    var lastErr string
     for nil == ctx.Err() {
         select {
             case <-ctx.Done():
@@ -72,6 +73,10 @@ func (api *API) ErrChecker(ctx context.Context, complaints chan error, okCode, e
                     <-timer.C // drain the channel for reuse: https://pkg.go.dev/time#Timer.Stop
                 }
                 if nil != err  {
+                    if lastErr != err.Error() {
+                        lastErr = err.Error()
+                        api.Err(err)
+                    }
                     if !fail {
                         api.SetServiceStatus(errCode)
                     }
