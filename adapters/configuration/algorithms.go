@@ -26,16 +26,21 @@ func AlgorithmFields(algorithm *api.Algorithm) dblayer.Fields {
 }
 
 
-func (cfg *Configuration) loadAlgorithms() (list []api.Algorithm){
+func (cfg *Configuration) loadAlgorithms() (list []api.Algorithm, err error){
     algorithm := new(api.Algorithm)
     fields := AlgorithmFields(algorithm)
 
-    rows, values, _ := db.Table("algorithms").Get(nil, fields)
+    rows, values, err := db.Table("algorithms").Get(nil, fields)
+    if nil != err {
+        return
+    }
     defer rows.Close()
 
     for rows.Next() {
-        err := rows.Scan(values...)
-        catch(err)
+        err = rows.Scan(values...)
+        if nil != err {
+            break
+        }
         list = append(list, *algorithm)
     }
     return
@@ -47,11 +52,10 @@ func (cfg *Configuration) dbDeleteAlgorithm(id int64) (err error) {
 }
 
 
-func (cfg *Configuration) dbUpdateAlgorithm(algorithm *api.Algorithm) {
+func (cfg *Configuration) dbUpdateAlgorithm(algorithm *api.Algorithm) (err error) {
     fields := AlgorithmFields(algorithm)
-    cfg.Log("Save ALGO:", algorithm)
-    err := db.Table("algorithms").Save(nil, fields)
-    cfg.Log("Save ALGO:", err)
+    err = db.Table("algorithms").Save(nil, fields)
+    return
 }
 
 func (cfg *Configuration) findDevAlgorithms(e *api.Event) (list []api.Algorithm, err error) {

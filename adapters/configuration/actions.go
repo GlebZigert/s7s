@@ -79,14 +79,20 @@ func (cfg *Configuration) listEvents(cid int64, data []byte) (interface{}, bool)
 //////////////////////////// A L G O S ////////////////////////////
 ///////////////////////////////////////////////////////////////////
 func (cfg *Configuration) listAlgorithms(cid int64, data []byte) (interface{}, bool) {
-    res := cfg.loadAlgorithms()
+    res, err := cfg.loadAlgorithms()
+    if nil != err {
+        panic(err)
+    }
     return res, false // don't broadcast
 }
 
 func (cfg *Configuration) updateAlgorithm(cid int64, data []byte) (interface{}, bool) {
     algorithm := new(api.Algorithm)
     json.Unmarshal(data, algorithm) // TODO: handle err
-    cfg.dbUpdateAlgorithm(algorithm)
+    err := cfg.dbUpdateAlgorithm(algorithm)
+    if nil != err {
+        panic(err)
+    }
     return algorithm, true // broadcast
 }
 
