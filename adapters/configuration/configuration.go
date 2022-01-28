@@ -48,8 +48,11 @@ func (cfg *Configuration) Run(_ ConfigAPI) (err error) {
     }*/
     
     cfg.setupApi()
+    cfg.complaints = make(chan error, 10)
 
+    go cfg.ErrChecker(ctx, cfg.complaints, api.EC_SERVICE_READY, api.EC_SERVICE_FAILURE)
     go cfg.forbiddenVisitorsDetector(ctx)
+    
     return
 }
 
@@ -71,12 +74,6 @@ func (cfg *Configuration) Get() []*api.Settings {
 func (cfg *Configuration) replyLoop(c chan interface{}) {
     for msg := range c {
         c <- msg
-    }
-}
-
-func (cfg *Configuration) notifySubscribers(msg interface{}) {
-    for _, subscriber := range cfg.subscribers {
-        subscriber <- msg
     }
 }
 
@@ -500,11 +497,11 @@ func (cfg *Configuration) setupApi() {
 }
 
 // check database error
-func (cfg *Configuration) cdbe(err error) {
+/*func (cfg *Configuration) cdbe(err error) {
     if nil != err {
         cfg.Log("Database problem:", err)
     }
-}
+}*/
 
 //////////////////////////////////////////////////////////////////////
 func findString(s string, list []string) int {

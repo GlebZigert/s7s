@@ -124,8 +124,7 @@ type Configuration struct {
     //dblayer.DBLayer
     api.API
     
-    subscribers []chan interface{}
-    
+    complaints      chan error
     cache RelationsCache
     //reply   dispatcher.Reply
     //db              *sql.DB
