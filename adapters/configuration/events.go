@@ -2,6 +2,7 @@ package configuration
 
 import (
 //    "database/sql"
+//    "errors"
     "time"
     "strings"
     "../../api"
@@ -219,7 +220,7 @@ func (cfg *Configuration) importEvent(event *api.Event) (err error) {
 }
 
 func (cfg *Configuration) ImportEvents(events []api.Event) (err error) {
-    defer func () {cfg.cdbe(err)}()
+    defer func () {cfg.complaints <- err}()
     for i := range events {
         err = cfg.importEvent(&events[i])
         if nil != err {
@@ -230,7 +231,7 @@ func (cfg *Configuration) ImportEvents(events []api.Event) (err error) {
 }
 
 func (cfg *Configuration) GetLastEvent(serviceId int64) (event *api.Event, err error) {
-    defer func () {cfg.cdbe(err)}()
+    defer func () {cfg.complaints <- err}()
     event = new(api.Event)
     fields := eventFields(event)
     rows, values, err := db.Table("events").
@@ -246,5 +247,6 @@ func (cfg *Configuration) GetLastEvent(serviceId int64) (event *api.Event, err e
     if err != nil {
         event = nil
     }
+    //err = errors.New("BBBBBBBBBBBBBBB")
     return
 }

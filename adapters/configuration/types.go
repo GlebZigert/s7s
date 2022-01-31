@@ -124,8 +124,7 @@ type Configuration struct {
     //dblayer.DBLayer
     api.API
     
-    subscribers []chan interface{}
-    
+    complaints      chan error
     cache RelationsCache
     //reply   dispatcher.Reply
     //db              *sql.DB
@@ -217,7 +216,7 @@ type ConfigAPI interface {
     GetLastEvent(serviceId int64) (*api.Event, error)
 
     GlobalDeviceId(systemId int64, handle, name string) (id int64, err error)
-    SaveDevice(serviceId int64, device *Device, data interface{})
+    SaveDevice(serviceId int64, device *Device, data interface{}) (err error)
     DeleteDevice(id int64) error
     LoadDevices(serviceId int64) ([]Device, error)
     TouchDevice(serviceId int64, dev *Device)

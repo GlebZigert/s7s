@@ -28,8 +28,8 @@ const (
 
 var core configuration.ConfigAPI
 
-func (svc *Z5RWeb) Run(cfg configuration.ConfigAPI) (err error) {
-    core = cfg
+func (svc *Z5RWeb) Run(_ configuration.ConfigAPI) (err error) {
+    configuration.ExportCore(&core)
     var ctx context.Context
     ctx, svc.Cancel = context.WithCancel(context.Background())
     svc.Stopped = make(chan struct{})

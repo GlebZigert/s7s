@@ -29,8 +29,8 @@ var responses = map[int64] []int64 {
 
 var core configuration.ConfigAPI
 
-func (svc *Rif) Run(cfg configuration.ConfigAPI) (err error) {
-    core = cfg
+func (svc *Rif) Run(_ configuration.ConfigAPI) (err error) {
+    configuration.ExportCore(&core)
     var ctx context.Context
     ctx, svc.Cancel = context.WithCancel(context.Background())
     svc.Stopped = make(chan struct{})
@@ -191,11 +191,13 @@ func (svc *Rif) pollEventLog(ctx context.Context) {
 }
 
 
-func (svc *Rif) getEventLog(nextId int64) {
+func (svc *Rif) getEventLog(nextId int64) (err error){
+    defer func () {svc.complaints <- err}()
     var cmd string
     if 0 == nextId {
         // get real last stored event id from the db
-        lastEvent, err := core.GetLastEvent(svc.Settings.Id)
+        var lastEvent *api.Event
+        lastEvent, err = core.GetLastEvent(svc.Settings.Id)
         if nil != err {
             return // something happens with core database
         }
@@ -213,6 +215,7 @@ func (svc *Rif) getEventLog(nextId int64) {
     }
     //svc.Log("Getting the Event Log:", cmd)
     svc.SendCommand(cmd)
+    return
 }
 
 func (svc *Rif) populate(devices []_Device) (err error) {

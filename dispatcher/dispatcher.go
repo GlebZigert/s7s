@@ -57,15 +57,17 @@ func Run(ctx context.Context, host string) (err error) {
         services: make(map[int64] Service),
         clients: make(map[int64] Client)}
 
+    go d.queueServer(ctx)
+    
     cfg := factory(api.NewAPI(&api.Settings{Id: 0, Type: "configuration"}, d.broadcast))
+    core = cfg.(configuration.ConfigAPI)
     d.services[0] = cfg
-    err = d.services[0].Run(nil)
+    err = d.services[0].Run(core)
     if nil != err {
         return
     }
     
-    core = cfg.(configuration.ConfigAPI)    
-    go d.queueServer(ctx)
+
 
     settings := core.Get()
     for _, s := range settings {
