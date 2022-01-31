@@ -3,6 +3,7 @@ package configuration
 import (
     "fmt"
     "time"
+    "sync"
     "strings"
     "context"
     "encoding/json"
@@ -29,8 +30,22 @@ func init() {
         "services"*/}
 }
 
-func (cfg *Configuration) Run(_ ConfigAPI) (err error) {
+// >>>>>>>>>>>>>>> HELPER FOR CORE EXPORT >>>>>>>>>>>>>>>>>>>
+var core ConfigAPI
+var coreLock sync.RWMutex
+
+func ExportCore(c *ConfigAPI) {
+    coreLock.Lock()
+    defer coreLock.Unlock()
+    if nil == *c {
+        *c = core
+    }
+}
+// <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+func (cfg *Configuration) Run(c ConfigAPI) (err error) {
     var ctx context.Context
+    core = c
     ctx, cfg.Cancel = context.WithCancel(context.Background())
 
     dbFilename := cfg.GetStorage() + ".db?_synchronous=NORMAL&_journal_mode=WAL" // _busy_timeout=10000

@@ -22,8 +22,8 @@ const (
 
 var core configuration.ConfigAPI
 
-func (svc *Parus) Run(cfg configuration.ConfigAPI) (err error) {
-    core = cfg
+func (svc *Parus) Run(_ configuration.ConfigAPI) (err error) {
+    configuration.ExportCore(&core)
     var ctx context.Context
     ctx, svc.Cancel = context.WithCancel(context.Background())
     svc.Stopped = make(chan struct{})

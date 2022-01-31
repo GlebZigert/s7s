@@ -29,8 +29,8 @@ var responses = map[int64] []int64 {
 
 var core configuration.ConfigAPI
 
-func (svc *Rif) Run(cfg configuration.ConfigAPI) (err error) {
-    core = cfg
+func (svc *Rif) Run(_ configuration.ConfigAPI) (err error) {
+    configuration.ExportCore(&core)
     var ctx context.Context
     ctx, svc.Cancel = context.WithCancel(context.Background())
     svc.Stopped = make(chan struct{})
