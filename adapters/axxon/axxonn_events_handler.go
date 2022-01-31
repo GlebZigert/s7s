@@ -142,15 +142,17 @@ func (svc *Axxon)  Take_axxon_events() {
 				  svc.eventHandler_done<-true
 					return
 				default:
-				  svc.Log("[1]")
+			//	  svc.Log("[1]")
 				  
 					
 				if err:=websocket.JSON.Receive(svc.conn,&rcv);err!=nil{
+					/*
 				  fmt.Println(" ")
 				  fmt.Println("!!! ERRORR @@@ !!! ")
 				  fmt.Println(err)  
 				  fmt.Println("!!! ERRORR @@@ !!! ")
 				  fmt.Println(" ")
+				  */
 				}else{
 
 					
@@ -344,7 +346,7 @@ func (svc *Axxon)  Take_axxon_events() {
 			//	fmt.Println(" \n")
 			//	fmt.Println(" \n")
 				}
-				svc.Log("[2]")
+				//svc.Log("[2]")
 		  
 		  
 		  
