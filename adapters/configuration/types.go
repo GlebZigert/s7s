@@ -221,7 +221,7 @@ type ConfigAPI interface {
     LoadDevices(serviceId int64) ([]Device, error)
     TouchDevice(serviceId int64, dev *Device)
     
-    LoadLinks(sourceId int64, link string) (list []ExtLink)
+    LoadLinks(sourceId int64, link string) (list []ExtLink, err error)
     SaveLinks(sourceId int64, linkType string, list []ExtLink) error
     
     // ACS

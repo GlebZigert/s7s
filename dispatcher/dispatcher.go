@@ -466,7 +466,8 @@ func (dispatcher *Dispatcher) doZoneCommand(userId, zoneId, command int64) {
     reply := api.ReplyMessage{Service: 0, Action: "Events", Data: events}
     dispatcher.broadcast(0, &reply)
     
-    list := core.LoadLinks(zoneId, "zone-device")
+    // TODO: handle err
+    list, _ := core.LoadLinks(zoneId, "zone-device")
     for i := range services {
         var devices []int64
         for j := range list {

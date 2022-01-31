@@ -117,13 +117,22 @@ func (svc *Z5RWeb) updateDevice(cid int64, data []byte) (interface{}, bool) {
     //svc.Log(device)
     svc.Lock()
     defer svc.Unlock()
-    if dev, ok := svc.devices[device.Id]; ok {
+    dev := svc.devices[device.Id]
+    if nil != dev {
+        name := dev.Name
         dev.Name = device.Name
-        //dev.ExternalZone = device.ExternalZone
-        //dev.InternalZone = device.InternalZone
+        err := core.SaveDevice(svc.Settings.Id, &dev.Device, nil)
+        if nil != err {
+            dev.Name = name
+            panic(err)
+        }
+        zones := dev.Zones
         dev.Zones = device.Zones
-        core.SaveDevice(svc.Settings.Id, &dev.Device, nil)
-        core.SaveLinks(dev.Id, "device-zone", dev.Zones)
+        err = core.SaveLinks(dev.Id, "device-zone", dev.Zones)
+        if nil != err {
+            dev.Zones = zones
+            panic(err)
+        }
         return *dev, true // broadcast
     }
     return "Устройство не найдено", false // don't broadcast error
@@ -132,7 +141,10 @@ func (svc *Z5RWeb) updateDevice(cid int64, data []byte) (interface{}, bool) {
 func (svc *Z5RWeb) deleteDevice(cid int64, data []byte) (interface{}, bool) {
     var id int64
     json.Unmarshal(data, &id)
-    core.DeleteDevice(id)
+    err := core.DeleteDevice(id)
+    if nil != err {
+        panic(err)
+    }
 
     svc.Lock()
     delete(svc.devices, id)

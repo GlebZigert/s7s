@@ -203,6 +203,9 @@ func (svc *Z5RWeb) loadDevices() (err error) {
     svc.devices = make(map[int64] *Device)
     devices, err := core.LoadDevices(svc.Settings.Id)
 
+    if nil != err {
+        return
+    }
     for i := range devices {
         dev := Device{Device: devices[i]}
         dev.Online = false
@@ -210,7 +213,7 @@ func (svc *Z5RWeb) loadDevices() (err error) {
         dev.States[0].Text = api.DescribeClass(dev.States[0].Class)
         dev.States[0].DeviceId = dev.Id
         dev.States[0].DeviceName = dev.Name
-        dev.Zones = core.LoadLinks(dev.Id, "device-zone")
+        dev.Zones, err = core.LoadLinks(dev.Id, "device-zone")
         svc.Lock()
         svc.devices[dev.Id] = &dev
         svc.Unlock()

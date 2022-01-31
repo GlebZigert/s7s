@@ -122,7 +122,8 @@ func (cfg *Configuration) listZones(cid int64, data []byte) (interface{}, bool) 
     // lin
     for i := range zones {
         zones[i].EntranceEvents = ee[zones[i].Id]
-        zones[i].Devices = cfg.LoadLinks(zones[i].Id, "zone-device")
+        // TODO: handle err
+        zones[i].Devices, _ = cfg.LoadLinks(zones[i].Id, "zone-device")
     }
     
     // load zones links
@@ -219,8 +220,10 @@ func (cfg *Configuration) userInfo(cid int64, data []byte) (interface{}, bool) {
     json.Unmarshal(data, &id)
     //res := cfg.loadUsers()
     user := User{Id: id}
-    user.Zones = cfg.LoadLinks(id, "user-zone")
-    user.Devices = cfg.LoadLinks(id, "user-device")
+    // TODO: handle err
+    user.Zones, _ = cfg.LoadLinks(id, "user-zone")
+    // TODO: handle err
+    user.Devices, _ = cfg.LoadLinks(id, "user-device")
     user.Cards = cfg.loadUserCards(id)
     return user, false
 }
