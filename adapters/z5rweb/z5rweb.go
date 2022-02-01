@@ -35,6 +35,9 @@ func (svc *Z5RWeb) Run(_ configuration.ConfigAPI) (err error) {
     svc.Stopped = make(chan struct{})
     defer close(svc.Stopped)
     
+    svc.complaints = make(chan error, 10)
+    go svc.ErrChecker(ctx, svc.complaints, api.EC_SERVICE_READY, api.EC_SERVICE_FAILURE)
+    
     rand.Seed(time.Now().UnixNano())
     svc.nextMessageId = int64(1e6 + rand.Intn(1e6)) // TODO: use timestamp?
     

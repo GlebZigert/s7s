@@ -27,26 +27,35 @@ const (
 
 var addCardStep = 0
 
-func (svc *Z5RWeb) HTTPHandler(w http.ResponseWriter, r *http.Request) {
+func (svc *Z5RWeb) HTTPHandler(w http.ResponseWriter, r *http.Request) (err error) {
+    var httpErrCode int
+    defer func () {
+        // TODO: create err in case of err == nil && httpErrCode != 0
+        svc.complaints <- err
+        if nil != err && 0 == httpErrCode {
+            httpErrCode = http.StatusInternalServerError
+        }
+        if 0 != httpErrCode {
+            http.Error(w, http.StatusText(httpErrCode), httpErrCode)
+        }
+    }()
     svc.RLock()
     ready := svc.devices != nil
     svc.RUnlock()
     
     if !ready {
-        code := http.StatusServiceUnavailable
-        http.Error(w, http.StatusText(code), code)
+        httpErrCode = http.StatusServiceUnavailable
         return
     }
 
     if "POST" != r.Method {
-        code := http.StatusMethodNotAllowed
-        http.Error(w, http.StatusText(code), code)
+        httpErrCode = http.StatusMethodNotAllowed
         return
     }
     
     parts := strings.Split(r.URL.Path, "/")
     if 3 != len(parts) || "z5rweb" != parts[2] {
-        http.NotFound(w, r)
+        httpErrCode = http.StatusNotFound //http.NotFound(w, r)
         return
     }
 
@@ -61,9 +70,9 @@ func (svc *Z5RWeb) HTTPHandler(w http.ResponseWriter, r *http.Request) {
     //err := json.NewDecoder(r.Body).Decode(&parcel)
     svc.httpLog.Write([]byte("\n\n========== <<<R ==========\n\n"))
     svc.httpLog.Write([]byte(body))
-    err := json.Unmarshal(body, &parcel)
+    err = json.Unmarshal(body, &parcel)
     if err != nil {
-        http.Error(w, err.Error(), http.StatusBadRequest)
+        httpErrCode = http.StatusBadRequest
         return
     }
 
@@ -99,7 +108,7 @@ func (svc *Z5RWeb) HTTPHandler(w http.ResponseWriter, r *http.Request) {
                 
         }
         if nil != err {
-            break
+            return
         }
         
         if nil != reply {
@@ -113,24 +122,20 @@ func (svc *Z5RWeb) HTTPHandler(w http.ResponseWriter, r *http.Request) {
         }
     }
     
-    if nil != err {
-        code := http.StatusInternalServerError
-        http.Error(w, http.StatusText(code), code)
-    } else {
-        dev, devId := svc.findDevice(svc.makeHandle(parcel.Type, parcel.SN))        
-        if nil != dev {
-            messages = append(messages, svc.getJob(devId, usedBytes)...)
-        }
-        message := fmt.Sprintf(`{"date": "%s","interval": %d,"messages": [%s]}`,
-            time.Now().Format(dateFormat),
-            svc.Settings.KeepAlive,
-            strings.Join(messages, ","))
-
-        svc.httpLog.Write([]byte("\n\n========== S>>> ==========\n\n"))
-        svc.httpLog.Write([]byte(message))
-
-        w.Write([]byte(message))
+    dev, devId := svc.findDevice(svc.makeHandle(parcel.Type, parcel.SN))        
+    if nil != dev {
+        messages = append(messages, svc.getJob(devId, usedBytes)...)
     }
+    message := fmt.Sprintf(`{"date": "%s","interval": %d,"messages": [%s]}`,
+        time.Now().Format(dateFormat),
+        svc.Settings.KeepAlive,
+        strings.Join(messages, ","))
+
+    svc.httpLog.Write([]byte("\n\n========== S>>> ==========\n\n"))
+    svc.httpLog.Write([]byte(message))
+
+    w.Write([]byte(message))
+    return
 }
 
 func (svc *Z5RWeb) logDevice(dType string, sn int64) {

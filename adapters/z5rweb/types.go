@@ -19,6 +19,8 @@ type Z5RWeb struct {
     dblayer.DBLayer
     httpLog  *os.File
     
+    complaints      chan error
+    
     subscription    chan interface{}
     devices         map[int64] *Device
     idCache         map[string] int64
