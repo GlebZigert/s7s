@@ -129,15 +129,17 @@ func (cfg *Configuration) EnterZone(event api.Event) {
     cfg.Broadcast("EnterZone", &event)
 }
 
-func (cfg *Configuration) UserByCard(card string) (userId int64) {
+func (cfg *Configuration) UserByCard(card string) (userId int64, err error) {
     fields := dblayer.Fields{"user_id": &userId}
     emCard, _ := encodeCard(card)
-    rows, values, _ := db.Table("cards").Seek("card = ?", emCard).Get(nil, fields, 1)
+    rows, values, err := db.Table("cards").Seek("card = ?", emCard).Get(nil, fields, 1)
+    if nil != err {
+        return
+    }
     defer rows.Close()
 
     if rows.Next() {
-        err := rows.Scan(values...)
-        catch(err)
+        err = rows.Scan(values...)
     }
     return
 }

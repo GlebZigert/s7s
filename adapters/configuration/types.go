@@ -227,7 +227,7 @@ type ConfigAPI interface {
     // ACS
     //GetAccessRules(serviceId int64) (rules []*Rule)
     //GetActiveCards(serviceId, deviceId int64)
-    UserByCard(card string) int64
+    UserByCard(card string) (int64, error)
     RequestPassage(zoneId int64, card, pin string) (userId, errCode int64)
     //GetCards(deviceId int64) map[string][]*Rule
     //SameZoneDevices(deviceId int64) []int64
