@@ -67,8 +67,9 @@ func (svc *Z5RWeb) HTTPHandler(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    dev, devId := svc.findDevice(svc.makeHandle(parcel.Type, parcel.SN))
-    
+    svc.logDevice(parcel.Type, parcel.SN)
+
+    //////////////////////// S C A N   M E S S A G E S ////////////////
     var messages []string
     var usedBytes int
     for _, msg := range parcel.Messages {
@@ -81,27 +82,30 @@ func (svc *Z5RWeb) HTTPHandler(w http.ResponseWriter, r *http.Request) {
                 }
             case "power_on":
                 svc.Log("!! P_ON !!")
-                reply = svc.handlePowerOn(parcel.Type, parcel.SN, &msg)
+                reply, err = svc.handlePowerOn(parcel.Type, parcel.SN, &msg)
                     
             case "events":
                 svc.Log("!! EVENTS !!")
                 svc.Log(msg)
-                reply = svc.handleEvents(parcel.Type, parcel.SN, &msg)
+                reply, err = svc.handleEvents(parcel.Type, parcel.SN, &msg)
 
             case "ping":
                 //svc.Log("!! PING !!")
-                reply = svc.handlePing(parcel.Type, parcel.SN, &msg)
+                reply, err = svc.handlePing(parcel.Type, parcel.SN, &msg)
         
             case "check_access":
                 svc.Log("!! CA !!")
-                reply = svc.checkAccess(parcel.Type, parcel.SN, &msg)
+                reply, err = svc.checkAccess(parcel.Type, parcel.SN, &msg)
                 
         }
+        if nil != err {
+            break
+        }
+        
         if nil != reply {
             msg, ok := reply.(string)
-            if !ok {
-                msgb, err := json.Marshal(reply)
-                catch(err)
+            if !ok { // not string
+                msgb, _ := json.Marshal(reply)
                 msg = string(msgb)
             }
             messages = append(messages, msg)
@@ -109,22 +113,24 @@ func (svc *Z5RWeb) HTTPHandler(w http.ResponseWriter, r *http.Request) {
         }
     }
     
-    svc.logDevice(parcel.Type, parcel.SN)
-    
-    //message, err := json.Marshal(cmd)
-    //catch(err)
-    if nil != dev {
-        messages = append(messages, svc.getJob(devId, usedBytes)...)
+    if nil != err {
+        code := http.StatusInternalServerError
+        http.Error(w, http.StatusText(code), code)
+    } else {
+        dev, devId := svc.findDevice(svc.makeHandle(parcel.Type, parcel.SN))        
+        if nil != dev {
+            messages = append(messages, svc.getJob(devId, usedBytes)...)
+        }
+        message := fmt.Sprintf(`{"date": "%s","interval": %d,"messages": [%s]}`,
+            time.Now().Format(dateFormat),
+            svc.Settings.KeepAlive,
+            strings.Join(messages, ","))
+
+        svc.httpLog.Write([]byte("\n\n========== S>>> ==========\n\n"))
+        svc.httpLog.Write([]byte(message))
+
+        w.Write([]byte(message))
     }
-    message := fmt.Sprintf(`{"date": "%s","interval": %d,"messages": [%s]}`,
-        time.Now().Format(dateFormat),
-        svc.Settings.KeepAlive,
-        strings.Join(messages, ","))
-
-    svc.httpLog.Write([]byte("\n\n========== S>>> ==========\n\n"))
-    svc.httpLog.Write([]byte(message))
-
-    w.Write([]byte(message))
 }
 
 func (svc *Z5RWeb) logDevice(dType string, sn int64) {
@@ -136,11 +142,14 @@ func (svc *Z5RWeb) logDevice(dType string, sn int64) {
         svc.Lock()
         device := dev.Device
         svc.Unlock()
+        // TODO: is error handling required?
         core.TouchDevice(svc.Settings.Id, &device) // TODO: restore it
         
         if !dev.Online {
             dev.Online = true
-            events = api.EventsList{svc.setState(devId, EID_DEVICE_ONLINE, "", "", "")}
+            // INFO: never return error because no user affected (card = "")
+            ev, _ := svc.setState(devId, EID_DEVICE_ONLINE, "", "", "")
+            events = api.EventsList{ev}
         }
         
         if nil != events {
@@ -154,12 +163,13 @@ func (svc *Z5RWeb) logDevice(dType string, sn int64) {
 //////////////////////////////////////////////////////////
 ///////////////////// H A N D L E R S ////////////////////
 //////////////////////////////////////////////////////////
-func (svc *Z5RWeb) checkAccess(dType string, sn int64, msg *Message) interface{} {
+func (svc *Z5RWeb) checkAccess(dType string, sn int64, msg *Message) (res interface{}, err error) {
     //svc.Log("***** CHECK ACCESS ****", *msg)
     var card string
     var granted int
     var zoneId int64
     var errCode int64
+    var ev api.Event
     var events api.EventsList
     handle := svc.makeHandle(dType, sn)
     dev, devId := svc.findDevice(handle)
@@ -190,22 +200,24 @@ func (svc *Z5RWeb) checkAccess(dType string, sn int64, msg *Message) interface{}
             svc.ignoreEvent(msg.Card, 2 + int64(msg.Reader) - 1)
             svc.Log("Wait for pin")
         } else {
-            event := int64(msg.Reader) - 1 + map[int64] int64 {
-                68: 68, // blocked
-                api.ACS_WRONG_PIN: 62,
-                api.ACS_UNKNOWN_CARD: 2,
-                api.ACS_ANTIPASSBACK: 54,
-                api.ACS_MAX_VISITORS: 66,
-                api.ACS_ACCESS_DENIED: 6}[errCode]
-            events = append(events, svc.setState(devId, event, "", msg.Card, ""))
+            // analyze passage attempt results
+            event := mapEventCode(msg.Reader, errCode)
+            ev, err = svc.setState(devId, event, "", msg.Card, "")
+            if nil != err {
+                return
+            }
+            events = append(events, ev)
 
             if api.ACS_WRONG_PIN == errCode {
                 if svc.logWrongPin(card) {
-                    events = append(events, svc.setState(devId, 64 + int64(msg.Reader) - 1, "", card, ""))
+                    ev, err = svc.setState(devId, 64 + int64(msg.Reader) - 1, "", card, "")
+                    if nil != err {
+                        return
+                    }
+                    events = append(events, ev)
                 }
                 svc.clearLastCard(devId, msg.Reader)
             }
-
             svc.Broadcast("Events", events)
             svc.ignoreEvent(msg.Card, 2 + int64(msg.Reader) - 1)
         }
@@ -215,10 +227,20 @@ func (svc *Z5RWeb) checkAccess(dType string, sn int64, msg *Message) interface{}
     return &CheckAccessReply {
         Id: msg.Id,
         Operation: "check_access",
-        Granted: granted}
+        Granted: granted}, nil
 }
 
-func (svc *Z5RWeb) handlePing(dType string, sn int64, msg *Message) interface{} {
+func mapEventCode(reader, errCode int64) int64 {
+    return reader - 1 + map[int64] int64 {
+        68: 68, // blocked
+        api.ACS_WRONG_PIN: 62,
+        api.ACS_UNKNOWN_CARD: 2,
+        api.ACS_ANTIPASSBACK: 54,
+        api.ACS_MAX_VISITORS: 66,
+        api.ACS_ACCESS_DENIED: 6}[errCode]
+}
+
+func (svc *Z5RWeb) handlePing(dType string, sn int64, msg *Message) (res interface{}, err error) {
     var modes = []int64{api.EC_NORMAL_ACCESS, api.EC_POINT_BLOCKED, api.EC_FREE_PASS}
     handle := svc.makeHandle(dType, sn)
     dev, devId := svc.findDevice(handle)
@@ -241,10 +263,10 @@ func (svc *Z5RWeb) handlePing(dType string, sn int64, msg *Message) interface{} 
         dev.LastSeen = time.Now()
     } else {// re-activate
         svc.Warn("Device not found, re-activate:", dType, sn)
-        return &SetActiveCmd {Id: svc.getMessageId(), Operation: "set_active", Active: 0, Online: 0}
+        res = &SetActiveCmd {Id: svc.getMessageId(), Operation: "set_active", Active: 0, Online: 0}
     }
 
-    return nil
+    return
     /*
     if addCardStep == 0 {
         addCardStep += 1
@@ -282,7 +304,7 @@ func (svc *Z5RWeb) handlePing(dType string, sn int64, msg *Message) interface{} 
 }
 
 //[{"type":"Z5RWEB","sn":49971,"messages":[{"id":1101513929,"operation":"power_on","fw":"3.28","conn_fw":"1.0.128","active":0,"mode":0,"controller_ip":"192.168.0.79","reader_protocol":"wiegand"}]}]
-func (svc *Z5RWeb) handlePowerOn(dType string, sn int64, msg *Message) interface{} {
+func (svc *Z5RWeb) handlePowerOn(dType string, sn int64, msg *Message) (ret interface{}, err error) {
     handle := svc.makeHandle(dType, sn)
     dev, devId := svc.findDevice(handle)
     if nil == dev {
@@ -308,7 +330,10 @@ func (svc *Z5RWeb) handlePowerOn(dType string, sn int64, msg *Message) interface
     svc.Unlock()
     
     if 0 == devId { // new device, save it
-        svc.appendDevice(dev)
+        err = svc.appendDevice(dev)
+    }
+    if nil != err {
+        return
     }
     
     online := 1
@@ -316,77 +341,40 @@ func (svc *Z5RWeb) handlePowerOn(dType string, sn int64, msg *Message) interface
         online = 0
     }*/
     
-    ret := &SetActiveCmd {
+    ret = &SetActiveCmd {
         Id: svc.getMessageId(),
         Operation: "set_active",
         Active: 1,
         Online: online}
     
     //svc.Log("##### SET ACT ####", ret)
-    return ret
+    return
 }
 
-/*
-func (svc *Z5RWeb) handlePing(dType string, sn int64, msg *Message) interface{} {
-    now := time.Now()
-    fields := dblayer.Fields {
-        "active": msg.Active,
-        "mode": msg.Mode,
-        "last_seen": now}
 
-    if 0 == svc.Table("devices").Seek("type = ? AND serial_number = ?", dType, sn).Update(nil, fields) {
-        // TODO: re-activate?
-        svc.Warn("Device not found, re-activate:", dType, sn)
-        return &SetActiveCmd {Id: svc.nextMessageId, Operation: "set_active", Active: 0, Online: 0}
-    }
-    return nil
-}
-
-func (svc *Z5RWeb) handlePowerOn(dType string, sn int64, msg *Message) interface{} {
-    now := time.Now()
-    fields := dblayer.Fields {
-        "firmware": msg.Firmware,
-        "conn_firmware": msg.ConnFirmware,
-        "active": msg.Active,
-        "mode": msg.Mode,
-        "ip": msg.IP,
-        "protocol": msg.Protocol,
-        "internal_zone": 0,
-        "external_zone": 0,
-        "last_seen": now}
-
-    if 0 == svc.Table("devices").Seek("type = ? AND serial_number = ?", dType, sn).Update(nil, fields) {
-        fields["name"] = dType + " " + strconv.FormatInt(sn, 10)
-        fields["type"] = dType
-        fields["serial_number"] = sn
-        svc.Table("devices").Insert(nil, fields)
-        // TODO: load only new device?
-        svc.devices = svc.loadDevices()
-        // TODO: broadcast updates
-    }
-    
-    svc.nextMessageId += 1
-    return &SetActiveCmd {
-        Id: svc.nextMessageId,
-        Operation: "set_active",
-        Active: 1,
-        Online: 0}
-}*/
-func (svc *Z5RWeb) handleEvents(dType string, sn int64, msg *Message) interface{} {
+func (svc *Z5RWeb) handleEvents(dType string, sn int64, msg *Message) (res interface{}, err error) {
     handle := svc.makeHandle(dType, sn)
     dev, devId := svc.findDevice(handle)
     if nil == dev {
         svc.Warn("Device not found, re-activate:", dType, sn)
-        return &SetActiveCmd {Id: svc.getMessageId(), Operation: "set_active", Active: 0, Online: 0}
-
+        res = &SetActiveCmd {Id: svc.getMessageId(), Operation: "set_active", Active: 0, Online: 0}
+        return
     }
+    var ev api.Event
     events := make(api.EventsList, 0, len(msg.Events))
     for _, event := range msg.Events {
         text := describeEvent(&event)
         if !svc.ignoredEvent(event.Card, event.Event) {
-            events = append(events, svc.setState(devId, event.Event, text, event.Card, event.Time))
+            ev, err = svc.setState(devId, event.Event, text, event.Card, event.Time)
+            if nil != err {
+                break
+            }
+            events = append(events, ev)
         }
         
+    }
+    if nil != err {
+        return
     }
     // broadcast
     if len(events) > 0 { // skip ignored
@@ -395,7 +383,7 @@ func (svc *Z5RWeb) handleEvents(dType string, sn int64, msg *Message) interface{
     return EventReply {
         Id: svc.getMessageId(),
         Operation: "events",
-        EventsSuccess: len(msg.Events)}
+        EventsSuccess: len(msg.Events)}, err
 }
 
 ////////////////////////////////////////////////////////
