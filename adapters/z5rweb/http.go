@@ -75,8 +75,11 @@ func (svc *Z5RWeb) HTTPHandler(w http.ResponseWriter, r *http.Request) (err erro
         httpErrCode = http.StatusBadRequest
         return
     }
-
-    svc.logDevice(parcel.Type, parcel.SN)
+    
+    err = svc.logDevice(parcel.Type, parcel.SN)
+    if nil != err {
+        return
+    }
 
     //////////////////////// S C A N   M E S S A G E S ////////////////
     var messages []string
@@ -138,7 +141,8 @@ func (svc *Z5RWeb) HTTPHandler(w http.ResponseWriter, r *http.Request) (err erro
     return
 }
 
-func (svc *Z5RWeb) logDevice(dType string, sn int64) {
+func (svc *Z5RWeb) logDevice(dType string, sn int64) (err error) {
+    defer func () {svc.complaints <- err}()
     var events api.EventsList
     handle := svc.makeHandle(dType, sn)
     dev, devId := svc.findDevice(handle)
@@ -147,9 +151,7 @@ func (svc *Z5RWeb) logDevice(dType string, sn int64) {
         svc.Lock()
         device := dev.Device
         svc.Unlock()
-        // TODO: is error handling required?
-        core.TouchDevice(svc.Settings.Id, &device) // TODO: restore it
-        
+        err = core.TouchDevice(svc.Settings.Id, &device) // TODO: restore it
         if !dev.Online {
             dev.Online = true
             // INFO: never return error because no user affected (card = "")
@@ -163,6 +165,7 @@ func (svc *Z5RWeb) logDevice(dType string, sn int64) {
     } else {
         //svc.Log("Dev found!")
     }
+    return
 }
 
 //////////////////////////////////////////////////////////
