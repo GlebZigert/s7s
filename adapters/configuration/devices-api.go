@@ -149,8 +149,9 @@ func (cfg *Configuration) DeleteDevice(id int64) (err error) {
     return
 }
 
-func (cfg *Configuration) TouchDevice(serviceId int64, dev *Device) {
+func (cfg *Configuration) TouchDevice(serviceId int64, dev *Device) (err error) {
     dev.LastSeen = time.Now()
     fields := dblayer.Fields {"last_seen": dev.LastSeen}
-    db.Table("devices").Seek(dev.Id).Update(nil, fields)
+    _, err = db.Table("devices").Seek(dev.Id).Update(nil, fields)
+    return
 }

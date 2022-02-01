@@ -219,7 +219,7 @@ type ConfigAPI interface {
     SaveDevice(serviceId int64, device *Device, data interface{}) (err error)
     DeleteDevice(id int64) error
     LoadDevices(serviceId int64) ([]Device, error)
-    TouchDevice(serviceId int64, dev *Device)
+    TouchDevice(serviceId int64, dev *Device) error
     
     LoadLinks(sourceId int64, link string) (list []ExtLink, err error)
     SaveLinks(sourceId int64, linkType string, list []ExtLink) error
