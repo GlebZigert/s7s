@@ -188,12 +188,13 @@ func (maps MapList) Filter(filter map[int64]int64) interface{} {
             res = append(res, m)
         }
     }
+    return res
     // TODO: maybe just return res?
-    if len(res) > 0 {
+    /*if len(res) > 0 {
         return res
     } else {
         return nil
-    }
+    }*/
 }
 
 
