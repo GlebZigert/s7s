@@ -20,7 +20,7 @@ type Factory func (*api.API) Service
 //type Do func (int, string, string)
 
 type HTTPAPI interface {
-    HTTPHandler(http.ResponseWriter, *http.Request)    
+    HTTPHandler(http.ResponseWriter, *http.Request) error
 }
 
 type ManageableZones interface {

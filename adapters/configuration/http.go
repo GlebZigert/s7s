@@ -13,7 +13,7 @@ const (
     PayloadLimit = 16 * 1024 * 1024
 )
 
-func (cfg *Configuration) HTTPHandler(w http.ResponseWriter, r *http.Request) {
+func (cfg *Configuration) HTTPHandler(w http.ResponseWriter, r *http.Request) (err error) {
     parts := strings.Split(r.URL.Path, "/")
     if 3 != len(parts) || "" == parts[2] {
         cfg.Err("Wrong HTTP request: invalid path")
@@ -27,6 +27,7 @@ func (cfg *Configuration) HTTPHandler(w http.ResponseWriter, r *http.Request) {
         case "journal": cfg.journalHTTPHandler(w, r)
         default: http.NotFound(w, r)
     }
+    return
 }
 
 func (cfg *Configuration) planHTTPHandler(w http.ResponseWriter, r *http.Request) {
