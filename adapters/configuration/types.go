@@ -144,7 +144,59 @@ type Filterable interface {
     Filter(list map[int64]int64) interface{}
 }
 
-/*********************************************************************************/
+//////////////////////////////////////////////////////////////////////
+//                    ZONES filtering                               //
+//////////////////////////////////////////////////////////////////////
+
+func (z Zone) GetList() []int64 {
+    list := make([]int64, 0, len(z.Devices))
+    for i := range z.Devices {
+        list = append(list, z.Devices[i][1])
+    }
+    return list
+}
+
+func (z *Zone) Filter(filter map[int64]int64) interface{} {
+    devices := z.Devices
+    z.Devices = make([]ExtLink, 0, len(z.Devices))
+    for i := range devices {
+        // filter[0] > 0 => all id are acceptable
+        if filter[0] > 0 || filter[devices[i][1]] > 0 {
+             z.Devices = append(z.Devices, devices[i])
+        }
+    }
+    return z
+}
+
+/*******************************************************************************/
+
+type ZoneList []Zone
+
+func (zones ZoneList) GetList() []int64 {
+    list := make([]int64, 0, len(zones))
+    
+    for _, z := range zones {
+        list = append(list, z.GetList()...)
+    }
+
+    return list
+}
+
+func (zones ZoneList) Filter(filter map[int64]int64) interface{} {
+    var res ZoneList
+    for _, z := range zones {
+        z.Filter(filter)
+        if filter[0] > 0 || len(z.Devices) > 0 {
+            res = append(res, z)
+        }
+    }
+    return res
+}
+
+//////////////////////////////////////////////////////////////////////
+//                    MAPS filtering                               //
+//////////////////////////////////////////////////////////////////////
+
 
 func (m Map) GetList() []int64 {
     list := make([]int64, 0, len(m.Shapes))
@@ -166,7 +218,7 @@ func (m *Map) Filter(filter map[int64]int64) interface{} {
     return m
 }
 
-///////////////////////////////////
+/*********************************************************************************/
 
 type MapList []Map
 
@@ -189,17 +241,13 @@ func (maps MapList) Filter(filter map[int64]int64) interface{} {
         }
     }
     return res
-    // TODO: maybe just return res?
-    /*if len(res) > 0 {
-        return res
-    } else {
-        return nil
-    }*/
 }
 
 
+//////////////////////////////////////////////////////////////////////
+//                    ConfigAPI                                     //
+//////////////////////////////////////////////////////////////////////
 
-/********************************************************************************/
 
 type ConfigAPI interface {
     Get()           []*api.Settings
