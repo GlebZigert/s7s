@@ -476,7 +476,7 @@ func (dispatcher *Dispatcher) doZoneCommand(userId, zoneId, command int64) {
             }
         }
         if len(devices) > 0 {
-            services[i].ZoneCommand(userId, command, devices)
+            go services[i].ZoneCommand(userId, command, devices)
         }
     }
 
