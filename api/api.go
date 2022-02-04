@@ -41,15 +41,15 @@ func NewAPI(s *Settings, broadcast Broadcast) *API {
 
 // TODO: colorize output => https://twinnation.org/articles/35/how-to-add-colors-to-your-console-terminal-output-in-go
 func (api *API) Log(args... interface{}) {
-    log.Println(append([]interface{}{api.name}, args...)...)
+    log.Println(append([]interface{}{"[" + api.name + "]"}, args...)...)
 }
 
 func (api *API) Warn(args... interface{}) {
-    log.Println(append([]interface{}{api.name}, args...)...)
+    log.Println(append([]interface{}{"[" + api.name + "]"}, args...)...)
 }
 
 func (api *API) Err(args... interface{}) {
-    log.Println(append([]interface{}{api.name}, args...)...)
+    log.Println(append([]interface{}{"[" + api.name + "]"}, args...)...)
 }
 
 // expose API
