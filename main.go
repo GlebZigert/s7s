@@ -30,6 +30,8 @@ func main() {
     err := dispatcher.Run(ctx, host)
     if nil != err {
         log.Println(err)
+    } else {
+        log.Println("Bye!")
     }
     //time.Sleep(1 * time.Second)
 }

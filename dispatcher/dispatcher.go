@@ -67,8 +67,6 @@ func Run(ctx context.Context, host string) (err error) {
         return
     }
     
-
-
     settings := core.Get()
     for _, s := range settings {
         service := factory(api.NewAPI(s, d.broadcast))
@@ -80,9 +78,14 @@ func Run(ctx context.Context, host string) (err error) {
     }
     
     log.Println("Dispatcher startup completed")
-    d.httpServer(ctx, host)
-    // if nil == ctx.Err() => troubles with HTTP server
-    // exit in any case
+    err = d.httpServer(ctx, host)
+    if nil != err && nil == ctx.Err() {
+        err = fmt.Errorf("HTTP server failure: %w", err)
+    } else {
+        err = nil        
+        log.Println("HTTP server stopped")
+    }
+
     d.shutdown()
     
     return
@@ -114,7 +117,7 @@ func (dispatcher *Dispatcher) shutdown() {
     }()    
     select {
         case <-c:
-            log.Println("All services done")
+            log.Println("All services stopped")
         case <-time.After(shutdownTimeout * time.Second):
             log.Println("Some services are hang")
     }
@@ -128,11 +131,10 @@ func (dispatcher *Dispatcher) shutdown() {
     }()    
     select {
         case <-c:
-            log.Println("Core done")
+            log.Println("Core stopped")
         case <-time.After(shutdownTimeout * time.Second):
             log.Println("Core hang")
     }
-    log.Println("Bye!")
 }
 
 func (dispatcher *Dispatcher) shutdownService(id int64) {
