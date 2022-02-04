@@ -468,18 +468,34 @@ func (dispatcher *Dispatcher) doZoneCommand(userId, zoneId, command int64) {
     
     // TODO: handle err
     list, _ := core.LoadLinks(zoneId, "zone-device")
-    for i := range services {
-        var devices []int64
-        for j := range list {
-            if list[j][0] == i {
-                devices = append(devices, list[j][1])
-            }
-        }
-        if len(devices) > 0 {
-            go services[i].ZoneCommand(userId, command, devices)
+
+    var devices []int64
+    for i := range list {
+        devices = append(devices, list[i][1])
+    }
+
+    if 0 == len(devices) {
+        return // Zone is empty
+    }
+
+    // TODO: handle err
+    filter, _ := core.Authorize(userId, devices)
+    devices = make([]int64, len(filter))
+    for id, flags := range filter {
+        // filter[0] > 0 => all id are acceptable
+        if filter[0] > 0 || flags & api.AM_CONTROL > 0 {
+             devices = append(devices, id)
         }
     }
 
+    if 0 == len(devices) {
+        return // No permitted devices
+    }
+
+    for i := range services {
+        // WARN: devices should be read-only
+        go services[i].ZoneCommand(userId, command, devices)
+    }
 }
 
 func (dispatcher *Dispatcher) updateService(data interface{}) {
