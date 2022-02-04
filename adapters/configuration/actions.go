@@ -1,7 +1,6 @@
 package configuration
 
 import (
-    "log"
     "encoding/json"
     "../../api"
 )
@@ -36,7 +35,6 @@ func (cfg *Configuration) completeShift(cid int64, data []byte) (interface{}, bo
 ///////////////////////////////////////////////////////////////////
 func (cfg *Configuration) listLocations(cid int64, data []byte) (interface{}, bool) {
     res := cfg.entranceEvents()
-    //log.Println("FFF:", filter)
     return res, false // don't broadcast
 }
 
@@ -63,7 +61,6 @@ func (cfg *Configuration) loadJournal(cid int64, data []byte) (interface{}, bool
     var serviceId int64
     json.Unmarshal(data, &serviceId)
     res, _ := cfg.dbLoadJournal(cid, serviceId) // TODO: handle err
-    //log.Println("FFF:", filter)
     return res, false // don't broadcast
 }
 
@@ -71,7 +68,6 @@ func (cfg *Configuration) listEvents(cid int64, data []byte) (interface{}, bool)
     filter := new(EventFilter)
     json.Unmarshal(data, filter) // TODO: handle err
     res := cfg.loadEvents(filter)
-    //log.Println("FFF:", filter)
     return res, false // don't broadcast
 }
 
@@ -277,7 +273,6 @@ func (cfg *Configuration) updateUser(cid int64, data []byte) (interface{}, bool)
 func (cfg *Configuration) deleteUser(cid int64, data []byte) (interface{}, bool) {
     var id int64
     json.Unmarshal(data, &id)
-    log.Println("[Configuration] Delete user", id)
     if 1 != id {
         cfg.dbDeleteUser(id)
         return id, true
@@ -304,7 +299,6 @@ func (cfg *Configuration) listServices(cid int64, data []byte) (interface{}, boo
 func (cfg *Configuration) deleteService(cid int64, data []byte) (interface{}, bool) {
     var id int64
     json.Unmarshal(data, &id)
-    log.Println("[Configuration] Delete", id)
     cfg.dbDeleteService(id)
     return id, true
 }
@@ -317,15 +311,11 @@ func (cfg *Configuration) updateService(cid int64, data []byte) (interface{}, bo
     service.NewPassword = ""
     service.DBPassword = service.NewDBPassword
     service.NewDBPassword = ""
-    log.Println(service)
+
     if 0 == service.Id {
-        // new service
         // TODO: timeout for multiple submissions (no spam!)
-        //log.Println("New service:", service)
         cfg.newService(&service)
     } else {
-        // update service
-        //log.Println("Update service:", service)
         cfg.updService(service)
     }
     return &service, true
