@@ -210,9 +210,13 @@ func (cfg *Configuration) Authenticate(login, token string) (id, role int64) {
         "role": &role,
         "token": &userToken}
 
-    rows, values, _ := db.Table("users").
+    rows, values, err := db.Table("users").
         Seek("login = ? AND role > ? AND archived = ?", login, 0, false).
         Get(nil, fields)
+    // TODO: proper error handling
+    if nil != err {
+        return
+    }
     defer rows.Close()
 
     if rows.Next() {
@@ -222,15 +226,6 @@ func (cfg *Configuration) Authenticate(login, token string) (id, role int64) {
                 id = 0
             }
         }
-    } else if "buro" == login {
-        user := User{
-            Type: api.UT_PERSONAL,
-            Role: api.ARM_BUREAU,
-            Name: "Бюро пропусков",
-            Login: "buro",
-            Password: "Start7"}
-        cfg.dbUpdateUser(&user, nil)
-        id = user.Id
     }
     return
 }

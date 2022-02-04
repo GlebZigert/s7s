@@ -1,12 +1,23 @@
 package configuration
 
+import (
+    "fmt"
+    "../../api"
+)
+
 // TODO: made all fields NOT NULL
 // due to sql: Scan error on column index 3, name "r": converting NULL to float32 is unsupported
 
 var tableUpdates []string = []string {
-//"ALTER TABLE events ADD COLUMN zone_id INTEGER NOT NULL DEFAULT 0",
-"ALTER TABLE zones ADD COLUMN max_visitors INTEGER NOT NULL DEFAULT 0",
-"INSERT INTO zones VALUES(1, 'Внешняя территория', 0, NULL)"}
+// create default user
+    fmt.Sprintf("INSERT INTO users(id, type, role, name, login, token) " +
+                `VALUES(%d, %d, %d, "%s", "%s", "%s")`,
+                1, api.UT_PERSONAL, api.ARM_ADMIN,
+                "Администратор", "Администратор",
+                md5hex(authSalt + "Start7")),
+    //"ALTER TABLE events ADD COLUMN zone_id INTEGER NOT NULL DEFAULT 0",
+    //"ALTER TABLE zones ADD COLUMN max_visitors INTEGER NOT NULL DEFAULT 0",
+    "INSERT INTO zones VALUES(1, 'Внешняя территория', 0, NULL)"}
 
 var tables []string = []string {`
     CREATE TABLE IF NOT EXISTS maps (
@@ -67,10 +78,10 @@ var tables []string = []string {`
     // @token: auth token - md5(login+salt+pass)
     `CREATE TABLE IF NOT EXISTS users (
         id              INTEGER PRIMARY KEY AUTOINCREMENT,
-        parent_id       INTEGER NOT NULL,
+        parent_id       INTEGER NOT NULL DEFAULT 0,
         type            INTEGER NOT NULL,
         role            INTEGER NOT NULL,
-        archived        BOOLEAN NOT NULL,
+        archived        BOOLEAN NOT NULL DEFAULT FALSE,
         name            TEXT NOT NULL,
         surename        TEXT NOT NULL DEFAULT '',
         middle_name     TEXT NOT NULL DEFAULT '',
