@@ -273,8 +273,11 @@ func (cfg *Configuration) updateUser(cid int64, data []byte) (interface{}, bool)
 func (cfg *Configuration) deleteUser(cid int64, data []byte) (interface{}, bool) {
     var id int64
     json.Unmarshal(data, &id)
-    if 1 != id {
-        cfg.dbDeleteUser(id)
+    if id > 1 {
+        err := cfg.dbDeleteUser(id)
+        if nil != err {
+            panic(err)
+        }
         return id, true
     } else {
         return "Нельзя удалить встроенного администратора", false
