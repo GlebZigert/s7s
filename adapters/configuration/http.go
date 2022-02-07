@@ -62,7 +62,8 @@ func (cfg *Configuration) userHTTPHandler(w http.ResponseWriter, r *http.Request
         buf.ReadFrom(r.Body)
         cfg.dbUpdateUserPicture(int64(id), buf.Bytes())
     } else if "GET" == r.Method {
-        picture := cfg.dbLoadUserPicture(int64(id))
+        // TODO: handle err
+        picture, _ := cfg.dbLoadUserPicture(int64(id))
         if 0 == len(picture) {
             http.NotFound(w, r)
         } else {
