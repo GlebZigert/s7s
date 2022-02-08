@@ -261,8 +261,6 @@ func (svc *Z5RWeb) handlePing(dType string, sn int64, msg *Message) (res interfa
             svc.RUnlock()
             svc.Broadcast("Events", api.EventsList{api.Event{
                 Class: modes[msg.Mode],
-                ServiceId: svc.Settings.Id,
-                ServiceName: svc.Settings.Title,
                 DeviceId: devId,
                 DeviceName: name}})
         }

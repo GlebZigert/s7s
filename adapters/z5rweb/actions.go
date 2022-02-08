@@ -41,8 +41,6 @@ func (svc *Z5RWeb) resetAlarm(cid int64, data []byte) (interface{}, bool) {
     dev := svc.devices[id]
     if nil != dev {
         events := api.EventsList{{
-            ServiceId: svc.Settings.Id,
-            ServiceName: svc.Settings.Title,
             DeviceId: dev.Id,
             DeviceName: dev.Name,
             UserId: cid,
