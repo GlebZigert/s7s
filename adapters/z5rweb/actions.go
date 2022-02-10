@@ -70,13 +70,14 @@ func (svc *Z5RWeb) execCommand(cid int64, data []byte) (interface{}, bool) {
             id := svc.getMessageId()
             tpl := `{"id": %d, "operation": "open_door", "direction": %d}`
             payload[id] = fmt.Sprintf(tpl, id, command.Command - 8) // 0 = in, 1 = out
-        case 37: // Переключение режимов работы
+        case 370, 371, 372: // Переключение режимов работы
+            argument := command.Command - 370
             //svc.setMode(devId, command.Argument)
             //TODO: this works only in offline mode?
-            if dev.Mode != command.Argument { // skip current mode
+            if dev.Mode != argument { // skip if current mode
                 id := svc.getMessageId()
                 tpl := `{"id": %d, "operation": "set_mode", "mode": %d}`
-                payload[id] = fmt.Sprintf(tpl, id, command.Argument)
+                payload[id] = fmt.Sprintf(tpl, id, argument)
             }
             /*id = svc.getMessageId()
             tpl = `{"id": %d, "operation":"set_active", "active":1, "online": %d}`

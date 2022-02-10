@@ -62,7 +62,7 @@ type Device struct {
     Online          bool            `json:"-"`
     States          [2]api.Event    `json:"states"` // [1] "color" state, [0] - info
 
-    AccessMode      int64       `json:"accessMode"` // hint for GUI
+    AccessMode      int64       `json:"accessMode"` // hint for GUI (user permissions)
     SerialNumber    int64       `json:"serialNumber"`
     Active          int         `json:"active"`
     Mode            int64       `json:"mode"`
