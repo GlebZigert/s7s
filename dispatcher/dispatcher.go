@@ -57,6 +57,7 @@ func Run(ctx context.Context, host string) (err error) {
         services: make(map[int64] Service),
         clients: make(map[int64] Client)}
 
+    outbox = make(chan api.ReplyMessage, maxQueueSize / 10) // buffered replies
     go d.queueServer(ctx)
     
     cfg := factory(api.NewAPI(&api.Settings{Id: 0, Type: "configuration"}, d.broadcast))

@@ -24,7 +24,6 @@ var outbox chan api.ReplyMessage // everybody have its own copy
 
 func (dispatcher *Dispatcher) queueServer(ctx context.Context) {
     var queue []*api.ReplyMessage // unlimited length queue
-    outbox = make(chan api.ReplyMessage, maxQueueSize / 10) // buffered replies
     timer := time.NewTimer(sendRetryInterval * time.Second)
     rand.Seed(time.Now().UnixNano()) // for failure emulation
     
