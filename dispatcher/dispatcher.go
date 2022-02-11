@@ -340,6 +340,13 @@ func (dispatcher *Dispatcher) do(userId int64, q *Query) {
         }
     }
 
+    // prepare Service.Status for marshall
+    if s, ok := res.(*api.Settings); ok {
+        s.Status.RLock()
+        res = *s
+        s.Status.RUnlock()
+    }
+
     /// REPLY
     reply := api.ReplyMessage{Service: q.Service, Action: q.Action, Task: q.Task, Data: res}
     // send to client...
@@ -423,7 +430,9 @@ func (dispatcher *Dispatcher) preprocessQuery(userId *int64, ws *websocket.Conn,
                         //log.Println("FILTER", filter)
                         // TODO: handle err (report db failure)
                         if nil == err && len(filter) > 0 {
+                            settings.Status.RLock()
                             list = append(list, *settings)
+                            settings.Status.RUnlock()
                         }
                     }
                 }
