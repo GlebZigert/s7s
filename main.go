@@ -33,6 +33,10 @@ func main() {
     host := flag.String("host", defaultHost, "http host (ip:port)")
     dataDir := flag.String("data", getPath(), "data files path")
     flag.Parse()
+    
+    if (*dataDir)[len(*dataDir) - 1] != '/' {
+        *dataDir += "/"
+    }
     api.DataStoragePath = *dataDir
     
     //log.SetFlags(log.Flags() &^ (log.Ldate | log.Ltime))
