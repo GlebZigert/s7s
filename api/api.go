@@ -13,6 +13,8 @@ const (
     winStoragePath = "storage/"
     linStoragePath = "/var/lib/s7server/"
 )
+
+var CustomStoragePath string
     
 
 func DescribeEvent(code int64) string {
@@ -100,7 +102,9 @@ func (api *API) GetName() string {
 
 func (api *API) GetStorage() string {
     var path string
-    if runtime.GOOS == "windows" {
+    if "" != CustomStoragePath {
+        path = CustomStoragePath
+    } else if runtime.GOOS == "windows" {
         path = winStoragePath
     } else {
         path = linStoragePath
