@@ -3,17 +3,12 @@ package api
 import (
     "log"
     "time"
-    "runtime"
     "strconv"
     "context"
     //"../adapters/configuration"
 )
 
-const (
-    winStoragePath = "storage/"
-    linStoragePath = "/var/lib/s7server/"
-)
-    
+var DataStoragePath string
 
 func DescribeEvent(code int64) string {
     return "Код #" + strconv.FormatInt(code, 10)
@@ -99,13 +94,7 @@ func (api *API) GetName() string {
 }
 
 func (api *API) GetStorage() string {
-    var path string
-    if runtime.GOOS == "windows" {
-        path = winStoragePath
-    } else {
-        path = linStoragePath
-    }
-    return path + api.GetName()
+    return DataStoragePath + api.GetName()
 }
 
 
