@@ -164,6 +164,22 @@ type OneCard struct {
     TZ      int     `json:"tz"`
 }
 
+func (device Device) GetList() []int64 {
+    return []int64{device.Id}
+}
+
+func (device Device) Filter (list map[int64]int64) interface{} {
+    device.AccessMode = list[0]
+    if 0 == device.AccessMode {
+        device.AccessMode = list[device.Id]
+    }
+    if device.AccessMode > 0 {
+        return device
+    }
+    return nil
+}
+
+
 func (devices DevList) GetList() []int64 {
     ids := make([]int64, len(devices))
     for i := range devices {
