@@ -37,26 +37,16 @@ func backgroundTask(svc *Axxon) {
 
       select {
       case <-svc.quit:
-        svc.Log(" ")
-        svc.Log("backgroundTask STOPPING...")
-        svc.Log(" ")  
+
         svc.background_done<-true
           return
       default:
 
-        svc.Log(".")
+
 
         count++;
         if count==10{
 
-        
-
-          svc.Log(" ")
-          svc.Log(" ")
-          svc.Log("ОПРОС СПИСОК КАМЕР ")
-
-          svc.Log(" ")
-          svc.Log(" ")
 
         
           svc.devList_update()
@@ -81,7 +71,7 @@ func backgroundTask(svc *Axxon) {
               }
   
               if session.livetime==0{
-              svc.Log("Удаляю сессию idx: ",idx,"; cid: ",session.cid,"; point: ",session.point,"; key: ",session.key,"; livetime: ",session.livetime)   
+
               delete(svc.telemetrySessions,idx)   
   
               }
@@ -164,12 +154,10 @@ func (svc *Axxon) Run(cfg configuration.ConfigAPI) (err error) {
  
 
  <-svc.background_done
- svc.Log("background DONE") 
+
 
  <-svc.eventHandler_done
- svc.Log("eventHandler DONE") 
-  
-  svc.Log("Shutting down...")
+
   svc.SetServiceStatus(api.EC_SERVICE_SHUTDOWN)
   return
 

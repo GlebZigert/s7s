@@ -43,7 +43,6 @@ func (svc *IPMon) listDevices(cid int64, data []byte) (interface{}, bool) {
 func (svc *IPMon) updateDevice(cid int64, data []byte) (interface{}, bool) {
     device := new(Device)
     json.Unmarshal(data, device) // TODO: handle err
-    //svc.Log("DEV:", device)
     svc.Lock()
     defer svc.Unlock()
     dev := svc.devices[device.Id]
