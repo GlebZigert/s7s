@@ -1,7 +1,7 @@
 package ipmon
 
 import (
-    "sync"
+//    "sync"
     "../../api"
     "../configuration"
 )
@@ -9,7 +9,6 @@ import (
 //type Reply func (int, string, string, interface{})
 
 type IPMon struct {
-    sync.RWMutex
     api.API
 
     devices         map[int64] *Device

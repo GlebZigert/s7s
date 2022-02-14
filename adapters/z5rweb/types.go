@@ -2,7 +2,7 @@ package z5rweb
 
 import (
     "os"
-    "sync"
+//    "sync"
     "time"
     "../../api"
     "../../dblayer"
@@ -14,7 +14,6 @@ import (
 type Z5RWeb struct {
     nextMessageId   int64 // should be 64-bit aligned for i386
     
-    sync.RWMutex
     api.API
     dblayer.DBLayer
     httpLog  *os.File
