@@ -55,14 +55,18 @@ func (cfg *Configuration) getOneDevice(fields dblayer.Fields, serviceId int64, h
     if nil == fields {
         fields = dblayer.Fields{"id": &id}
     }
-    rows, values, _ := db.Table("devices").
+    rows, values, err := db.Table("devices").
         Seek("service_id = ? AND handle = ?", serviceId, handle).
         Get(nil, fields, 1)
+    if nil != err {
+        return
+    }
+    defer rows.Close()
     
     if rows.Next() {
         err = rows.Scan(values...)
     }
-    rows.Close()
+    
     return
 }
 
