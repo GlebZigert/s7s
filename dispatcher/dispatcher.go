@@ -57,16 +57,17 @@ func Run(ctx context.Context, host string) (err error) {
         services: make(map[int64] Service),
         clients: make(map[int64] Client)}
 
+    outbox = make(chan api.ReplyMessage, maxQueueSize / 10) // buffered replies
+    go d.queueServer(ctx)
+    
     cfg := factory(api.NewAPI(&api.Settings{Id: 0, Type: "configuration"}, d.broadcast))
+    core = cfg.(configuration.ConfigAPI)
     d.services[0] = cfg
-    err = d.services[0].Run(nil)
+    err = d.services[0].Run(core)
     if nil != err {
         return
     }
     
-    core = cfg.(configuration.ConfigAPI)    
-    go d.queueServer(ctx)
-
     settings := core.Get()
     for _, s := range settings {
         service := factory(api.NewAPI(s, d.broadcast))
@@ -78,9 +79,14 @@ func Run(ctx context.Context, host string) (err error) {
     }
     
     log.Println("Dispatcher startup completed")
-    d.httpServer(ctx, host)
-    // if nil == ctx.Err() => troubles with HTTP server
-    // exit in any case
+    err = d.httpServer(ctx, host)
+    if nil != err && nil == ctx.Err() {
+        err = fmt.Errorf("HTTP server failure: %w", err)
+    } else {
+        err = nil        
+        log.Println("HTTP server stopped")
+    }
+
     d.shutdown()
     
     return
@@ -112,7 +118,7 @@ func (dispatcher *Dispatcher) shutdown() {
     }()    
     select {
         case <-c:
-            log.Println("All services done")
+            log.Println("All services stopped")
         case <-time.After(shutdownTimeout * time.Second):
             log.Println("Some services are hang")
     }
@@ -126,11 +132,10 @@ func (dispatcher *Dispatcher) shutdown() {
     }()    
     select {
         case <-c:
-            log.Println("Core done")
+            log.Println("Core stopped")
         case <-time.After(shutdownTimeout * time.Second):
             log.Println("Core hang")
     }
-    log.Println("Bye!")
 }
 
 func (dispatcher *Dispatcher) shutdownService(id int64) {
@@ -335,6 +340,13 @@ func (dispatcher *Dispatcher) do(userId int64, q *Query) {
         }
     }
 
+    // prepare Service.Status for marshall
+    if s, ok := res.(*api.Settings); ok {
+        s.Status.RLock()
+        res = *s
+        s.Status.RUnlock()
+    }
+
     /// REPLY
     reply := api.ReplyMessage{Service: q.Service, Action: q.Action, Task: q.Task, Data: res}
     // send to client...
@@ -418,7 +430,9 @@ func (dispatcher *Dispatcher) preprocessQuery(userId *int64, ws *websocket.Conn,
                         //log.Println("FILTER", filter)
                         // TODO: handle err (report db failure)
                         if nil == err && len(filter) > 0 {
+                            settings.Status.RLock()
                             list = append(list, *settings)
+                            settings.Status.RUnlock()
                         }
                     }
                 }
@@ -464,19 +478,36 @@ func (dispatcher *Dispatcher) doZoneCommand(userId, zoneId, command int64) {
     reply := api.ReplyMessage{Service: 0, Action: "Events", Data: events}
     dispatcher.broadcast(0, &reply)
     
-    list := core.LoadLinks(zoneId, "zone-device")
-    for i := range services {
-        var devices []int64
-        for j := range list {
-            if list[j][0] == i {
-                devices = append(devices, list[j][1])
-            }
-        }
-        if len(devices) > 0 {
-            services[i].ZoneCommand(userId, command, devices)
+    // TODO: handle err
+    list, _ := core.LoadLinks(zoneId, "zone-device")
+
+    var devices []int64
+    for i := range list {
+        devices = append(devices, list[i][1])
+    }
+
+    if 0 == len(devices) {
+        return // Zone is empty
+    }
+
+    // TODO: handle err
+    filter, _ := core.Authorize(userId, devices)
+    devices = make([]int64, len(filter))
+    for id, flags := range filter {
+        // filter[0] > 0 => all id are acceptable
+        if filter[0] > 0 || flags & api.AM_CONTROL > 0 {
+             devices = append(devices, id)
         }
     }
 
+    if 0 == len(devices) {
+        return // No permitted devices
+    }
+
+    for i := range services {
+        // WARN: devices should be read-only
+        go services[i].ZoneCommand(userId, command, devices)
+    }
 }
 
 func (dispatcher *Dispatcher) updateService(data interface{}) {

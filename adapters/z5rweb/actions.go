@@ -41,8 +41,6 @@ func (svc *Z5RWeb) resetAlarm(cid int64, data []byte) (interface{}, bool) {
     dev := svc.devices[id]
     if nil != dev {
         events := api.EventsList{{
-            ServiceId: svc.Settings.Id,
-            ServiceName: svc.Settings.Title,
             DeviceId: dev.Id,
             DeviceName: dev.Name,
             UserId: cid,
@@ -72,13 +70,14 @@ func (svc *Z5RWeb) execCommand(cid int64, data []byte) (interface{}, bool) {
             id := svc.getMessageId()
             tpl := `{"id": %d, "operation": "open_door", "direction": %d}`
             payload[id] = fmt.Sprintf(tpl, id, command.Command - 8) // 0 = in, 1 = out
-        case 37: // Переключение режимов работы
+        case 370, 371, 372: // Переключение режимов работы
+            argument := command.Command - 370
             //svc.setMode(devId, command.Argument)
             //TODO: this works only in offline mode?
-            if dev.Mode != command.Argument { // skip current mode
+            if dev.Mode != argument { // skip if current mode
                 id := svc.getMessageId()
                 tpl := `{"id": %d, "operation": "set_mode", "mode": %d}`
-                payload[id] = fmt.Sprintf(tpl, id, command.Argument)
+                payload[id] = fmt.Sprintf(tpl, id, argument)
             }
             /*id = svc.getMessageId()
             tpl = `{"id": %d, "operation":"set_active", "active":1, "online": %d}`
@@ -117,13 +116,22 @@ func (svc *Z5RWeb) updateDevice(cid int64, data []byte) (interface{}, bool) {
     //svc.Log(device)
     svc.Lock()
     defer svc.Unlock()
-    if dev, ok := svc.devices[device.Id]; ok {
+    dev := svc.devices[device.Id]
+    if nil != dev {
+        name := dev.Name
         dev.Name = device.Name
-        //dev.ExternalZone = device.ExternalZone
-        //dev.InternalZone = device.InternalZone
+        err := core.SaveDevice(svc.Settings.Id, &dev.Device, nil)
+        if nil != err {
+            dev.Name = name
+            panic(err)
+        }
+        zones := dev.Zones
         dev.Zones = device.Zones
-        core.SaveDevice(svc.Settings.Id, &dev.Device, nil)
-        core.SaveLinks(dev.Id, "device-zone", dev.Zones)
+        err = core.SaveLinks(dev.Id, "device-zone", dev.Zones)
+        if nil != err {
+            dev.Zones = zones
+            panic(err)
+        }
         return *dev, true // broadcast
     }
     return "Устройство не найдено", false // don't broadcast error
@@ -132,7 +140,10 @@ func (svc *Z5RWeb) updateDevice(cid int64, data []byte) (interface{}, bool) {
 func (svc *Z5RWeb) deleteDevice(cid int64, data []byte) (interface{}, bool) {
     var id int64
     json.Unmarshal(data, &id)
-    core.DeleteDevice(id)
+    err := core.DeleteDevice(id)
+    if nil != err {
+        panic(err)
+    }
 
     svc.Lock()
     delete(svc.devices, id)

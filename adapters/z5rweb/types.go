@@ -19,6 +19,8 @@ type Z5RWeb struct {
     dblayer.DBLayer
     httpLog  *os.File
     
+    complaints      chan error
+    
     subscription    chan interface{}
     devices         map[int64] *Device
     idCache         map[string] int64
@@ -60,7 +62,7 @@ type Device struct {
     Online          bool            `json:"-"`
     States          [2]api.Event    `json:"states"` // [1] "color" state, [0] - info
 
-    AccessMode      int64       `json:"accessMode"` // hint for GUI
+    AccessMode      int64       `json:"accessMode"` // hint for GUI (user permissions)
     SerialNumber    int64       `json:"serialNumber"`
     Active          int         `json:"active"`
     Mode            int64       `json:"mode"`
@@ -163,6 +165,14 @@ type OneCard struct {
     TZ      int     `json:"tz"`
 }
 
+func (devices DevList) GetList() []int64 {
+    ids := make([]int64, len(devices))
+    for i := range devices {
+        ids[i] = devices[i].Id
+    }
+    return ids
+}
+
 func (devices DevList) Filter (list map[int64]int64) interface{} {
     var res DevList
     for i := range devices {
@@ -175,11 +185,7 @@ func (devices DevList) Filter (list map[int64]int64) interface{} {
             res = append(res, devices[i])
         }
     }
-    if len(res) > 0 {
-        return res
-    } else {
-        return nil
-    }
+    return res
 }
 
 /*

@@ -57,16 +57,18 @@ func (cfg *Configuration) dbUpdateUserPicture(id int64, picture []byte) {
     db.Table("users").Seek(id).Update(nil, dblayer.Fields {"photo": &picture})
 }
 
-func (cfg *Configuration) dbLoadUserPicture(id int64) []byte {
-    var picture []byte
+func (cfg *Configuration) dbLoadUserPicture(id int64) (picture []byte, err error) {
     fields := dblayer.Fields {"photo": &picture}
-    rows, values, _ := db.Table("users").Seek(id).Get(nil, fields)
-    defer rows.Close()
-    if rows.Next() {
-        err := rows.Scan(values...)
-        catch(err)
+    rows, values, err := db.Table("users").Seek(id).Get(nil, fields)
+    if nil != err {
+        return
     }
-    return picture
+    defer rows.Close()
+
+    if rows.Next() {
+        err = rows.Scan(values...)
+    }
+    return
 }
 
 
@@ -283,24 +285,22 @@ func (cfg *Configuration) dbDeleteUser(id int64) (err error) {
     err = cfg.deleteBranch(tx, []int64{id})
     // if was no errors, delete "root" of all barnch
     if nil == err {
-        _, err = db.Table("users").Seek(id).Update(nil, "archived = true")
+        _, err = db.Table("users").Seek(id).Update(tx, "archived = true")
     }
     if nil == err {
-        err = db.Table("cards").Delete(nil, "user_id = ?", id)
+        err = db.Table("cards").Delete(tx, "user_id = ?", id)
     }
     if nil == err {
-        err = db.Table("external_links").Delete(nil, `link IN ("user-zone", "user-device") AND source_id = ?`, id)
+        err = db.Table("external_links").Delete(tx, `link IN ("user-zone", "user-device") AND source_id = ?`, id)
     }
     // TODO: clean broken links for user links, if users "deleted" instead "archived"
     // SELECT ul.user_id FROM user_links ul LEFT JOIN users u ON ul.user_id = u.id AND u.archived = false WHERE u.id IS NULL;
     if nil == err {
         err = tx.Commit()
+        cfg.cache.checkReset(id)
     } else {
         tx.Rollback() // don't overwrite existing error
     }
-    
-    cfg.cache.checkReset(id)
-    
     return
 }
 

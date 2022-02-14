@@ -13,6 +13,7 @@ type Parus struct {
     sync.RWMutex
     api.API
 
+    //complaints      chan error
     devices         map[int64] *Device
 }
 

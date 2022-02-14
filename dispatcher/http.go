@@ -15,12 +15,10 @@ import (
     "../api"    
 )
 
-func (dispatcher *Dispatcher) httpServer(ctx context.Context, host string) {
+func (dispatcher *Dispatcher) httpServer(ctx context.Context, host string) (err error) {
     var wsConfig *websocket.Config
-	var err error
     //if wsConfig, err = websocket.NewConfig("ws://127.0.0.1:6080/", "http://127.0.0.1:6080"); err != nil {
     if wsConfig, err = websocket.NewConfig("ws://" + host, "http://" + host); err != nil {
-		log.Println(err)
 		return
 	}
     
@@ -49,8 +47,7 @@ func (dispatcher *Dispatcher) httpServer(ctx context.Context, host string) {
     }()
 
     log.Println("HTTP listening " + host)
-    err = httpServer.ListenAndServe()
-    log.Println(err)
+    return httpServer.ListenAndServe()
 }
 
 

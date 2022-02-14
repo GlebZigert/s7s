@@ -16,7 +16,7 @@ func zoneFields(zone *Zone) dblayer.Fields {
 }
 
 
-func (cfg *Configuration) loadZones() (list []Zone) {
+func (cfg *Configuration) loadZones() (list ZoneList) {
     zone := new(Zone)
     fields := zoneFields(zone)
 

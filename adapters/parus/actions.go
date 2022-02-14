@@ -42,7 +42,10 @@ func (svc *Parus) listDevices(cid int64, data []byte) (interface{}, bool) {
 
 func (svc *Parus) updateDevice(cid int64, data []byte) (interface{}, bool) {
     device := new(Device)
-    json.Unmarshal(data, device) // TODO: handle err
+    err := json.Unmarshal(data, device) // TODO: handle err
+    if nil != err {
+        panic(err) // TODO: possible an input data err?
+    }
     //svc.Log("DEV:", device)
     svc.Lock()
     defer svc.Unlock()
@@ -54,7 +57,11 @@ func (svc *Parus) updateDevice(cid int64, data []byte) (interface{}, bool) {
     }
     dev.Name = device.Name
     dev.IP = device.IP
-    core.SaveDevice(svc.Settings.Id, &dev.Device, &dev.DeviceData)
+    // TODO: i/o when locked is a bad idea
+    err = core.SaveDevice(svc.Settings.Id, &dev.Device, &dev.DeviceData)
+    if nil != err {
+        panic(err)
+    }
     if nil == svc.devices[dev.Id] {
         svc.devices[dev.Id] = dev
     }
@@ -65,7 +72,10 @@ func (svc *Parus) updateDevice(cid int64, data []byte) (interface{}, bool) {
 func (svc *Parus) deleteDevice(cid int64, data []byte) (interface{}, bool) {
     var id int64
     json.Unmarshal(data, &id)
-    core.DeleteDevice(id)
+    err := core.DeleteDevice(id)
+    if nil != err {
+        panic(err)
+    }
 
     svc.Lock()
     delete(svc.devices, id)

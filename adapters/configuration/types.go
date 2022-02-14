@@ -124,8 +124,7 @@ type Configuration struct {
     //dblayer.DBLayer
     api.API
     
-    subscribers []chan interface{}
-    
+    complaints      chan error
     cache RelationsCache
     //reply   dispatcher.Reply
     //db              *sql.DB
@@ -145,7 +144,59 @@ type Filterable interface {
     Filter(list map[int64]int64) interface{}
 }
 
-/*********************************************************************************/
+//////////////////////////////////////////////////////////////////////
+//                    ZONES filtering                               //
+//////////////////////////////////////////////////////////////////////
+
+func (z Zone) GetList() []int64 {
+    list := make([]int64, 0, len(z.Devices))
+    for i := range z.Devices {
+        list = append(list, z.Devices[i][1])
+    }
+    return list
+}
+
+func (z *Zone) Filter(filter map[int64]int64) interface{} {
+    devices := z.Devices
+    z.Devices = make([]ExtLink, 0, len(z.Devices))
+    for i := range devices {
+        // filter[0] > 0 => all id are acceptable
+        if filter[0] > 0 || filter[devices[i][1]] > 0 {
+             z.Devices = append(z.Devices, devices[i])
+        }
+    }
+    return z
+}
+
+/*******************************************************************************/
+
+type ZoneList []Zone
+
+func (zones ZoneList) GetList() []int64 {
+    list := make([]int64, 0, len(zones))
+    
+    for _, z := range zones {
+        list = append(list, z.GetList()...)
+    }
+
+    return list
+}
+
+func (zones ZoneList) Filter(filter map[int64]int64) interface{} {
+    var res ZoneList
+    for _, z := range zones {
+        z.Filter(filter)
+        if filter[0] > 0 || len(z.Devices) > 0 {
+            res = append(res, z)
+        }
+    }
+    return res
+}
+
+//////////////////////////////////////////////////////////////////////
+//                    MAPS filtering                               //
+//////////////////////////////////////////////////////////////////////
+
 
 func (m Map) GetList() []int64 {
     list := make([]int64, 0, len(m.Shapes))
@@ -167,7 +218,7 @@ func (m *Map) Filter(filter map[int64]int64) interface{} {
     return m
 }
 
-///////////////////////////////////
+/*********************************************************************************/
 
 type MapList []Map
 
@@ -189,17 +240,14 @@ func (maps MapList) Filter(filter map[int64]int64) interface{} {
             res = append(res, m)
         }
     }
-    // TODO: maybe just return res?
-    if len(res) > 0 {
-        return res
-    } else {
-        return nil
-    }
+    return res
 }
 
 
+//////////////////////////////////////////////////////////////////////
+//                    ConfigAPI                                     //
+//////////////////////////////////////////////////////////////////////
 
-/********************************************************************************/
 
 type ConfigAPI interface {
     Get()           []*api.Settings
@@ -217,18 +265,18 @@ type ConfigAPI interface {
     GetLastEvent(serviceId int64) (*api.Event, error)
 
     GlobalDeviceId(systemId int64, handle, name string) (id int64, err error)
-    SaveDevice(serviceId int64, device *Device, data interface{})
+    SaveDevice(serviceId int64, device *Device, data interface{}) (err error)
     DeleteDevice(id int64) error
     LoadDevices(serviceId int64) ([]Device, error)
-    TouchDevice(serviceId int64, dev *Device)
+    TouchDevice(serviceId int64, dev *Device) error
     
-    LoadLinks(sourceId int64, link string) (list []ExtLink)
+    LoadLinks(sourceId int64, link string) (list []ExtLink, err error)
     SaveLinks(sourceId int64, linkType string, list []ExtLink) error
     
     // ACS
     //GetAccessRules(serviceId int64) (rules []*Rule)
     //GetActiveCards(serviceId, deviceId int64)
-    UserByCard(card string) int64
+    UserByCard(card string) (int64, error)
     RequestPassage(zoneId int64, card, pin string) (userId, errCode int64)
     //GetCards(deviceId int64) map[string][]*Rule
     //SameZoneDevices(deviceId int64) []int64

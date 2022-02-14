@@ -5,7 +5,7 @@ import (
     "../../dblayer"
 )
 
-func (cfg *Configuration) LoadLinks(sourceId int64, link string) (list []ExtLink) {
+func (cfg *Configuration) LoadLinks(sourceId int64, link string) (list []ExtLink, err error) {
     //list := make([]ExtLink, 0)
     var id int64
     var scope int64
@@ -16,17 +16,22 @@ func (cfg *Configuration) LoadLinks(sourceId int64, link string) (list []ExtLink
         "target_id": &id,
         "flags": &flags}
 
-    rows, values, _ := db.Table("external_links").
+    rows, values, err := db.Table("external_links").
         Seek("link = ? AND source_id = ?", link, sourceId).
         Get(nil, fields)
+    if nil != err {
+        return
+    }
     defer rows.Close()
 
     for rows.Next() {
-        err := rows.Scan(values...)
-        catch(err)
+        err = rows.Scan(values...)
+        if nil != err {
+            break
+        }
         list = append(list, ExtLink{scope, id, flags})
     }
-
+    // TODO: clean list if err?
     return
 }
 
@@ -36,12 +41,12 @@ func (cfg *Configuration) SaveLinks(sourceId int64, linkType string, list []ExtL
     if nil != err {
         return
     }
+    defer func () {completeTx(tx, err)}()
     //defer func() {if nil != err {tx.Rollback()}}()
     
     table := db.Table("external_links")
     err = table.Delete(tx, "link = ? AND source_id = ?", linkType, sourceId)
     if nil != err {
-        tx.Rollback()
         return
     }
 
@@ -55,11 +60,6 @@ func (cfg *Configuration) SaveLinks(sourceId int64, linkType string, list []ExtL
         if nil != err {
             break
         }
-    }
-    if nil != err {
-        tx.Rollback()
-    } else {
-        tx.Commit()
     }
     return
 }

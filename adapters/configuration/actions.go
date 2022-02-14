@@ -1,7 +1,6 @@
 package configuration
 
 import (
-    "log"
     "encoding/json"
     "../../api"
 )
@@ -36,7 +35,6 @@ func (cfg *Configuration) completeShift(cid int64, data []byte) (interface{}, bo
 ///////////////////////////////////////////////////////////////////
 func (cfg *Configuration) listLocations(cid int64, data []byte) (interface{}, bool) {
     res := cfg.entranceEvents()
-    //log.Println("FFF:", filter)
     return res, false // don't broadcast
 }
 
@@ -63,7 +61,6 @@ func (cfg *Configuration) loadJournal(cid int64, data []byte) (interface{}, bool
     var serviceId int64
     json.Unmarshal(data, &serviceId)
     res, _ := cfg.dbLoadJournal(cid, serviceId) // TODO: handle err
-    //log.Println("FFF:", filter)
     return res, false // don't broadcast
 }
 
@@ -71,7 +68,6 @@ func (cfg *Configuration) listEvents(cid int64, data []byte) (interface{}, bool)
     filter := new(EventFilter)
     json.Unmarshal(data, filter) // TODO: handle err
     res := cfg.loadEvents(filter)
-    //log.Println("FFF:", filter)
     return res, false // don't broadcast
 }
 
@@ -79,14 +75,20 @@ func (cfg *Configuration) listEvents(cid int64, data []byte) (interface{}, bool)
 //////////////////////////// A L G O S ////////////////////////////
 ///////////////////////////////////////////////////////////////////
 func (cfg *Configuration) listAlgorithms(cid int64, data []byte) (interface{}, bool) {
-    res := cfg.loadAlgorithms()
+    res, err := cfg.loadAlgorithms()
+    if nil != err {
+        panic(err)
+    }
     return res, false // don't broadcast
 }
 
 func (cfg *Configuration) updateAlgorithm(cid int64, data []byte) (interface{}, bool) {
     algorithm := new(api.Algorithm)
     json.Unmarshal(data, algorithm) // TODO: handle err
-    cfg.dbUpdateAlgorithm(algorithm)
+    err := cfg.dbUpdateAlgorithm(algorithm)
+    if nil != err {
+        panic(err)
+    }
     return algorithm, true // broadcast
 }
 
@@ -116,7 +118,8 @@ func (cfg *Configuration) listZones(cid int64, data []byte) (interface{}, bool) 
     // lin
     for i := range zones {
         zones[i].EntranceEvents = ee[zones[i].Id]
-        zones[i].Devices = cfg.LoadLinks(zones[i].Id, "zone-device")
+        // TODO: handle err
+        zones[i].Devices, _ = cfg.LoadLinks(zones[i].Id, "zone-device")
     }
     
     // load zones links
@@ -213,8 +216,10 @@ func (cfg *Configuration) userInfo(cid int64, data []byte) (interface{}, bool) {
     json.Unmarshal(data, &id)
     //res := cfg.loadUsers()
     user := User{Id: id}
-    user.Zones = cfg.LoadLinks(id, "user-zone")
-    user.Devices = cfg.LoadLinks(id, "user-device")
+    // TODO: handle err
+    user.Zones, _ = cfg.LoadLinks(id, "user-zone")
+    // TODO: handle err
+    user.Devices, _ = cfg.LoadLinks(id, "user-device")
     user.Cards = cfg.loadUserCards(id)
     return user, false
 }
@@ -268,9 +273,11 @@ func (cfg *Configuration) updateUser(cid int64, data []byte) (interface{}, bool)
 func (cfg *Configuration) deleteUser(cid int64, data []byte) (interface{}, bool) {
     var id int64
     json.Unmarshal(data, &id)
-    log.Println("[Configuration] Delete user", id)
-    if 1 != id {
-        cfg.dbDeleteUser(id)
+    if id > 1 {
+        err := cfg.dbDeleteUser(id)
+        if nil != err {
+            panic(err)
+        }
         return id, true
     } else {
         return "Нельзя удалить встроенного администратора", false
@@ -295,7 +302,6 @@ func (cfg *Configuration) listServices(cid int64, data []byte) (interface{}, boo
 func (cfg *Configuration) deleteService(cid int64, data []byte) (interface{}, bool) {
     var id int64
     json.Unmarshal(data, &id)
-    log.Println("[Configuration] Delete", id)
     cfg.dbDeleteService(id)
     return id, true
 }
@@ -308,15 +314,11 @@ func (cfg *Configuration) updateService(cid int64, data []byte) (interface{}, bo
     service.NewPassword = ""
     service.DBPassword = service.NewDBPassword
     service.NewDBPassword = ""
-    log.Println(service)
+
     if 0 == service.Id {
-        // new service
         // TODO: timeout for multiple submissions (no spam!)
-        //log.Println("New service:", service)
         cfg.newService(&service)
     } else {
-        // update service
-        //log.Println("Update service:", service)
         cfg.updService(service)
     }
     return &service, true

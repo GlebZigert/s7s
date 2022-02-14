@@ -28,13 +28,15 @@ const (
 
 var core configuration.ConfigAPI
 
-func (svc *Z5RWeb) Run(cfg configuration.ConfigAPI) (err error) {
-    core = cfg
+func (svc *Z5RWeb) Run(_ configuration.ConfigAPI) (err error) {
+    configuration.ExportCore(&core)
     var ctx context.Context
     ctx, svc.Cancel = context.WithCancel(context.Background())
     svc.Stopped = make(chan struct{})
     defer close(svc.Stopped)
     
+    svc.complaints = make(chan error, 10)
+    go svc.ErrChecker(ctx, svc.complaints, api.EC_SERVICE_READY, api.EC_SERVICE_FAILURE)
     
     rand.Seed(time.Now().UnixNano())
     svc.nextMessageId = int64(1e6 + rand.Intn(1e6)) // TODO: use timestamp?
@@ -120,7 +122,9 @@ func (svc *Z5RWeb) monitorDevices(ctx context.Context) {
         svc.Unlock()
         //svc.Log("Offline devs:", offlineDevices)
         for _, devId := range offlineDevices {
-            events = append(events, svc.setState(devId, EID_DEVICE_OFFLINE, "", "", ""))
+            // INFO: never return error because no user affected (card = "")
+            ev, _ := svc.setState(devId, EID_DEVICE_OFFLINE, "", "", "")
+            events = append(events, ev)
         }
         if nil != events {
             svc.Broadcast("Events", events)
@@ -129,7 +133,7 @@ func (svc *Z5RWeb) monitorDevices(ctx context.Context) {
     svc.Log("Devices monitor stopped")
 }
 
-func (svc *Z5RWeb) setState(devId, code int64, text, card, dts string) api.Event {
+func (svc *Z5RWeb) setState(devId, code int64, text, card, dts string) (event api.Event, err error) {
     var userId, zoneId int64
     reader := getReader(code)
     svc.RLock()
@@ -140,14 +144,17 @@ func (svc *Z5RWeb) setState(devId, code int64, text, card, dts string) api.Event
     if 0 == userId && "" != card {
         //TODO: get from cfg by card# ?
         //userId = svc.getLastUser(dev.Id)
-        userId = core.UserByCard(card)
-        if 0 == userId {
+        userId, err = core.UserByCard(card)
+        if nil == err && 0 == userId {
             card = svc.getLastCard(devId, reader)
             if "" != card {
-                userId = core.UserByCard(card)
+                userId, err = core.UserByCard(card)
                 //svc.cleanLastCard(dev.Id, reader)
             }
         }
+    }
+    if nil != err {
+        return
     }
 
     dt, err := time.ParseInLocation(dateFormat, dts, time.Now().Location())
@@ -196,13 +203,16 @@ func (svc *Z5RWeb) setState(devId, code int64, text, card, dts string) api.Event
         core.EnterZone(*state)
     }*/
     
-    return dev.States[0]
+    return dev.States[0], nil
 }
 
 func (svc *Z5RWeb) loadDevices() (err error) {
     svc.devices = make(map[int64] *Device)
     devices, err := core.LoadDevices(svc.Settings.Id)
 
+    if nil != err {
+        return
+    }
     for i := range devices {
         dev := Device{Device: devices[i]}
         dev.Online = false
@@ -210,7 +220,10 @@ func (svc *Z5RWeb) loadDevices() (err error) {
         dev.States[0].Text = api.DescribeClass(dev.States[0].Class)
         dev.States[0].DeviceId = dev.Id
         dev.States[0].DeviceName = dev.Name
-        dev.Zones = core.LoadLinks(dev.Id, "device-zone")
+        dev.Zones, err = core.LoadLinks(dev.Id, "device-zone")
+        if nil != err {
+            break
+        }
         svc.Lock()
         svc.devices[dev.Id] = &dev
         svc.Unlock()
@@ -237,17 +250,19 @@ func (svc *Z5RWeb) findDevice(handle string) (*Device, int64) {
     return nil, 0
 }
 
-func (svc *Z5RWeb) appendDevice(dev *Device) {
-    core.SaveDevice(svc.Settings.Id, &dev.Device, nil)
+func (svc *Z5RWeb) appendDevice(dev *Device) (err error) {
+    err = core.SaveDevice(svc.Settings.Id, &dev.Device, nil)
     devId := dev.Id
     dev.States[0].DeviceId = dev.Id
     dev.States[0].DeviceName = dev.Name
     svc.Lock()
     svc.devices[dev.Id] = dev
     svc.Unlock()
+    // INFO: never return error because no user affected (card = "")
     svc.setState(devId, EID_DEVICE_ONLINE, "", "", "")
     devs, _ := svc.listDevices(0, nil)
     svc.Broadcast("ListDevices", devs)
+    return
 }
 
 // mark as ignored event code for device

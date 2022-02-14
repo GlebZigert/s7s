@@ -114,7 +114,7 @@ func (cfg *Configuration) LoadDevices(serviceId int64) (list []Device, err error
     return
 }
 
-func (cfg *Configuration) SaveDevice(serviceId int64, dev *Device, data interface{}) {
+func (cfg *Configuration) SaveDevice(serviceId int64, dev *Device, data interface{}) (err error) {
     fields := dblayer.Fields {
         "id":           &dev.Id,
         "service_id":   serviceId,
@@ -126,7 +126,8 @@ func (cfg *Configuration) SaveDevice(serviceId int64, dev *Device, data interfac
         fields["data"], _ = json.Marshal(data)
     }
 
-    db.Table("devices").Save(nil, fields)
+    err = db.Table("devices").Save(nil, fields)
+    return
 }
 
 func (cfg *Configuration) DeleteDevice(id int64) (err error) {
@@ -134,13 +135,23 @@ func (cfg *Configuration) DeleteDevice(id int64) (err error) {
         "handle":       nil,
         "last_seen":    time.Now()} // deletion time
 
-    db.Table("devices").Seek(id).Update(nil, fields)
-    db.Table("external_links").Delete(nil, "link = ? AND target_id = ?", "user-device", id)
+    tx, err := db.Tx(qTimeout)
+    if nil != err {
+        return
+    }
+    defer func () {completeTx(tx, err)}()
+    
+    _, err = db.Table("devices").Seek(id).Update(tx, fields)
+    if nil != err {
+        return
+    }
+    err = db.Table("external_links").Delete(tx, "link = ? AND target_id = ?", "user-device", id)
     return
 }
 
-func (cfg *Configuration) TouchDevice(serviceId int64, dev *Device) {
+func (cfg *Configuration) TouchDevice(serviceId int64, dev *Device) (err error) {
     dev.LastSeen = time.Now()
     fields := dblayer.Fields {"last_seen": dev.LastSeen}
-    db.Table("devices").Seek(dev.Id).Update(nil, fields)
+    _, err = db.Table("devices").Seek(dev.Id).Update(nil, fields)
+    return
 }

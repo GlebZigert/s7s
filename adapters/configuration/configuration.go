@@ -3,6 +3,7 @@ package configuration
 import (
     "fmt"
     "time"
+    "sync"
     "strings"
     "context"
     "encoding/json"
@@ -29,8 +30,22 @@ func init() {
         "services"*/}
 }
 
-func (cfg *Configuration) Run(_ ConfigAPI) (err error) {
+// >>>>>>>>>>>>>>> HELPER FOR CORE EXPORT >>>>>>>>>>>>>>>>>>>
+var core ConfigAPI
+var coreLock sync.RWMutex
+
+func ExportCore(c *ConfigAPI) {
+    coreLock.Lock()
+    defer coreLock.Unlock()
+    if nil == *c {
+        *c = core
+    }
+}
+// <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+func (cfg *Configuration) Run(c ConfigAPI) (err error) {
     var ctx context.Context
+    core = c
     ctx, cfg.Cancel = context.WithCancel(context.Background())
 
     dbFilename := cfg.GetStorage() + ".db?_synchronous=NORMAL&_journal_mode=WAL" // _busy_timeout=10000
@@ -48,8 +63,11 @@ func (cfg *Configuration) Run(_ ConfigAPI) (err error) {
     }*/
     
     cfg.setupApi()
+    cfg.complaints = make(chan error, 10)
 
+    go cfg.ErrChecker(ctx, cfg.complaints, api.EC_SERVICE_READY, api.EC_SERVICE_FAILURE)
     go cfg.forbiddenVisitorsDetector(ctx)
+    
     return
 }
 
@@ -71,12 +89,6 @@ func (cfg *Configuration) Get() []*api.Settings {
 func (cfg *Configuration) replyLoop(c chan interface{}) {
     for msg := range c {
         c <- msg
-    }
-}
-
-func (cfg *Configuration) notifySubscribers(msg interface{}) {
-    for _, subscriber := range cfg.subscribers {
-        subscriber <- msg
     }
 }
 
@@ -198,9 +210,13 @@ func (cfg *Configuration) Authenticate(login, token string) (id, role int64) {
         "role": &role,
         "token": &userToken}
 
-    rows, values, _ := db.Table("users").
+    rows, values, err := db.Table("users").
         Seek("login = ? AND role > ? AND archived = ?", login, 0, false).
         Get(nil, fields)
+    // TODO: proper error handling
+    if nil != err {
+        return
+    }
     defer rows.Close()
 
     if rows.Next() {
@@ -210,15 +226,6 @@ func (cfg *Configuration) Authenticate(login, token string) (id, role int64) {
                 id = 0
             }
         }
-    } else if "buro" == login {
-        user := User{
-            Type: api.UT_PERSONAL,
-            Role: api.ARM_BUREAU,
-            Name: "Бюро пропусков",
-            Login: "buro",
-            Password: "Start7"}
-        cfg.dbUpdateUser(&user, nil)
-        id = user.Id
     }
     return
 }
@@ -500,13 +507,22 @@ func (cfg *Configuration) setupApi() {
 }
 
 // check database error
-func (cfg *Configuration) cdbe(err error) {
+/*func (cfg *Configuration) cdbe(err error) {
     if nil != err {
         cfg.Log("Database problem:", err)
     }
-}
+}*/
 
 //////////////////////////////////////////////////////////////////////
+
+func completeTx(tx *sql.Tx, err error) {
+    if nil != err {
+        tx.Rollback()
+    } else {
+        tx.Commit()
+    }
+}
+
 func findString(s string, list []string) int {
     for i := range list {
         if list[i] == s {

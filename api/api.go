@@ -3,17 +3,12 @@ package api
 import (
     "log"
     "time"
-    "runtime"
     "strconv"
     "context"
     //"../adapters/configuration"
 )
 
-const (
-    winStoragePath = "storage/"
-    linStoragePath = "/var/lib/s7server/"
-)
-    
+var DataStoragePath string
 
 func DescribeEvent(code int64) string {
     return "Код #" + strconv.FormatInt(code, 10)
@@ -41,15 +36,15 @@ func NewAPI(s *Settings, broadcast Broadcast) *API {
 
 // TODO: colorize output => https://twinnation.org/articles/35/how-to-add-colors-to-your-console-terminal-output-in-go
 func (api *API) Log(args... interface{}) {
-    log.Println(append([]interface{}{api.name}, args...)...)
+    log.Println(append([]interface{}{"[" + api.name + "]"}, args...)...)
 }
 
 func (api *API) Warn(args... interface{}) {
-    log.Println(append([]interface{}{api.name}, args...)...)
+    log.Println(append([]interface{}{"[" + api.name + "]"}, args...)...)
 }
 
 func (api *API) Err(args... interface{}) {
-    log.Println(append([]interface{}{api.name}, args...)...)
+    log.Println(append([]interface{}{"[" + api.name + "]"}, args...)...)
 }
 
 // expose API
@@ -63,6 +58,7 @@ func (api *API) Api(actions map[string] Action) {
 func (api *API) ErrChecker(ctx context.Context, complaints chan error, okCode, errCode int64) {
     timer := time.NewTimer(0) // 1->
     fail := false
+    var lastErr string
     for nil == ctx.Err() {
         select {
             case <-ctx.Done():
@@ -72,6 +68,10 @@ func (api *API) ErrChecker(ctx context.Context, complaints chan error, okCode, e
                     <-timer.C // drain the channel for reuse: https://pkg.go.dev/time#Timer.Stop
                 }
                 if nil != err  {
+                    if lastErr != err.Error() {
+                        lastErr = err.Error()
+                        api.Err(err)
+                    }
                     if !fail {
                         api.SetServiceStatus(errCode)
                     }
@@ -94,13 +94,7 @@ func (api *API) GetName() string {
 }
 
 func (api *API) GetStorage() string {
-    var path string
-    if runtime.GOOS == "windows" {
-        path = winStoragePath
-    } else {
-        path = linStoragePath
-    }
-    return path + api.GetName()
+    return DataStoragePath + api.GetName()
 }
 
 
