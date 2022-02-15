@@ -17,11 +17,8 @@ import (
 import (
     "../api"
 	"../adapters/rif"
-    //"../adapters/sigur"
     "../adapters/axxon"
     "../adapters/z5rweb"
-    "../adapters/ipmon"
-    "../adapters/parus"
     "../adapters/configuration"
 )
 
@@ -43,8 +40,6 @@ func factory(api *api.API) Service {
         //case "sigur": service = &sigur.Sigur{API: *api}
         case "axxon": service = &axxon.Axxon{API: *api}
         case "z5rweb": service = &z5rweb.Z5RWeb{API: *api}
-        case "ipmon": service = &ipmon.IPMon{API: *api}
-        case "parus": service = &parus.Parus{API: *api}
     }
     return service
 }
