@@ -33,7 +33,8 @@ func (cfg *Configuration) forbiddenVisitorsDetector(ctx context.Context) {
             case <-ctx.Done():
             return // TODO: return -> break?
             case <-timer.C:
-                cfg.detectForbiddenVisitors(forbiddenVisitors)
+                // TODO: more precise error reporting?
+                cfg.complaints <- cfg.detectForbiddenVisitors(forbiddenVisitors)
         }
 
         now := time.Now()
@@ -44,12 +45,15 @@ func (cfg *Configuration) forbiddenVisitorsDetector(ctx context.Context) {
     cfg.Log("detectForbiddenVisitors() stopped") // TODO: unreachable
 }
 
-func (cfg *Configuration) detectForbiddenVisitors(forbiddenVisitors map[int64] int64) {
+func (cfg *Configuration) detectForbiddenVisitors(forbiddenVisitors map[int64] int64) (err error) {
     // TODO: optimize performance?
     var events api.EventsList
     forbidden := make(map[int64] int64)
     loc, parents := cfg.visitorsLocation() // [userId] => zoneId
-    zones := cfg.allowedZones() // [zoneId] = > [user, user, ...]
+    zones, err := cfg.allowedZones() // [zoneId] = > [user, user, ...]
+    if nil != err {
+        return
+    }
     //cfg.Log("UL:", loc)
     //cfg.Log("UP:", parents)
     //cfg.Log("Z:", zones)
@@ -111,6 +115,7 @@ func (cfg *Configuration) detectForbiddenVisitors(forbiddenVisitors map[int64] i
     if nil != events {
         cfg.Broadcast("Events", events)
     }
+    return
 }
 
 func intersected(a, b []int64) bool {
@@ -390,7 +395,7 @@ func (cfg *Configuration) entranceEvents() (list []api.Event) {
 }
 
 // list of allowed zones for each user ([userId] => [zoneId, zoneId, ...])
-func (cfg *Configuration) allowedZones() (zones map[int64] []int64) {
+func (cfg *Configuration) allowedZones() (zones map[int64] []int64, err error) {
     zones = make(map[int64] []int64)
     wallTime := wallTime()
     monthdayTime := time.Date(
@@ -423,16 +428,19 @@ func (cfg *Configuration) allowedZones() (zones map[int64] []int64) {
             OR ? BETWEEN tr.'from' AND tr.'to'
             OR ? BETWEEN tr.'from' AND tr.'to'
         )`
-    rows, values, _ := db.Table(source).
+    rows, values, err := db.Table(source).
         Seek(cond, wallTime, wallTime, monthdayTime, weekdayTime).
         GetDistinct(nil, fields)
-
+    if nil != err {
+        return
+    }
     defer rows.Close()
 
     for rows.Next() {
-        err := rows.Scan(values...)
-        catch(err)
-        //cfg.Log(">>>", zoneId, userId)
+        err = rows.Scan(values...)
+        if nil != err {
+            break
+        }
         zones[zoneId] = append(zones[zoneId], userId)
     }
     

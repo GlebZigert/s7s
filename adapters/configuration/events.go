@@ -238,6 +238,9 @@ func (cfg *Configuration) GetLastEvent(serviceId int64) (event *api.Event, err e
         Seek("external_id > 0 AND service_id = ?", serviceId).
         Order("external_id DESC").
         Get(nil, fields, 1)
+    if nil != err {
+        return
+    }
     defer rows.Close()
     if rows.Next() {
         err = rows.Scan(values...)

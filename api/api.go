@@ -50,9 +50,9 @@ func (api *API) Err(args... interface{}) {
 // expose API
 func (api *API) Api(actions map[string] Action) {
     // endpoint is case sensitive!
-    //api.actions = make(map[string] Action)
-    //api.use("ListDevices", a)
+    api.Lock()
     api.actions = actions
+    api.Unlock()
 }
 
 func (api *API) ErrChecker(ctx context.Context, complaints chan error, okCode, errCode int64) {
@@ -112,12 +112,13 @@ func (api *API) Do(cid int64, action string, json []byte) (data interface{}, bro
             broadcast = false
         }
     }()    
-    if _, ok := api.actions[action]; true == ok {
-        return api.actions[action](cid, json)
+    api.RLock()
+    do, _ := api.actions[action]
+    api.RUnlock()
+    if nil != do {
+        return do(cid, json)
     } 
-    return nil, false
-    //log.Println(api.Name, "- unknown action:", action)
-    //TODO: return "Unknown action: " + action ?
+    return nil, false // // TODO: return errors.New(...), false
 }
 
 // used to notify clients when event happened (was no any queries from client)

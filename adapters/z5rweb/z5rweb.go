@@ -258,7 +258,7 @@ func (svc *Z5RWeb) appendDevice(dev *Device) (err error) {
     svc.Lock()
     svc.devices[dev.Id] = dev
     svc.Unlock()
-    // INFO: never return error because no user affected (card = "")
+    // INFO: it will never return an error because no user affected (card = "")
     svc.setState(devId, EID_DEVICE_ONLINE, "", "", "")
     devs, _ := svc.listDevices(0, nil)
     svc.Broadcast("ListDevices", devs)

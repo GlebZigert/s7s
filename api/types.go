@@ -82,6 +82,8 @@ type Command struct {
 }
 
 type API struct {
+    sync.RWMutex
+
     Settings    *Settings
     broadcast   Broadcast
     name        string  // for logging purposes

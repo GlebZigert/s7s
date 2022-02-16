@@ -120,7 +120,7 @@ type VisitorLocation struct {
 }
 
 type Configuration struct {
-    sync.RWMutex
+    //sync.RWMutex
     //dblayer.DBLayer
     api.API
     

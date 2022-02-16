@@ -147,14 +147,17 @@ func (svc *Z5RWeb) logDevice(dType string, sn int64) (err error) {
     handle := svc.makeHandle(dType, sn)
     dev, devId := svc.findDevice(handle)
     if nil != dev {
-        //svc.Log(dev)
+        var notify bool
         svc.Lock()
-        device := dev.Device
-        svc.Unlock()
-        err = core.TouchDevice(svc.Settings.Id, &device) // TODO: restore it
         if !dev.Online {
             dev.Online = true
-            // INFO: never return error because no user affected (card = "")
+            notify = true
+        }
+        device := dev.Device // copy for future using
+        svc.Unlock()
+        err = core.TouchDevice(svc.Settings.Id, &device) // TODO: restore it
+        if notify {
+            // INFO: it will never return an error because no user affected (card = "")
             ev, _ := svc.setState(devId, EID_DEVICE_ONLINE, "", "", "")
             events = api.EventsList{ev}
         }

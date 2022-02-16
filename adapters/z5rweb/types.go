@@ -2,7 +2,7 @@ package z5rweb
 
 import (
     "os"
-    "sync"
+//    "sync"
     "time"
     "../../api"
     "../../dblayer"
@@ -14,7 +14,6 @@ import (
 type Z5RWeb struct {
     nextMessageId   int64 // should be 64-bit aligned for i386
     
-    sync.RWMutex
     api.API
     dblayer.DBLayer
     httpLog  *os.File
@@ -164,6 +163,22 @@ type OneCard struct {
     Flags   int     `json:"flags"`
     TZ      int     `json:"tz"`
 }
+
+func (device Device) GetList() []int64 {
+    return []int64{device.Id}
+}
+
+func (device Device) Filter (list map[int64]int64) interface{} {
+    device.AccessMode = list[0]
+    if 0 == device.AccessMode {
+        device.AccessMode = list[device.Id]
+    }
+    if device.AccessMode > 0 {
+        return device
+    }
+    return nil
+}
+
 
 func (devices DevList) GetList() []int64 {
     ids := make([]int64, len(devices))

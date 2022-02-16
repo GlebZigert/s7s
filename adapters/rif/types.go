@@ -3,7 +3,7 @@ package rif
 import (
 	"os"
 	"net"
-    "sync"
+//    "sync"
     "time"
     "../../api"
     "../../dblayer"
@@ -12,7 +12,6 @@ import (
 type Reply func (int, string, string, interface{})
 
 type Rif struct {
-    sync.RWMutex
     dblayer.DBLayer
     api.API
     xmlLog  *os.File
