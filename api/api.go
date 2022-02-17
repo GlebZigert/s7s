@@ -116,9 +116,13 @@ func (api *API) Do(cid int64, action string, json []byte) (data interface{}, bro
     do, _ := api.actions[action]
     api.RUnlock()
     if nil != do {
-        return do(cid, json)
+        a, b := do(cid, json)
+        if err, ok := a.(error); ok {
+            panic(err)
+        }
+        return a, b
     } 
-    return nil, false // // TODO: return errors.New(...), false
+    return nil, false // TODO: return errors.New(...), false
 }
 
 // used to notify clients when event happened (was no any queries from client)
