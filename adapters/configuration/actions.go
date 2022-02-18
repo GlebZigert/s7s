@@ -34,7 +34,8 @@ func (cfg *Configuration) completeShift(cid int64, data []byte) (interface{}, bo
 /////////////////////// L O C A T I O N S /////////////////////////
 ///////////////////////////////////////////////////////////////////
 func (cfg *Configuration) listLocations(cid int64, data []byte) (interface{}, bool) {
-    res := cfg.entranceEvents()
+    res, err := cfg.entranceEvents()
+    catch(err)
     return res, false // don't broadcast
 }
 
@@ -107,8 +108,11 @@ func (cfg *Configuration) deleteAlgorithm(cid int64, data []byte) (interface{}, 
 ///////////////////////////////////////////////////////////////////
 func (cfg *Configuration) listZones(cid int64, data []byte) (interface{}, bool) {
     ee := make(map[int64] []api.Event) // entrance events
-    zones := cfg.loadZones()
-    events := cfg.entranceEvents()
+    zones, err := cfg.loadZones()
+    catch(err)
+    
+    events, err := cfg.entranceEvents()
+    catch(err)
     
     // entrance events
     for i := range events {
@@ -119,11 +123,9 @@ func (cfg *Configuration) listZones(cid int64, data []byte) (interface{}, bool) 
     for i := range zones {
         zones[i].EntranceEvents = ee[zones[i].Id]
         // TODO: handle err
-        zones[i].Devices, _ = cfg.LoadLinks(zones[i].Id, "zone-device")
+        zones[i].Devices, err = cfg.LoadLinks(zones[i].Id, "zone-device")
+        catch(err)
     }
-    
-    // load zones links
-    
     
     return zones, false // don't broadcast
 }
@@ -132,8 +134,10 @@ func (cfg *Configuration) updateZone(cid int64, data []byte) (interface{}, bool)
     zone := new(Zone)
     json.Unmarshal(data, zone) // TODO: handle err
     if 1 != zone.Id { // should not update "Внешняя территория"
-        cfg.dbUpdateZone(zone)
-        cfg.SaveLinks(zone.Id, "zone-device", zone.Devices)
+        err := cfg.dbUpdateZone(zone)
+        catch(err)
+        err = cfg.SaveLinks(zone.Id, "zone-device", zone.Devices)
+        catch(err)
         return zone, true // broadcast
     } else {
         return "error", false // don't broadcast
@@ -144,7 +148,8 @@ func (cfg *Configuration) deleteZone(cid int64, data []byte) (interface{}, bool)
     var id int64
     json.Unmarshal(data, &id)
     if 1 != id {
-        cfg.dbDeleteZone(id)
+        err := cfg.dbDeleteZone(id)
+        catch(err)
         return id, true // broadcast
     } else {// should not delete "Внешняя территория"
         return "error", false // don't broadcast

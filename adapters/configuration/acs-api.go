@@ -365,7 +365,7 @@ func (cfg *Configuration) checkMaxVisitors(zoneId int64) bool {
     return 0 == realMax || count < realMax
 }
 
-func (cfg *Configuration) entranceEvents() (list []api.Event) {
+func (cfg *Configuration) entranceEvents() (list []api.Event, err error) {
     var timestamp int64
     event := new(api.Event)
     fields := eventFieldsEx(event)
@@ -377,15 +377,20 @@ func (cfg *Configuration) entranceEvents() (list []api.Event) {
                         LEFT JOIN users u ON e.user_id = u.id`)
     
     startTime := time.Now().AddDate(0, 0, -passtroughScanDeep).Unix()
-    rows, values, _ := table.
+    rows, values, err := table.
         Seek("u.archived = false AND e.zone_id > 0 AND e.time > ? AND e.event", startTime, passtroughEvents).
         Group("e.user_id").
         Get(nil, fields)
+    if nil != err {
+        return
+    }
     defer rows.Close()
 
     for rows.Next() {
-        err := rows.Scan(values...)
-        catch(err)
+        err = rows.Scan(values...)
+        if nil != err {
+            break
+        }
         list = append(list, *event)
     }
     

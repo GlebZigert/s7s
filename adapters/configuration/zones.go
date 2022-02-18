@@ -16,16 +16,21 @@ func zoneFields(zone *Zone) dblayer.Fields {
 }
 
 
-func (cfg *Configuration) loadZones() (list ZoneList) {
+func (cfg *Configuration) loadZones() (list ZoneList, err error) {
     zone := new(Zone)
     fields := zoneFields(zone)
 
-    rows, values, _ := db.Table("zones").Seek("archived IS NULL").Get(nil, fields)
+    rows, values, err := db.Table("zones").Seek("archived IS NULL").Get(nil, fields)
+    if nil != err {
+        return
+    }
     defer rows.Close()
 
     for rows.Next() {
-        err := rows.Scan(values...)
-        catch(err)
+        err = rows.Scan(values...)
+        if nil != err {
+            break
+        }
         list = append(list, *zone)
     }
     return
@@ -50,19 +55,30 @@ func (cfg *Configuration) getZone(id int64) (zone *Zone, err error) {
     return
 }
 
-func (cfg *Configuration) dbDeleteZone(id int64) {
+func (cfg *Configuration) dbDeleteZone(id int64) (err error) {
+    tx, err := db.Tx(qTimeout)
+    if nil != err {
+        return
+    }
+    defer func () {completeTx(tx, err)}()
+
     // "zone-device" => security devices in zone
     // "device-zone" => ACS point in/out
     clean := []string{"zone-device", "device-zone", "user-zone"}
     table := db.Table("external_links")
-    table.Delete(nil, "target_id = ? AND link", id, clean)
+    
+    err = table.Delete(tx, "target_id = ? AND link", id, clean)
+    if nil != err {
+        return
+    }
 
     fields := dblayer.Fields{"archived": time.Now()}
-    db.Table("zones").Seek(id).Update(nil, fields)
+    _, err = db.Table("zones").Seek(id).Update(tx, fields)
+    return
 }
 
 
-func (cfg *Configuration) dbUpdateZone(zone *Zone) {
+func (cfg *Configuration) dbUpdateZone(zone *Zone) error {
     fields := zoneFields(zone)
-    db.Table("zones").Save(nil, fields)
+    return db.Table("zones").Save(nil, fields)
 }
