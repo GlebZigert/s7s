@@ -3,7 +3,7 @@ package axxon
 import (
 	//    "log"
 		"fmt"
-//		"../../api"
+//		"s7server/api"
 		"strings"
 		"encoding/json" 
 		"strconv"	

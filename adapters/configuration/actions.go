@@ -2,7 +2,7 @@ package configuration
 
 import (
     "encoding/json"
-    "../../api"
+    "s7server/api"
 )
 
 func (svc *Configuration) resetAlarm(cid int64, data []byte) (interface{}, bool) {

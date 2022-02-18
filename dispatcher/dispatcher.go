@@ -15,11 +15,11 @@ import (
 )
 
 import (
-    "../api"
-	"../adapters/rif"
-    "../adapters/axxon"
-    "../adapters/z5rweb"
-    "../adapters/configuration"
+    "s7server/api"
+	"s7server/adapters/rif"
+    "s7server/adapters/axxon"
+    "s7server/adapters/z5rweb"
+    "s7server/adapters/configuration"
 )
 
 const (

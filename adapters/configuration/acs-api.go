@@ -6,8 +6,8 @@ import(
     "strconv"
     "strings"
 
-    "../../api"
-    "../../dblayer"
+    "s7server/api"
+    "s7server/dblayer"
 )
 
 

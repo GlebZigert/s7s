@@ -10,8 +10,8 @@ import (
     "syscall"
     "os/signal"
 
-    "./api"
-    "./dispatcher"
+    "s7server/api"
+    "s7server/dispatcher"
 )
 
 const (

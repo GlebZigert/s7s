@@ -7,8 +7,8 @@ import (
     "encoding/hex"
     "database/sql"
 
-    "../../dblayer"
-    "../../api"
+    "s7server/dblayer"
+    "s7server/api"
 )
 
 /////////////////////////////////////////////////////////////////////

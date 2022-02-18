@@ -2,8 +2,8 @@ package configuration
 
 import (
     "time"
-//    "../../api"
-    "../../dblayer"
+//    "s7server/api"
+    "s7server/dblayer"
 )
 
 const MAX_HARDWARE_RULES = 7

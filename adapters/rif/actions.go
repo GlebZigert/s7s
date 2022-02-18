@@ -4,7 +4,7 @@ import (
     "fmt"
     //"time"
     "encoding/json"
-    "../../api"
+    "s7server/api"
 )
 
 var cmdList = map[int64]string {

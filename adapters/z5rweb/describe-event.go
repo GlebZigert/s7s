@@ -1,6 +1,6 @@
 package z5rweb
 
-import "../../api"
+import "s7server/api"
 
 const (
     EID_DEVICE_ONLINE = 101

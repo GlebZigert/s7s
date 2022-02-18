@@ -5,8 +5,8 @@ import (
 	"net"
 //    "sync"
     "time"
-    "../../api"
-    "../../dblayer"
+    "s7server/api"
+    "s7server/dblayer"
 )
 
 type Reply func (int, string, string, interface{})

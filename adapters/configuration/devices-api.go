@@ -3,7 +3,7 @@ package configuration
 import (
     "time"
     "encoding/json"
-    "../../dblayer"
+    "s7server/dblayer"
 )
 
 func (cfg *Configuration) deviceZone(serviceId, deviceId int64) (zoneId int64, err error) {

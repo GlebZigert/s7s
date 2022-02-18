@@ -2,9 +2,9 @@ package configuration
 
 import (
 //    "database/sql"
-//    "../../api"
+//    "s7server/api"
     "time"
-    "../../dblayer"
+    "s7server/dblayer"
 )
 
 func zoneFields(zone *Zone) dblayer.Fields {

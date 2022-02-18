@@ -2,9 +2,9 @@ package dblayer_test
 
 import (
 	"testing"
-    //"../configuration"
+    //"s7server/adapters/configuration"
     "fmt"
-    "../dblayer"
+    "s7server/dblayer"
     //"encoding/hex"
 //    "time"
 )

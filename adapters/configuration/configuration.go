@@ -10,8 +10,8 @@ import (
     "database/sql"
     _ "github.com/mattn/go-sqlite3"
 
-    "../../api"
-    "../../dblayer"
+    "s7server/api"
+    "s7server/dblayer"
 )
 
 const (

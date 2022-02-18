@@ -4,9 +4,9 @@ import (
     "os"
 //    "sync"
     "time"
-    "../../api"
-    "../../dblayer"
-    "../configuration"
+    "s7server/api"
+    "s7server/dblayer"
+    "s7server/adapters/configuration"
 )
 
 //type Reply func (int, string, string, interface{})

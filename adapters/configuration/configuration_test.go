@@ -2,7 +2,7 @@ package configuration
 
 import (
 	"testing"
-    //"../configuration"
+    //"s7server/adapters/configuration"
     "fmt"
     //"encoding/hex"
 //    "time"

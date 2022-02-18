@@ -2,8 +2,8 @@ package axxon
 
 import (
  //   "sync"
-    "../../api"
-    "../configuration"
+    "s7server/api"
+    "s7server/adapters/configuration"
     "sync"
     "golang.org/x/net/websocket"
     "time"

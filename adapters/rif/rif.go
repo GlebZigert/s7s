@@ -6,8 +6,8 @@ import (
     "fmt"
     "time"
     "context"
-    "../../api"
-    "../configuration"
+    "s7server/api"
+    "s7server/adapters/configuration"
 //	"strings"
 )
 

@@ -5,7 +5,7 @@ import (
 	"net/http"
 //	"log"
 	//"net/url"
-    "../../api"
+    "s7server/api"
     "time"      
 	"golang.org/x/net/websocket"
 //    "strconv"    

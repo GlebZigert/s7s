@@ -5,7 +5,7 @@ import (
     "time"
     "strconv"
     "context"
-    //"../adapters/configuration"
+    //"s7server/adapters/configuration"
 )
 
 var DataStoragePath string

@@ -12,7 +12,7 @@ import (
 )
 
 import (
-    "../api"    
+    "s7server/api"    
 )
 
 func (dispatcher *Dispatcher) httpServer(ctx context.Context, host string) (err error) {

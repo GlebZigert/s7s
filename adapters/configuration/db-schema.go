@@ -2,7 +2,7 @@ package configuration
 
 import (
     "fmt"
-    "../../api"
+    "s7server/api"
 )
 
 // TODO: made all fields NOT NULL

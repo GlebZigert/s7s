@@ -10,7 +10,7 @@ import (
 	"encoding/xml"
 	"strings"
 	"time"
-    "../../api"
+    "s7server/api"
 //	"golang.org/x/net/html/charset"
 )
 

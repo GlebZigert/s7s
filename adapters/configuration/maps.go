@@ -2,8 +2,8 @@ package configuration
 
 import (
 //    "database/sql"
-//    "../../api"
-    "../../dblayer"
+//    "s7server/api"
+    "s7server/dblayer"
 )
 
 func mapFields(myMap *Map) dblayer.Fields {

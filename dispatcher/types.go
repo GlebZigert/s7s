@@ -8,8 +8,8 @@ import (
     "encoding/json"
     "golang.org/x/net/websocket"
     
-    "../api"
-    "../adapters/configuration"
+    "s7server/api"
+    "s7server/adapters/configuration"
 )
 
 //type Reply func (int, int, string, int, interface{})

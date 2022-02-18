@@ -5,8 +5,8 @@ import (
 //    "errors"
     "time"
     "strings"
-    "../../api"
-    "../../dblayer"
+    "s7server/api"
+    "s7server/dblayer"
 )
 
 func eventFields(event *api.Event) dblayer.Fields {

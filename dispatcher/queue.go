@@ -11,8 +11,8 @@ import (
 )
 
 import (
-    "../api"
-    "../adapters/configuration"
+    "s7server/api"
+    "s7server/adapters/configuration"
 )
 
 const (

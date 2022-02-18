@@ -14,8 +14,8 @@ import (
 //    "strconv"
 //    "bytes"
     "io/ioutil"
-//    "../../dblayer"
-    "../../api"
+//    "s7server/dblayer"
+    "s7server/api"
 )
 
 const (

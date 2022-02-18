@@ -5,7 +5,7 @@ import (
     "fmt"
     "encoding/json"
     
-    "../../api"
+    "s7server/api"
 )
 
 /****************** Z5RWeb+  Actions ******************/

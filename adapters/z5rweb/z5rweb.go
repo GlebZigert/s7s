@@ -12,8 +12,8 @@ import (
     "sync/atomic"
     //"encoding/json"
     
-    "../../api"
-    "../configuration"
+    "s7server/api"
+    "s7server/adapters/configuration"
 //	"strings"
 )
 

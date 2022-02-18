@@ -5,8 +5,8 @@ import (
     "sync"
 //    "net/http"
     
-    "../../api"
-//    "../../dblayer"
+    "s7server/api"
+//    "s7server/dblayer"
 )
 
 type Device struct {

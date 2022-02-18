@@ -9,7 +9,7 @@ import (
 	"strings"	
 	"time"
 	"sync"
-	"../../api" 	
+	"s7server/api" 	
 )
 
 // Проверка на соединение с сервером Axxon

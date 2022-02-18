@@ -1,6 +1,6 @@
 package configuration
 
-import  "../../dblayer"
+import  "s7server/dblayer"
 
 func (cache *RelationsCache) expandParents(userId, parentId int64) (users []int64, err error) {
     cache.Lock()

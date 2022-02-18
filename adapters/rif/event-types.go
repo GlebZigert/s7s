@@ -1,5 +1,5 @@
 package rif
-import "../../api"
+import "s7server/api"
 
 type EventClass map[int64]int64
 

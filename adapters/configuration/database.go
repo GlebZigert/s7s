@@ -2,7 +2,7 @@ package configuration
 
 import (
     //"context"
-    "../../dblayer"
+    "s7server/dblayer"
 )
 
 func (cfg *Configuration) LoadLinks(sourceId int64, link string) (list []ExtLink, err error) {
