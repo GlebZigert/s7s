@@ -21,46 +21,53 @@ func createHash(key []byte) []byte{
 	return hasher.Sum(nil)
 }
 
-func _encrypt(data []byte, pass []byte) []byte {
+func _encrypt(data []byte, pass []byte) (bbb []byte, err error) {
 	block, _ := aes.NewCipher(createHash(pass))
 	gcm, err := cipher.NewGCM(block)
 	if err != nil {
-		panic(err.Error())
+		return
 	}
 	nonce := make([]byte, gcm.NonceSize())
 	if _, err = io.ReadFull(rand.Reader, nonce); err != nil {
-		panic(err.Error())
+		return
 	}
 	ciphertext := gcm.Seal(nonce, nonce, data, nil)
-	return ciphertext
+	return ciphertext, nil
 }
 
-func _decrypt(data []byte, pass []byte) []byte {
+func _decrypt(data []byte, pass []byte) (bbb []byte, err error) {
 	key := createHash(pass)
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		panic(err.Error())
+		return
 	}
 	gcm, err := cipher.NewGCM(block)
 	if err != nil {
-		panic(err.Error())
+		return
 	}
 	nonceSize := gcm.NonceSize()
 	nonce, ciphertext := data[:nonceSize], data[nonceSize:]
 	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
-		panic(err.Error())
+		return
 	}
-	return plaintext
+	return plaintext, nil
 }
 
-func encrypt(text string) string{
+func encrypt(text string) (string, error) {
     payload := append(msg_salt, text...)
-    return hex.EncodeToString(_encrypt(payload, passwd))
+    cipher, err := _encrypt(payload, passwd)
+    if nil != err {
+        return "", err
+    }
+    return hex.EncodeToString(cipher), err
 }
 
-func decrypt(cipher string) string {
+func decrypt(cipher string) (string, error) {
     b, _ := hex.DecodeString(cipher)
-    text := _decrypt(b, passwd)
-	return string(text[len(msg_salt):])
+    text, err := _decrypt(b, passwd)
+    if nil != err {
+        return "", err
+    }
+	return string(text[len(msg_salt):]), err
 }

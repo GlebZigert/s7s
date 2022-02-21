@@ -78,9 +78,7 @@ func (cfg *Configuration) listEvents(cid int64, data []byte) (interface{}, bool)
 ///////////////////////////////////////////////////////////////////
 func (cfg *Configuration) listAlgorithms(cid int64, data []byte) (interface{}, bool) {
     res, err := cfg.loadAlgorithms()
-    if nil != err {
-        panic(err)
-    }
+    catch(err)
     return res, false // don't broadcast
 }
 
@@ -88,9 +86,7 @@ func (cfg *Configuration) updateAlgorithm(cid int64, data []byte) (interface{}, 
     algorithm := new(api.Algorithm)
     json.Unmarshal(data, algorithm) // TODO: handle err
     err := cfg.dbUpdateAlgorithm(algorithm)
-    if nil != err {
-        panic(err)
-    }
+    catch(err)
     return algorithm, true // broadcast
 }
 
@@ -98,9 +94,7 @@ func (cfg *Configuration) deleteAlgorithm(cid int64, data []byte) (interface{}, 
     var id int64
     json.Unmarshal(data, &id)
     err := cfg.dbDeleteAlgorithm(id)
-    if nil != err {
-        panic(err)
-    }
+    catch(err)
     return id, true // broadcast
 }
 
@@ -281,9 +275,7 @@ func (cfg *Configuration) deleteUser(cid int64, data []byte) (interface{}, bool)
     json.Unmarshal(data, &id)
     if id > 1 {
         err := cfg.dbDeleteUser(id)
-        if nil != err {
-            panic(err)
-        }
+        catch(err)
         return id, true
     } else {
         return "Нельзя удалить встроенного администратора", false

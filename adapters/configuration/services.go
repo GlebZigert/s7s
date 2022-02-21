@@ -30,15 +30,15 @@ func (cfg *Configuration) getServiceName(serviceId int64) (name string) {
     return
 }
 
-
-func (cfg *Configuration) newService(s *api.Settings) {
+// TODO: handle encryption error
+func (cfg *Configuration) newService(s *api.Settings) error {
     // TODO: cipher password field!
     var password, dbPassword string
     if "" != s.Password {
-        password = encrypt(s.Password)
+        password, _ = encrypt(s.Password)
     }
     if "" != s.DBPassword {
-        dbPassword = encrypt(s.DBPassword)
+        dbPassword, _ = encrypt(s.DBPassword)
     }
     fld := dblayer.Fields {
             "type": &s.Type,
@@ -53,6 +53,7 @@ func (cfg *Configuration) newService(s *api.Settings) {
             "db_password": dbPassword}
     
     s.Id, _ = db.Table("services").Insert(nil, fld)
+    return nil
 }
 
 func (cfg *Configuration) updService(s api.Settings) {
@@ -70,11 +71,11 @@ func (cfg *Configuration) updService(s api.Settings) {
             /*"db_password": &s.dbPassword*/}
     
     if "" != s.Password {
-        password = encrypt(s.Password)
+        password, _ = encrypt(s.Password)
         fld["password"] = &password
     }
     if "" != s.DBPassword {
-        dbPassword = encrypt(s.DBPassword)
+        dbPassword, _ = encrypt(s.DBPassword)
         fld["db_password"] = &dbPassword
     }
     db.Table("services").Seek(s.Id).Update(nil, fld)
@@ -109,10 +110,10 @@ func (cfg *Configuration) loadServices() (list []*api.Settings) {
         err := rows.Scan(values...)
         catch(err)
         if len(s.Password) > 0 {
-            s.Password = decrypt(s.Password)
+            s.Password, _ = decrypt(s.Password)
         }
         if len(s.DBPassword) > 0 {
-            s.DBPassword = decrypt(s.DBPassword)
+            s.DBPassword, _ = decrypt(s.DBPassword)
         }
         tmp := *s        
         list = append(list, &tmp)

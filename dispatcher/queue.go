@@ -170,9 +170,6 @@ func (dispatcher *Dispatcher) scanAlgorithms(events api.EventsList) {
                     algos[i].Command,
                     algos[i].Argument}
                 res, _ := json.Marshal(&cmd)
-                /*if err != nil {
-                    panic(err)
-                }*/
 
                 q := Query{algos[i].TargetServiceId, "ExecCommand", 0, res}
                 //log.Println("!!! QUERY:", q)
