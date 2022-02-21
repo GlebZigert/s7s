@@ -257,7 +257,10 @@ func (dispatcher *Dispatcher) serveClient(userId int64, ws *websocket.Conn) {
 
 func (dispatcher *Dispatcher) changeUser(userId int64, ws *websocket.Conn, cred *Credentials) (*configuration.User, int64) {
     var errClass int64
-    clientId, role := core.Authenticate(cred.Login, cred.Token)
+    clientId, role, err := core.Authenticate(cred.Login, cred.Token)
+    if nil != err {
+        return nil, api.EC_DATABASE_ERROR
+    }
 
     if clientId == 0 {
         dispatcher.broadcastEvent(&api.Event{
@@ -293,20 +296,32 @@ func (dispatcher *Dispatcher) changeUser(userId int64, ws *websocket.Conn, cred 
 
         return nil, errClass
     }
+    // 1. complete shift
     if userId > 0 {
-        core.CompleteShift(userId)
+        // TODO: make atomic complete & start new shift
+        if nil != core.CompleteShift(userId) {
+            return nil, api.EC_DATABASE_ERROR
+        }
+    // 2. notify logout
         dispatcher.broadcastEvent(&api.Event{
             Class: api.EC_USER_LOGGED_OUT,
             UserId: userId})
     }
 
+    // 3. notify loging in
     dispatcher.broadcastEvent(&api.Event{
         Class: api.EC_USER_LOGGED_IN,
         UserId: clientId})
     
-    core.StartNewShift(clientId)
+    // 3. start new shift
+    if nil != core.StartNewShift(clientId) {
+        return nil, api.EC_DATABASE_ERROR
+    }
     
-    user, _ := core.GetUser(clientId) // TODO: handle err
+    user, err := core.GetUser(clientId) // TODO: handle err
+    if nil != err {
+        return nil, api.EC_DATABASE_ERROR
+    }
     return user, 0
 }
 

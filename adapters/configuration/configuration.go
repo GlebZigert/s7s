@@ -203,7 +203,7 @@ func (cfg *Configuration) processEvent(e *api.Event) (err error) {
 
 
 // get userId by login and password
-func (cfg *Configuration) Authenticate(login, token string) (id, role int64) {
+func (cfg *Configuration) Authenticate(login, token string) (id, role int64, err error) {
     var userToken string
     fields := dblayer.Fields {
         "id": &id,
@@ -213,19 +213,20 @@ func (cfg *Configuration) Authenticate(login, token string) (id, role int64) {
     rows, values, err := db.Table("users").
         Seek("login = ? AND role > ? AND archived = ?", login, 0, false).
         Get(nil, fields)
-    // TODO: proper error handling
+
     if nil != err {
         return
     }
     defer rows.Close()
 
     if rows.Next() {
-        err := rows.Scan(values...)
-        if nil == err {
-            if userToken != token {
-                id = 0
-            }
+        err = rows.Scan(values...)
+        if nil == err && userToken != token {
+            id = 0
         }
+    }
+    if nil == err {
+        err = rows.Err()
     }
     return
 }

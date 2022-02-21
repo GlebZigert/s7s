@@ -26,7 +26,8 @@ func (cfg *Configuration) runAlarm(cid int64, data []byte) (interface{}, bool) {
 }
 
 func (cfg *Configuration) completeShift(cid int64, data []byte) (interface{}, bool) {
-    cfg.CompleteShift(cid)
+    err := cfg.CompleteShift(cid)
+    catch(err)
     return true, false // don't broadcast
 }
 

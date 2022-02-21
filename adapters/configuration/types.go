@@ -254,7 +254,7 @@ type ConfigAPI interface {
     //Subscribe()                     chan interface{}
     //Unsubscribe(chan interface{})
     
-    Authenticate(string, string)  (iserId, role int64)
+    Authenticate(string, string)  (userId, role int64, err error)
     Authorize(userId int64, devices []int64) (map[int64]int64, error)
     
     // automatic actions (algorithms)
