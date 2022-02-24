@@ -321,3 +321,9 @@ func (cfg *Configuration) updateService(cid int64, data []byte) (interface{}, bo
     }
     return &service, true
 }
+
+func catch(err error) {
+    if nil != err {
+        panic(err)
+    }
+}

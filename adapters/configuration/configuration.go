@@ -541,9 +541,3 @@ func findNumber(n int64, list []int64) int {
     }
     return -1
 }
-
-func catch(err error) {
-    if nil != err {
-        panic(err)
-    }
-}

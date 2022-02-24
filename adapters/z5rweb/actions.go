@@ -151,6 +151,12 @@ func (svc *Z5RWeb) deleteDevice(cid int64, data []byte) (interface{}, bool) {
     return id, true // broadcast
 }
 
+func catch(err error) {
+    if nil != err {
+        panic(err)
+    }
+}
+
 /*func (svc *Z5RWeb) updateDevice(cid int64, data []byte) (interface{}, bool) {
     device := new(Device)
     json.Unmarshal(data, device) // TODO: handle err

@@ -102,3 +102,9 @@ func describeCommand(code int64) (text string) {
     }
     return 
 }
+
+func catch(err error) {
+    if nil != err {
+        panic(err)
+    }
+}

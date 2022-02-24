@@ -421,8 +421,3 @@ func getHandle(d _Device) string {
         return fmt.Sprintf("rif-%d-%d-%d-%d", d.Type, d.Num1, d.Num2, d.Num3)
     }
 }*/
-func catch(err error) {
-    if nil != err {
-        panic(err)
-    }
-}

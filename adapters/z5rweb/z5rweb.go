@@ -385,10 +385,3 @@ func (svc *Z5RWeb) getJob(devId int64, usedBytes int) (list []string){
     }
     return
 }
-
-
-func catch(err error) {
-    if nil != err {
-        panic(err)
-    }
-}
