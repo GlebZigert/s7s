@@ -237,8 +237,11 @@ func (cfg *Configuration) Authenticate(login, token string) (id, role int64, err
 func (cfg *Configuration) Authorize(userId int64, devices []int64) (list map[int64]int64, err error) {
     list = make(map[int64]int64) // [deviceId] => flags
     
-    user, _ := cfg.GetUser(userId) // TODO: handle err
-    //cfg.Log("AUTHORIZING:", userId, user)
+    user, err := cfg.GetUser(userId)
+    if nil != err {
+        return
+    }
+    
     if user != nil {
         switch user.Role {
             case api.ARM_ADMIN: list[0] = api.AM_CONTROL
@@ -280,10 +283,15 @@ func (cfg *Configuration) Authorize(userId int64, devices []int64) (list map[int
     defer rows.Close()
 
     for rows.Next() {
-        err := rows.Scan(values...)
-        catch(err)
+        err = rows.Scan(values...)
+        if nil != err {
+            break
+        }
         val, _ := list[deviceId]
         list[deviceId] = val | flags
+    }
+    if nil == err {
+        err = rows.Err()
     }
     //cfg.Log("### AUTHORIZED:", userId, devices, list)
     return
