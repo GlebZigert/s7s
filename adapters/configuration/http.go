@@ -43,6 +43,7 @@ func (cfg *Configuration) planHTTPHandler(w http.ResponseWriter, r *http.Request
         buf := new(bytes.Buffer)
         buf.ReadFrom(r.Body)
         cfg.dbUpdatePlanPicture(int64(id), buf.Bytes())
+        cfg.Broadcast("PlanUpload", id)
     } else if "GET" == r.Method {
         id, _ := strconv.Atoi(r.Form["id"][0])
         picture := cfg.dbLoadPlanPicture(int64(id))
@@ -61,6 +62,7 @@ func (cfg *Configuration) userHTTPHandler(w http.ResponseWriter, r *http.Request
         buf := new(bytes.Buffer)
         buf.ReadFrom(r.Body)
         cfg.dbUpdateUserPicture(int64(id), buf.Bytes())
+        cfg.Broadcast("UserUpload", id)
     } else if "GET" == r.Method {
         // TODO: handle err
         picture, _ := cfg.dbLoadUserPicture(int64(id))
