@@ -107,10 +107,10 @@ func (dispatcher *Dispatcher) shutdown() {
     
     // 2. wait for services to shutdown properly
     c := make(chan struct{})
-    go func() {
-        defer close(c)
+    go func(ch chan struct{}) {
+        defer close(ch)
         wg.Wait()
-    }()    
+    }(c)    
     select {
         case <-c:
             log.Println("All services stopped")
