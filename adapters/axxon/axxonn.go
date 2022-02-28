@@ -12,8 +12,6 @@ import (
 	//  "strconv"
 )
 
-// for test !!!
-
 // Return all devices IDs for user filtering
 func (svc *Axxon) GetList() []int64 {
 

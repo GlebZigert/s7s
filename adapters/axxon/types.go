@@ -32,34 +32,34 @@ type Axxon struct {
 	conn                   *websocket.Conn
 	alerts                 l_alert
 	/*
-	    //   sync.RWMutex
+		    //   sync.RWMutex
 
-	    cfg     configuration.ConfigAPI
+		    cfg     configuration.ConfigAPI
 
-	    telemetrySessions map[int]telemetrySession
+		    telemetrySessions map[int]telemetrySession
 
-		devices DevList
-		m_camera_list camera_list
+			devices DevList
+			m_camera_list camera_list
 
-	    m_settings_list  stream_settings_list
+		    m_settings_list  stream_settings_list
 
-	    username,password,ipaddr,port string
+		    username,password,ipaddr,port string
 
-	    stream_from_storage map[int] Stream_from_storage
+		    stream_from_storage map[int] Stream_from_storage
 
-	    current_telemetry_point string
+		    current_telemetry_point string
 
-	    current_telemetry_id int64
+		    current_telemetry_id int64
 
-	    current_pun float64
+		    current_pun float64
 
-	    current_titl float64
+		    current_titl float64
 
-	    current_speed_x float64
+		    current_speed_x float64
 
-	    current_speed_y float64
+		    current_speed_y float64
 
-	    signal chan string
+		    signal chan string
 
 
 
