@@ -6,8 +6,3 @@ rtsp-proxy/
 mysql/
 main.exe
 main
-adapters/cam/
-adapters/ipmon/
-adapters/parus/
-adapters/securos/
-adapters/sigur/

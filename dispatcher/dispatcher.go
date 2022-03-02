@@ -19,6 +19,7 @@ import (
 	"s7server/adapters/rif"
     "s7server/adapters/axxon"
     "s7server/adapters/z5rweb"
+    "s7server/adapters/parus"
     "s7server/adapters/configuration"
 )
 
@@ -37,7 +38,7 @@ func factory(api *api.API) Service {
     switch (*api).Settings.Type {
         case "configuration": service = &configuration.Configuration{API: *api}
         case "rif": service = &rif.Rif{API: *api}
-        //case "sigur": service = &sigur.Sigur{API: *api}
+        case "parus": service = &parus.Parus{API: *api}
         case "axxon": service = &axxon.Axxon{API: *api}
         case "z5rweb": service = &z5rweb.Z5RWeb{API: *api}
     }
