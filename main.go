@@ -23,7 +23,7 @@ const (
 
 var Version = "v0.0"
 var Commit = "012345"
-var Datetime = "01.01.01 00:00"
+var BuildTime = "01.01.01 00:00"
 
 
 func getPath() (path string) {
@@ -41,7 +41,7 @@ func main() {
     dataDir := flag.String("data", getPath(), "data files path")
     flag.Parse()
     
-    vText := "s7server " + Version + "-" + Commit + " (built on " + Datetime + ")"
+    vText := "s7server " + Version + "-" + Commit + " (built on " + BuildTime + ")"
     
     if *version {
         fmt.Println(vText)
