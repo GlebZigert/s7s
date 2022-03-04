@@ -43,18 +43,13 @@ func (cfg *Configuration) listLocations(cid int64, data []byte) (interface{}, bo
 ///////////////////////////////////////////////////////////////////
 ////////////////////////// E V E N T S ////////////////////////////
 ///////////////////////////////////////////////////////////////////
+// set reason & action for event
 func (cfg *Configuration) describeEvent(cid int64, data []byte) (interface{}, bool) {
     event := new(api.Event)
     json.Unmarshal(data, &event)
     if cfg.dbDescribeEvent(event) {
-        /*if event.ServiceId > 0 { // reset alarm
-            cfg.Broadcast("Events", api.EventsList{{
-                ServiceId: event.ServiceId,
-                DeviceId: event.DeviceId,
-                Class: api.EC_INFO_ALARM_RESET}})
-        }*/
         return event, true // broadcast
-    } else { // event id unknown
+    } else { // event id unknown or db error
         return false, false // don't broadcast error
     }
 }
@@ -62,14 +57,16 @@ func (cfg *Configuration) describeEvent(cid int64, data []byte) (interface{}, bo
 func (cfg *Configuration) loadJournal(cid int64, data []byte) (interface{}, bool) {
     var serviceId int64
     json.Unmarshal(data, &serviceId)
-    res, _ := cfg.dbLoadJournal(cid, serviceId) // TODO: handle err
+    res, err := cfg.dbLoadJournal(cid, serviceId) // TODO: handle err
+    catch(err)
     return res, false // don't broadcast
 }
 
 func (cfg *Configuration) listEvents(cid int64, data []byte) (interface{}, bool) {
     filter := new(EventFilter)
     json.Unmarshal(data, filter) // TODO: handle err
-    res := cfg.loadEvents(filter)
+    res, err := cfg.loadEvents(filter)
+    catch(err)
     return res, false // don't broadcast
 }
 

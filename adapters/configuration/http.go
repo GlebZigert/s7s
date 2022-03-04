@@ -96,7 +96,7 @@ func (cfg *Configuration) journalHTTPHandler(w http.ResponseWriter, r *http.Requ
     }
     html += "</tr>\n"
     
-    events := cfg.loadEvents(&filter)
+    events, _ := cfg.loadEvents(&filter)
     for i := range events {
         html += fmt.Sprintf("<tr><td>%d</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>\n",
                            events[i].Id,

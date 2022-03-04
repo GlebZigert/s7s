@@ -57,7 +57,7 @@ func (cfg *Configuration) dbDescribeEvent(event *api.Event) bool {
         "reason": event.Reason,
         "reaction": event.Reaction}
     num, err := db.Table(`events`).Seek(event.Id).Update(nil, fields)
-    return  num > 0 && nil != err
+    return  num > 0 && nil != err // event not foud or db error
 }
 
 func (cfg *Configuration) dbLoadJournal(userId, serviceId int64) (list api.EventsList, err error) {
@@ -108,7 +108,7 @@ func (cfg *Configuration) dbLoadJournal(userId, serviceId int64) (list api.Event
 }
 
 
-func (cfg *Configuration) loadEvents(filter *EventFilter) (list []api.Event){
+func (cfg *Configuration) loadEvents(filter *EventFilter) (list []api.Event, err error){
     event := new(api.Event)
     fields := eventFieldsEx(event)
 
@@ -154,14 +154,21 @@ func (cfg *Configuration) loadEvents(filter *EventFilter) (list []api.Event){
     cond = append(cond, "(" + strings.Join(classes, " OR ") + ")")
     
     args = append([]interface{}{strings.Join(cond, " AND ")}, args...)
-    rows, values, _ := table.Seek(args...).Order("e.time, e.id").Get(nil, fields, filter.Limit)
-    
+    rows, values, err := table.Seek(args...).Order("e.time, e.id").Get(nil, fields, filter.Limit)
+    if nil != err {
+        return
+    }
     defer rows.Close()
 
     for rows.Next() {
-        err := rows.Scan(values...)
-        catch(err)
+        err = rows.Scan(values...)
+        if nil != err {
+            return
+        }
         list = append(list, *event)
+    }
+    if nil == err {
+        err = rows.Err()
     }
     return
 }
