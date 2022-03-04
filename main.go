@@ -3,6 +3,7 @@ package main
 import (
     "os"
     "log"
+    "fmt"
     //"time"
     "flag"
     "runtime"
@@ -20,6 +21,11 @@ const (
     linStoragePath = "/var/lib/s7server/"
 )
 
+var Version = "v0.0"
+var Commit = "012345"
+var Datetime = "01.01.01 00:00"
+
+
 func getPath() (path string) {
     if runtime.GOOS == "windows" {
         path = winStoragePath
@@ -30,14 +36,24 @@ func getPath() (path string) {
 }
 
 func main() {
+    version := flag.Bool("v", false, "print version")
     host := flag.String("host", defaultHost, "http host (ip:port)")
     dataDir := flag.String("data", getPath(), "data files path")
     flag.Parse()
+    
+    vText := "s7server " + Version + "-" + Commit + " (built on " + Datetime + ")"
+    
+    if *version {
+        fmt.Println(vText)
+        return
+    }
     
     if (*dataDir)[len(*dataDir) - 1] != '/' {
         *dataDir += "/"
     }
     api.DataStoragePath = *dataDir
+    
+    log.Println("Starting", vText, "on data", *dataDir)
     
     //log.SetFlags(log.Flags() &^ (log.Ldate | log.Ltime))
     ctx, cancel := context.WithCancel(context.Background())

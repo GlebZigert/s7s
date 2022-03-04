@@ -5,4 +5,7 @@ storage/
 rtsp-proxy/
 mysql/
 main.exe
+s7server.exe
 main
+s7server
+
