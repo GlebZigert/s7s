@@ -22,8 +22,11 @@ func createHash(key []byte) []byte{
 }
 
 func _encrypt(data []byte, pass []byte) (bbb []byte, err error) {
-	block, _ := aes.NewCipher(createHash(pass))
-	gcm, err := cipher.NewGCM(block)
+	block, err := aes.NewCipher(createHash(pass))
+	if err != nil {
+		return
+	}
+    gcm, err := cipher.NewGCM(block)
 	if err != nil {
 		return
 	}
@@ -63,11 +66,15 @@ func encrypt(text string) (string, error) {
     return hex.EncodeToString(cipher), err
 }
 
-func decrypt(cipher string) (string, error) {
-    b, _ := hex.DecodeString(cipher)
-    text, err := _decrypt(b, passwd)
+func decrypt(cipher string) (text string, err error) {
+    b, err := hex.DecodeString(cipher)
     if nil != err {
-        return "", err
+        return
     }
-	return string(text[len(msg_salt):]), err
+    blob, err := _decrypt(b, passwd)
+    if nil != err {
+        return
+    }
+    text = string(blob[len(msg_salt):])
+	return
 }
