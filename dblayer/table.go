@@ -203,6 +203,21 @@ func (qud *QUD) Seek(args ...interface{}) *QUD {
     return qud
 }
 
+func (qud *QUD) First(tx *sql.Tx, mymap Fields) (err error) {
+    rows, values, err := qud.get(tx, "", mymap, 1)
+    if nil != err {return}
+    defer rows.Close()
+    if rows.Next() {
+        err = rows.Scan(values...)
+    } else {
+        err = sql.ErrNoRows
+    }
+    if nil == err {
+        err = rows.Err()
+    }
+    return
+}
+
 func (qud *QUD) Get(tx *sql.Tx, mymap Fields, limits ...int64) (*sql.Rows, []interface{}, error) {
     return qud.get(tx, "", mymap, limits...)
 }
@@ -349,7 +364,6 @@ func (r *Rows) Each(ready func()) (err error) {
         if nil != err {
             return
         }
-        ready()
     }
     if nil == err {
         err = r.rows.Err()
