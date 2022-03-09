@@ -154,24 +154,14 @@ func (cfg *Configuration) loadEvents(filter *EventFilter) (list []api.Event, err
     cond = append(cond, "(" + strings.Join(classes, " OR ") + ")")
     
     args = append([]interface{}{strings.Join(cond, " AND ")}, args...)
-    rows, values, err := table.Seek(args...).Order("e.time, e.id").Get(nil, fields, filter.Limit)
-    if nil != err {
-        return
-    }
-    defer rows.Close()
-
-    for rows.Next() {
-        err = rows.Scan(values...)
-        if nil != err {
-            return
-        }
+    
+    err = table.Seek(args...).Order("e.time, e.id").Rows(nil, fields, filter.Limit).Each(func() {
         list = append(list, *event)
-    }
-    if nil == err {
-        err = rows.Err()
-    }
+    })
     return
 }
+
+
 
 func (cfg *Configuration) dbLogEvent(event *api.Event) (err error) {
     fields := eventFields(event)

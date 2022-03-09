@@ -101,20 +101,25 @@ func (cfg *Configuration) dbDeleteMap(id int64) (err error) {
     return
 }
 
-func (cfg *Configuration) dbUpdatePlanPicture(id int64, picture []byte) {
-    db.Table("maps").Seek(id).Update(nil, dblayer.Fields {"picture": &picture})
+func (cfg *Configuration) dbUpdatePlanPicture(id int64, picture []byte) (err error) {
+    _, err = db.Table("maps").Seek(id).Update(nil, dblayer.Fields {"picture": &picture})
+    return
 }
 
-func (cfg *Configuration) dbLoadPlanPicture(id int64) []byte {
-    var picture []byte
+func (cfg *Configuration) dbLoadPlanPicture(id int64) (picture []byte, err error) {
     fields := dblayer.Fields {"picture": &picture}
-    rows, values, _ := db.Table("maps").Seek(id).Get(nil, fields)
+    rows, values, err := db.Table("maps").Seek(id).Get(nil, fields)
+    if nil != err {
+        return
+    }
     defer rows.Close() // TODO: defer triggered for this rows?
     if rows.Next() {
-        err := rows.Scan(values...)
-        catch(err)
+        err = rows.Scan(values...)
     }
-    return picture
+    if nil == err {
+        err = rows.Err()
+    }
+    return
 }
 
 func (cfg *Configuration) dbUpdateMap(myMap *Map) {

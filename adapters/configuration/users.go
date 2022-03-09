@@ -53,8 +53,9 @@ func (cfg *Configuration) currentShiftId(userId int64) (id int64, err error) {
 }
 
 
-func (cfg *Configuration) dbUpdateUserPicture(id int64, picture []byte) {
-    db.Table("users").Seek(id).Update(nil, dblayer.Fields {"photo": &picture})
+func (cfg *Configuration) dbUpdateUserPicture(id int64, picture []byte) (err error) {
+    _, err = db.Table("users").Seek(id).Update(nil, dblayer.Fields {"photo": &picture})
+    return
 }
 
 func (cfg *Configuration) dbLoadUserPicture(id int64) (picture []byte, err error) {
@@ -67,6 +68,9 @@ func (cfg *Configuration) dbLoadUserPicture(id int64) (picture []byte, err error
 
     if rows.Next() {
         err = rows.Scan(values...)
+    }
+    if nil == err {
+        err = rows.Err()
     }
     return
 }
