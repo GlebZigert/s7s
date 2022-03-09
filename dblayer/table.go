@@ -40,6 +40,12 @@ type QUD struct { // Query-Update-Delete
     params  []interface{} // params for condition expression
 }
 
+type Rows struct {
+    rows    *sql.Rows
+    values  []interface{}
+    err     error
+}
+
 func logQuery(table, q string, p interface{}) {
     if nil == LogTables {
         log.Println(q, p)
@@ -321,7 +327,51 @@ func (qud *QUD) reset(args ...interface{}) {
     qud.params = []interface{}{}
 }
 
+////////////////////////////////////////
+
+func (qud *QUD) DistinctRows(tx *sql.Tx, mymap Fields, limits ...int64) (*Rows) {
+    rows, values, err := qud.get(tx, "DISTINCT", mymap, limits...)
+    return &Rows{rows, values, err}
+}
+
+func (qud *QUD) Rows(tx *sql.Tx, mymap Fields, limits ...int64) (*Rows) {
+    rows, values, err := qud.get(tx, "", mymap, limits...)
+    return &Rows{rows, values, err}
+}
+
+func (r *Rows) Each(ready func()) (err error) {
+    if nil != r.err {
+        return r.err
+    }
+    defer r.rows.Close()
+    for r.rows.Next() {
+        err = r.rows.Scan(r.values...)
+        if nil != err {
+            return
+        }
+        ready()
+    }
+    if nil == err {
+        err = r.rows.Err()
+    }
+    return
+}
+
 ////////////////////////////////////////////////////////////////////
+/*
+func Scan(rows *sql.Rows, values []interface{}, store func()) (err error) {
+    for rows.Next() {
+        err = rows.Scan(values...)
+        if nil != err {
+            return
+        }
+        store()
+    }
+    if nil == err {
+        err = rows.Err()
+    }
+    return
+}*/
 
 func JoinSlice(a []int64) string {
     b := make([]string, len(a))
