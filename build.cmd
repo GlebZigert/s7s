@@ -5,3 +5,7 @@ FOR /F "tokens=*" %%a in ('git describe --tags --always --abbrev^=0') do SET VER
 set "FLAGS=-X 'main.Version=%VERSION%' -X 'main.BuildTime=%DATE% %TIME:~0,8%' -X 'main.Commit=%COMMIT%'"
 
 go build -v -ldflags="%FLAGS%"
+
+if %errorlevel% equ 0 (
+    if "%~1"=="run" cls && s7server
+)
