@@ -64,8 +64,17 @@ func (svc *Parus) Shutdown() {
 }
 
 // Return all devices IDs for user filtering
-func (cfg *Parus) GetList() []int64 {
-    return nil
+func (svc *Parus) GetList() []int64 {
+    svc.RLock()
+    defer svc.RUnlock()
+
+    list := make([]int64, 0, len(svc.devices))
+    
+    for id := range svc.devices {
+        list = append(list, id)
+    }
+
+    return list
 }
 
 
