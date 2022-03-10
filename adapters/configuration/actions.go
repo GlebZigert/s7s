@@ -47,6 +47,7 @@ func (cfg *Configuration) listLocations(cid int64, data []byte) (interface{}, bo
 func (cfg *Configuration) describeEvent(cid int64, data []byte) (interface{}, bool) {
     event := new(api.Event)
     json.Unmarshal(data, &event)
+    // TODO: use err separately from return value?
     if cfg.dbDescribeEvent(event) {
         return event, true // broadcast
     } else { // event id unknown or db error
@@ -152,7 +153,8 @@ func (cfg *Configuration) deleteZone(cid int64, data []byte) (interface{}, bool)
 ///////////////////////////// M A P S /////////////////////////////
 ///////////////////////////////////////////////////////////////////
 func (cfg *Configuration) listMaps(cid int64, data []byte) (interface{}, bool) {
-    maps := cfg.loadMaps()
+    maps, err := cfg.loadMaps()
+    catch(err)
     // let's filter them
     // 1. collect all devices
     var devices []int64
@@ -161,21 +163,22 @@ func (cfg *Configuration) listMaps(cid int64, data []byte) (interface{}, bool) {
             devices = append(devices, maps[i].Shapes[j].DeviceId)
         }
     }
-    cfg.Log("map devs", devices)
     return maps, false // don't broadcast
 }
 
 func (cfg *Configuration) updateMap(cid int64, data []byte) (interface{}, bool) {
     myMap := new(Map)
     json.Unmarshal(data, myMap) // TODO: handle err
-    cfg.dbUpdateMap(myMap)
+    err := cfg.dbUpdateMap(myMap)
+    catch(err)
     return myMap, true // broadcast
 }
 
 func (cfg *Configuration) deleteMap(cid int64, data []byte) (interface{}, bool) {
     var id int64
     json.Unmarshal(data, &id)
-    cfg.dbDeleteMap(id)
+    err := cfg.dbDeleteMap(id)
+    catch(err)
     return id, true // broadcast
 }
 

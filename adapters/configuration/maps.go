@@ -1,7 +1,7 @@
 package configuration
 
 import (
-//    "database/sql"
+    "database/sql"
 //    "s7server/api"
     "s7server/dblayer"
 )
@@ -34,43 +34,18 @@ func shapeFields(shape *Shape) dblayer.Fields {
     return fields
 }
 
-// create or update
-/*
-func (cfg *Configuration) saveRow(fields *dblayer.Fields, table string) {
-    var pId *int64
-    tmp, ok := (*fields)["id"]
-    if ok {
-        pId = tmp.(*int64)
-    }
-    if !ok { // new WITHOUT id
-        db.Table(table).Insert(nil, *fields)
-    } else if 0 == *pId { // new WITH id
-        delete(*fields, "id")
-        *pId = db.Table(table).Insert(nil, *fields)
-    } else { // update
-        delete(*fields, "id")
-        db.Table(table).Seek(*pId).Update(nil, *fields)
-    }
-
-}*/
-
-func (cfg *Configuration) loadMaps() (list MapList){
+func (cfg *Configuration) loadMaps() (list MapList, err error){
     myMap := new(Map)
     fields := mapFields(myMap)
-
-    rows, values, _ := db.Table("maps").Get(nil, fields)
-    defer rows.Close() // TODO: defer triggered for this rows?
-
     idMaps := make(map[int64]int)
     var ids []int64
-    
-    for rows.Next() {
-        err := rows.Scan(values...)
-        catch(err)
+
+    err = db.Table("maps").Rows(nil, fields).Each(func() {
         list = append(list, *myMap)
         ids = append(ids, myMap.Id)
         idMaps[myMap.Id] = len(list) - 1
-    }
+    })
+    if nil != err {return}
     
     if len(idMaps) == 0 {
         return // see err "index out of range [0] with length 0" in next loop bellow
@@ -81,22 +56,21 @@ func (cfg *Configuration) loadMaps() (list MapList){
     //
     shape := new(Shape)
     fields = shapeFields(shape)
-    rows, values, _ = db.Table("shapes").Seek("map_id", ids).Get(nil, fields)
-    defer rows.Close()
-    
-    for rows.Next() {
-        err := rows.Scan(values...)
-        catch(err)
+    err = db.Table("shapes").Seek("map_id", ids).Rows(nil, fields).Each(func() {
         // TODO: index out of range [0] with length 0
         list[idMaps[shape.MapId]].Shapes = append(list[idMaps[shape.MapId]].Shapes, *shape)
-    }
+    })
     return
 }
 
 func (cfg *Configuration) dbDeleteMap(id int64) (err error) {
-    err = db.Table("shapes").Delete(nil, "map_id", id)
+    tx, err := db.Tx(qTimeout)
+    if nil != err {return}
+    defer func () {completeTx(tx, err)}()
+    
+    err = db.Table("shapes").Delete(tx, "map_id", id)
     if nil == err {
-        err = db.Table("maps").Delete(nil, id)
+        err = db.Table("maps").Delete(tx, id)
     }
     return
 }
@@ -108,37 +82,35 @@ func (cfg *Configuration) dbUpdatePlanPicture(id int64, picture []byte) (err err
 
 func (cfg *Configuration) dbLoadPlanPicture(id int64) (picture []byte, err error) {
     fields := dblayer.Fields {"picture": &picture}
-    rows, values, err := db.Table("maps").Seek(id).Get(nil, fields)
-    if nil != err {
+    err = db.Table("maps").Seek(id).First(nil, fields)
+    if sql.ErrNoRows == err {
+        err = nil // it's not an error
+    }
+    return
+}
+
+func (cfg *Configuration) dbUpdateMap(myMap *Map) (err error) {
+    tx, err := db.Tx(qTimeout)
+    if nil != err {return}
+    defer func () {completeTx(tx, err)}()
+
+    fields := mapFields(myMap)
+    err = db.Table("maps").Save(tx, fields)
+    if 0 == len(myMap.Shapes) {
         return
     }
-    defer rows.Close() // TODO: defer triggered for this rows?
-    if rows.Next() {
-        err = rows.Scan(values...)
-    }
-    if nil == err {
-        err = rows.Err()
-    }
-    return
-}
 
-func (cfg *Configuration) dbUpdateMap(myMap *Map) {
-    fields := mapFields(myMap)
-    db.Table("maps").Save(nil, fields)
-    if len(myMap.Shapes) > 0 {
-        cfg.dbUpdateShapes(myMap.Id, myMap.Shapes)
-    }
-}
-
-func (cfg *Configuration) dbUpdateShapes(mapId int64, shapes []Shape) (err error) {
+    // update shapes
     var ids []int64
-    for i, _ := range shapes {
-        shapes[i].MapId = mapId
-        fields := shapeFields(&shapes[i])
-        db.Table("shapes").Save(nil, fields)
-        ids = append(ids, shapes[i].Id)
+    for i, _ := range myMap.Shapes {
+        myMap.Shapes[i].MapId = myMap.Id
+        fields := shapeFields(&myMap.Shapes[i])
+        err = db.Table("shapes").Save(tx, fields)
+        if nil != err {return}
+        ids = append(ids, myMap.Shapes[i].Id)
     }
 
-    err = db.Table("shapes").Delete(nil, "map_id = ? AND id NOT", mapId, ids)
+    err = db.Table("shapes").Delete(tx, "map_id = ? AND id NOT", myMap.Id, ids)
     return
 }
+
