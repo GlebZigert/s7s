@@ -87,8 +87,17 @@ func (svc *Z5RWeb) Shutdown() {
 }
 
 // Return all devices IDs for user filtering
-func (cfg *Z5RWeb) GetList() []int64 {
-    return nil
+func (svc *Z5RWeb) GetList() []int64 {
+    svc.RLock()
+    defer svc.RUnlock()
+
+    list := make([]int64, 0, len(svc.devices))
+    
+    for id := range svc.devices {
+        list = append(list, id)
+    }
+
+    return list
 }
 
 func (svc *Z5RWeb) ZoneCommand(userId, zoneCommand int64, devList []int64) {
