@@ -81,10 +81,10 @@ func (svc *Rif) Shutdown() {
 
 // Return all devices IDs for user filtering
 func (svc *Rif) GetList() []int64 {
-    list := make([]int64, 0, len(svc.devices))
-    
     svc.RLock()
     defer svc.RUnlock()
+
+    list := make([]int64, 0, len(svc.devices))
     
     for id := range svc.devices {
         list = append(list, id)
