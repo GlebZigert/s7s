@@ -364,6 +364,9 @@ func (r *Rows) Each(ready func()) (err error) {
         if nil != err {
             return
         }
+        if nil != ready {
+            ready()
+        }
     }
     if nil == err {
         err = r.rows.Err()
