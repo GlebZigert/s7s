@@ -30,22 +30,14 @@ func (cfg *Configuration) currentShiftId(userId int64) (id int64, err error) {
         "class": &lastEvent,
         "MAX(time)": &timestamp}
 
-    rows, values, err := db.Table("events").
+    err = db.Table("events").
         Seek("service_id = 0 AND user_id = ? AND class", userId, shiftEvents).
         Group("user_id").
-        Get(nil, fields)
+        First(nil, fields)
+    if sql.ErrNoRows == err {
+        err = nil // it's not an error
+    }
 
-    if nil != err {
-        return
-    }
-    defer rows.Close()
-    
-    if rows.Next() {
-        err = rows.Scan(values...)
-    }
-    if nil == err {
-        err = rows.Err()
-    }
     if lastEvent != api.EC_USER_SHIFT_STARTED {
         id = 0
     }
@@ -60,42 +52,29 @@ func (cfg *Configuration) dbUpdateUserPicture(id int64, picture []byte) (err err
 
 func (cfg *Configuration) dbLoadUserPicture(id int64) (picture []byte, err error) {
     fields := dblayer.Fields {"photo": &picture}
-    rows, values, err := db.Table("users").Seek(id).Get(nil, fields)
-    if nil != err {
-        return
-    }
-    defer rows.Close()
-
-    if rows.Next() {
-        err = rows.Scan(values...)
-    }
-    if nil == err {
-        err = rows.Err()
+    err = db.Table("users").Seek(id).First(nil, fields)
+    if sql.ErrNoRows == err {
+        err = nil // it's not an error
     }
     return
 }
 
 
-func (cfg *Configuration) loadUserCards(userId int64) (list []string) {
+func (cfg *Configuration) loadUserCards(userId int64) (list []string, err error) {
     var pin, card string
     list = make([]string, 0)
     fields := dblayer.Fields{"pin": &pin, "card": &card}
 
-    rows, values, _ := db.Table("cards").Seek("user_id = ?", userId).Get(nil, fields)
-    defer rows.Close()
-
-    for rows.Next() {
-        err := rows.Scan(values...)
-        catch(err)
+    err = db.Table("cards").Seek("user_id = ?", userId).Rows(nil, fields).Each(func () {
         if "" != pin {
             card = pin + " " + card
         }
         list = append(list, card)
-    }
+    })
     return
 }
 
-func (cfg *Configuration) saveUserCards(user *User) {
+func (cfg *Configuration) saveUserCards(user *User) (err error) {
     var userId int64
     var card string
     var badCards []string
@@ -124,28 +103,30 @@ func (cfg *Configuration) saveUserCards(user *User) {
     cond := "user_id = ? OR card IN('" + strings.Join(onlyCards, "','") + "')"
     fields := dblayer.Fields {"user_id": &userId, "card": &card}
     
-    rows, values, _ := table.Seek(cond, user.Id).Get(nil, fields)
-    for rows.Next() {
-        err := rows.Scan(values...)
-        catch(err)
-        //cfg.Log("CHECK:", user.Id, card)
+    err = table.Seek(cond, user.Id).Rows(nil, fields).Each(func() {
         if _, ok := cards[card]; ok && user.Id != userId {
             // someone else's card
             badCards = append(badCards, card) 
             delete(cards, card)
         }
-    }
-    rows.Close()
+    })
+    if nil != err {return}
+
+    tx, err := db.Tx(qTimeout)
+    if nil != err {return}
+    defer func () {completeTx(tx, err)}()
     
     // TODO: delete unused, update only updated cards?
-    table.Delete(nil, "user_id = ?", user.Id)
+    err = table.Delete(tx, "user_id = ?", user.Id)
+    if nil != err {return}
     
     // insert cards
     userId = user.Id
     for card, pin := range cards {
         fields["card"] = card
         fields["pin"] = pin
-        table.Insert(nil, fields)
+        _, err = table.Insert(tx, fields)
+        if nil != err {return}
         // TODO: notify subscribers
     }
     //cfg.Log("BAD:", badCards)
@@ -153,8 +134,8 @@ func (cfg *Configuration) saveUserCards(user *User) {
     if len(badCards) > 0 {
         user.Warnings = append(user.Warnings, "Следующие карты не были сохранены: " + strings.Join(badCards, "; "))
     }
-
     // 5. TODO: notify subscribers
+    return
 }
 
 func (cfg *Configuration) validateUser(user *User) bool {
@@ -177,7 +158,7 @@ func (cfg *Configuration) validateUser(user *User) bool {
     return len(user.Errors) == 0
 }
 
-func (cfg *Configuration) dbUpdateUser(user *User, filter map[string] interface{}) {
+func (cfg *Configuration) dbUpdateUser(user *User, filter map[string] interface{}) (err error) {
     if !cfg.validateUser(user) {
         cfg.Err("Bad user params:", user)
         return
@@ -213,26 +194,27 @@ func (cfg *Configuration) dbUpdateUser(user *User, filter map[string] interface{
             fields["type"] = user.Type
             fields["role"] = user.Role
             fields["archived"] = user.Archived
-            user.Id, _ = db.Table("users").Insert(nil, fields)
+            user.Id, err = db.Table("users").Insert(nil, fields)
         }
     } else if len(fields) > 0 {
-        db.Table("users").Seek(user.Id).Update(nil, fields)
+        _, err = db.Table("users").Seek(user.Id).Update(nil, fields)
     }
-    if 0 != user.Id {
-        if nil != filter["zones"] {
-            cfg.SaveLinks(user.Id, "user-zone", user.Zones)
-        }
-        if nil != filter["devices"] {
-            cfg.SaveLinks(user.Id, "user-device", user.Devices)
-        }
-        if nil != filter["cards"] {
-            cfg.saveUserCards(user)
-        }
+    if 0 == user.Id {return}
 
-        if newGroup {
-            cfg.cache.checkReset(0) // TODO: just update map, don't use DB
-        }
+    if nil == err && nil != filter["zones"] {
+        err = cfg.SaveLinks(user.Id, "user-zone", user.Zones)
     }
+    if nil == err && nil != filter["devices"] {
+        cfg.SaveLinks(user.Id, "user-device", user.Devices)
+    }
+    if nil == err && nil != filter["cards"] {
+        cfg.saveUserCards(user)
+    }
+
+    if newGroup {
+        cfg.cache.checkReset(0) // TODO: just update map, don't use DB
+    }
+    return
 }
 
 // for internal usage - recursively delete whole branch
@@ -242,23 +224,10 @@ func (cfg *Configuration) deleteBranch(tx *sql.Tx, ids []int64) (err error) {
     cond := "type = 1 AND archived = false AND parent_id"
     // fing subgroups
     fields := dblayer.Fields {"id": &userId}
-    rows, _, err := db.Table("users").Seek(cond, ids).Get(tx, fields)
-    if nil != err {
-        return
-    }
-    for rows.Next() && nil == err {
-        err = rows.Scan(&userId)
-        if nil == err {
-            groups = append(groups, userId)
-        }
-    }
-    rows.Close() // close immediately, don't use defer due to recursion
-    if nil == err {
-        err = rows.Err()
-    }
-    if nil != err {
-        return
-    }
+    err = db.Table("users").Seek(cond, ids).Rows(tx, fields).Each(func() {
+        groups = append(groups, userId)
+    })
+    if nil != err {return}
     
     // "delete" sub-subnodes if needed
     if len(groups) > 0 {
@@ -308,7 +277,7 @@ func (cfg *Configuration) dbDeleteUser(id int64) (err error) {
     return
 }
 
-func (cfg *Configuration) loadUsers() (list []User) {
+func (cfg *Configuration) loadUsers() (list []User, err error) {
     userMap := make(map[int64]int) // cache for user_id <-> card mapping
     user := new(User)
     fields := dblayer.Fields {
@@ -324,29 +293,21 @@ func (cfg *Configuration) loadUsers() (list []User) {
         "position":     &user.Position,
         "login":        &user.Login}
 
-    rows, values, _ := db.Table("users").Seek("archived = false").Get(nil, fields)
-    defer rows.Close()
-    for rows.Next() {
-        err := rows.Scan(values...)
-        catch(err)
+    err = db.Table("users").Seek("archived = false").Rows(nil, fields).Each(func() {
         list = append(list, *user)
         userMap[user.Id] = len(list) - 1
-    }
+    })
+    if nil != err {return}
     
-
+    // read cards
     var userId int64
     var card string
-
     fields = dblayer.Fields {"user_id": &userId, "card": &card}
-    rows, values, _ = db.Table("cards").Get(nil, fields)
-    defer rows.Close()
-    for rows.Next() {
-        err := rows.Scan(values...)
-        catch(err)
+    err = db.Table("cards").Rows(nil, fields).Each(func(){
         if pos, ok := userMap[userId]; ok {
             list[pos].Cards = append(list[pos].Cards, card)
         }
-    }
+    })
     return
 }
 
@@ -368,22 +329,11 @@ func (cfg *Configuration) GetUser(id int64) (user *User, err error) {
         "position":     &user.Position,
         "login":        &user.Login}
 
-    rows, values, err := db.Table("users").Seek("archived = false AND id = ?", id).Get(nil, fields)
+    err = db.Table("users").Seek("archived = false AND id = ?", id).First(nil, fields)
     if nil != err {
-        return
+        user = nil // it's not an error
     }
-    defer rows.Close()
-
-    if rows.Next() {
-        err = rows.Scan(values...)
-    }
-    if nil == err {
-        err = rows.Err()
-    }
-    if nil != err {
-        user = nil
-    }
-    return user, err
+    return
 }
 
 

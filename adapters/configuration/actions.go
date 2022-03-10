@@ -210,21 +210,24 @@ func (cfg *Configuration) deleteRule(cid int64, data []byte) (interface{}, bool)
 /////////////////////////////////////////////////////////////////////
 func (cfg *Configuration) userInfo(cid int64, data []byte) (interface{}, bool) {
     var id int64
+    var err error
     json.Unmarshal(data, &id)
     //res := cfg.loadUsers()
     user := User{Id: id}
-    // TODO: handle err
-    user.Zones, _ = cfg.LoadLinks(id, "user-zone")
-    // TODO: handle err
-    user.Devices, _ = cfg.LoadLinks(id, "user-device")
-    user.Cards = cfg.loadUserCards(id)
+    user.Zones, err = cfg.LoadLinks(id, "user-zone")
+    catch(err)
+    user.Devices, err = cfg.LoadLinks(id, "user-device")
+    catch(err)
+    user.Cards, err = cfg.loadUserCards(id)
+    catch(err)
+
     return user, false
 }
 
 func (cfg *Configuration) listUsers(cid int64, data []byte) (interface{}, bool) {
-    //res := cfg.loadUsers()
-    res := cfg.loadUsers()
-    return res, false
+    users, err := cfg.loadUsers()
+    catch(err)
+    return users, false
 }
 
 func (cfg *Configuration) updateUser(cid int64, data []byte) (interface{}, bool) {
@@ -239,23 +242,13 @@ func (cfg *Configuration) updateUser(cid int64, data []byte) (interface{}, bool)
     //cfg.Log("UpdateUser", *user)
     // TODO: timeout lo timit multiple submissions (no spam!)
     cfg.Log("Update/create user:", *user)
-    if 0 != user.Id && nil != filter["devices"] {
-        // TODO: check real modifications, not just updates
-        /*list := []int64{user.Id}
-        children = cfg.childrenList(user.Id)
-        cfg.cache.RLock()
-        for _, id := range children {
-            list = append(list, cfg.cache.children[id]...)
-        }
-        cfg.cache.RUnlock()
-        children = append(children, list...)*/
-        children, _ = cfg.cache.expandChildren(user.Id) // TODO: handle err
-        cfg.Log("User permissions updated", children)
-        
-    }
-    cfg.dbUpdateUser(user, filter)
+    err := cfg.dbUpdateUser(user, filter)
+    catch(err)
     user.Password = ""
-    
+    if 0 != user.Id && nil != filter["devices"] {
+        children, err = cfg.cache.expandChildren(user.Id) // TODO: handle err
+    }
+    catch(err)
     if len(children) > 0 {
         cfg.Broadcast("AffectedUsers", children)
     }
