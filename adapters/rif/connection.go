@@ -6,6 +6,7 @@ import (
 	"bufio"
 //	"fmt"
 	"log"
+    "regexp"
     "context"
 	"encoding/xml"
 	"strings"
@@ -15,6 +16,7 @@ import (
 )
 
 const reconnectInterval = 5 // seconds
+var rifPacketRE = regexp.MustCompile(`<RIFPlusPacket[^>]*?/>`)
 
 func (rif *Rif) connect(ctx context.Context) {
     //var lastTryTime time.Time
@@ -23,7 +25,7 @@ func (rif *Rif) connect(ctx context.Context) {
     //keepAlive := rif.Settings.KeepAlive + 2 // + ping time
 	host := rif.Settings.Host
 	newTry := true
-
+    
     listCommand := `<RIFPlusPacket type="Commands"><Commands><Command id="0"/><Command id="10000"/></Commands></RIFPlusPacket>`
 
     var err error
@@ -66,9 +68,11 @@ func (rif *Rif) connect(ctx context.Context) {
             packet, err = netReader.ReadString('>')
             if err == nil { // io.EOF
                 message += packet
-                if strings.Index(packet, "</RIFPlusPacket>") >= 0 {
+                //if strings.Index(packet, "</RIFPlusPacket>") >= 0 {
+                if strings.Index(packet, "</RIFPlusPacket>") >= 0 || rifPacketRE.MatchString(packet) {
                     message = win2utf8(message)
-                    rif.logXml("\n\n====================== { { { =====================\n\n" + message)
+                    t := time.Now().Format("2006-01-02T15:04:05.999")
+                    rif.logXml("\n\n====================== { " + t + " { =====================\n\n" + message)
                     p := RIFPlusPacket{}
                     // TODO: ignore parse error?
                     err = xml.Unmarshal([]byte(message), &p)
@@ -127,7 +131,8 @@ func (rif *Rif) keepAlive(ctx context.Context, interval int) {
 		interval = 5
 	}
     for !rif.Cancelled(ctx) {
-		rif.send(keepAliveMsg)
+		//rif.send(keepAliveMsg)
+        rif.SendCommand(keepAliveMsg)
         rif.Sleep(ctx, time.Duration(interval) * time.Second)
 	}
     rif.Log("keep-alive stopped")
@@ -137,8 +142,9 @@ func (rif *Rif) keepAlive(ctx context.Context, interval int) {
 
 func (rif *Rif) SendCommand(xml string) {
 	//fmt.Println("Command: " + xml)
+    t := time.Now().Format("2006-01-02T15:04:05.999")
 	if rif.send(xml) {
-        rif.logXml("\n\n====================== } } } =====================\n\n" + xml)
+        rif.logXml("\n\n====================== } " + t + " } =====================\n\n" + xml)
 	} else {
 		rif.Warn("Can't send remote command")
 	}
