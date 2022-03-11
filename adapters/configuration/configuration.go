@@ -82,7 +82,7 @@ func (cfg *Configuration) GetList() []int64 {
     return nil
 }
 
-func (cfg *Configuration) Get() []*api.Settings {
+func (cfg *Configuration) Get() ([]*api.Settings, error) {
     return cfg.loadServices()
 }
 
@@ -505,7 +505,6 @@ func (cfg *Configuration) setupApi() {
         "UpdateRule": cfg.updateRule,
         "DeleteRule": cfg.deleteRule,
         
-        "ListServices": cfg.listServices,  // TODO: this cmd is unneded? may be handled by dispatcher
         "UpdateService": cfg.updateService,
         "DeleteService": cfg.deleteService,
         

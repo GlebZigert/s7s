@@ -250,7 +250,7 @@ func (maps MapList) Filter(filter map[int64]int64) interface{} {
 
 
 type ConfigAPI interface {
-    Get()           []*api.Settings
+    Get()           ([]*api.Settings, error) // TODO: hide this from all services?
     //Subscribe()                     chan interface{}
     //Unsubscribe(chan interface{})
     

@@ -16,7 +16,7 @@ import (
 ////////////////////////// S E R V I C E S //////////////////////////
 /////////////////////////////////////////////////////////////////////
 
-func (cfg *Configuration) getServiceName(serviceId int64) (name string) {
+/*func (cfg *Configuration) getServiceName(serviceId int64) (name string) {
     fields := dblayer.Fields{"title": &name}
 
     rows, values, _ := db.Table("services").
@@ -28,18 +28,22 @@ func (cfg *Configuration) getServiceName(serviceId int64) (name string) {
     }
     rows.Close()
     return
-}
+}*/
 
 // TODO: handle encryption error
-func (cfg *Configuration) newService(s *api.Settings) error {
+func (cfg *Configuration) newService(s *api.Settings) (err error) {
     // TODO: cipher password field!
     var password, dbPassword string
     if "" != s.Password {
-        password, _ = encrypt(s.Password)
+        password, err = encrypt(s.Password)
     }
+    if nil != err {return}
+    
     if "" != s.DBPassword {
-        dbPassword, _ = encrypt(s.DBPassword)
+        dbPassword, err = encrypt(s.DBPassword)
     }
+    if nil != err {return}
+    
     fld := dblayer.Fields {
             "type": &s.Type,
             "title": &s.Title,
@@ -52,11 +56,11 @@ func (cfg *Configuration) newService(s *api.Settings) error {
             "db_login": &s.DBLogin,
             "db_password": dbPassword}
     
-    s.Id, _ = db.Table("services").Insert(nil, fld)
+    s.Id, err = db.Table("services").Insert(nil, fld)
     return nil
 }
 
-func (cfg *Configuration) updService(s api.Settings) {
+func (cfg *Configuration) updService(s api.Settings) (err error) {
     // type field is absent due it can't be changed
     var password, dbPassword string
     fld := dblayer.Fields {
@@ -71,24 +75,29 @@ func (cfg *Configuration) updService(s api.Settings) {
             /*"db_password": &s.dbPassword*/}
     
     if "" != s.Password {
-        password, _ = encrypt(s.Password)
+        password, err = encrypt(s.Password)
         fld["password"] = &password
     }
+    if nil != err {return}
+    
     if "" != s.DBPassword {
-        dbPassword, _ = encrypt(s.DBPassword)
+        dbPassword, err = encrypt(s.DBPassword)
         fld["db_password"] = &dbPassword
     }
-    db.Table("services").Seek(s.Id).Update(nil, fld)
-    //cfg.UpdateRows("services", fld, s.Id)
+    if nil != err {return}
+    
+    _, err = db.Table("services").Seek(s.Id).Update(nil, fld)
+    return
 }
 
-func (cfg *Configuration) dbDeleteService(id int64) {
+func (cfg *Configuration) dbDeleteService(id int64) (err error) {
     //db.Table("services").Delete(nil, id)
     timestamp := time.Now().Unix()
-    db.Table("services").Seek(id).Update(nil, dblayer.Fields{"archived": timestamp})
+    _, err = db.Table("services").Seek(id).Update(nil, dblayer.Fields{"archived": timestamp})
+    return
 }
 
-func (cfg *Configuration) loadServices() (list []*api.Settings) {
+func (cfg *Configuration) loadServices() (list []*api.Settings, err error) {
     s := new(api.Settings)
     fields := dblayer.Fields {
         "id":           &s.Id,
@@ -103,20 +112,23 @@ func (cfg *Configuration) loadServices() (list []*api.Settings) {
         "db_login":     &s.DBLogin,
         "db_password":  &s.DBPassword}
 
-    rows, values, _ := db.Table("services").Seek("archived IS NULL").Order("id").Get(nil, fields)
-    defer rows.Close()
-    
-    for rows.Next() {
-        err := rows.Scan(values...)
-        catch(err)
-        if len(s.Password) > 0 {
-            s.Password, _ = decrypt(s.Password)
+    err = db.Table("services").Seek("archived IS NULL").Order("id").
+        Rows(nil, fields).Each(func () {
+            tmp := *s        
+            list = append(list, &tmp)
+        })
+    if nil == err {
+        for i := range list {
+            if len(s.Password) > 0 {
+                list[i].Password, err = decrypt(list[i].Password)
+            }
+            if nil != err {break}
+            
+            if len(s.DBPassword) > 0 {
+                list[i].DBPassword, err = decrypt(list[i].DBPassword)
+            }
+            if nil != err {break}
         }
-        if len(s.DBPassword) > 0 {
-            s.DBPassword, _ = decrypt(s.DBPassword)
-        }
-        tmp := *s        
-        list = append(list, &tmp)
     }
     return
 }

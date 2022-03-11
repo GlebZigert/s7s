@@ -281,22 +281,13 @@ func (cfg *Configuration) deleteUser(cid int64, data []byte) (interface{}, bool)
 /////////////////////////////////////////////////////////////////////
 ////////////////////////// S E R V I C E S //////////////////////////
 /////////////////////////////////////////////////////////////////////
-func (cfg *Configuration) listServices(cid int64, data []byte) (interface{}, bool) {
-    // TODO: load only required services
-    cfg.Log("################# CID:", cid)
-    res := cfg.loadServices()
-    for _, r := range res {
-        r.DBPassword = ""
-        r.Password = ""
-    }
-    cfg.Log("################# LIST:", res)
-    return res, false
-}
 
 func (cfg *Configuration) deleteService(cid int64, data []byte) (interface{}, bool) {
     var id int64
     json.Unmarshal(data, &id)
-    cfg.dbDeleteService(id)
+    err := cfg.dbDeleteService(id)
+    catch(err)
+    //panic("AAAAAAAAAAAAAAAAAA")
     return id, true
 }
 
@@ -309,12 +300,14 @@ func (cfg *Configuration) updateService(cid int64, data []byte) (interface{}, bo
     service.DBPassword = service.NewDBPassword
     service.NewDBPassword = ""
 
+    var err error
     if 0 == service.Id {
         // TODO: timeout for multiple submissions (no spam!)
-        cfg.newService(&service)
+        err = cfg.newService(&service)
     } else {
-        cfg.updService(service)
+        err = cfg.updService(service)
     }
+    catch(err)
     return &service, true
 }
 

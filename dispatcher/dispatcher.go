@@ -60,11 +60,11 @@ func Run(ctx context.Context, host string) (err error) {
     core = cfg.(configuration.ConfigAPI)
     d.services[0] = cfg
     err = d.services[0].Run(core)
-    if nil != err {
-        return
-    }
+    if nil != err {return}
     
-    settings := core.Get()
+    settings, err := core.Get()
+    if nil != err {return}
+    
     for _, s := range settings {
         service := factory(api.NewAPI(s, d.broadcast))
         if nil == service {
