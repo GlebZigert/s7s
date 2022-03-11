@@ -187,7 +187,8 @@ func (cfg *Configuration) deleteMap(cid int64, data []byte) (interface{}, bool) 
 ///////////////////////////// R U L E S /////////////////////////////
 /////////////////////////////////////////////////////////////////////
 func (cfg *Configuration) listRules(cid int64, data []byte) (interface{}, bool) {
-    res := cfg.loadAllRules()
+    res, err := cfg.loadAllRules()
+    catch(err)
     return res, false // don't broadcast
 }
 
@@ -197,14 +198,16 @@ func (cfg *Configuration) updateRule(cid int64, data []byte) (interface{}, bool)
     //var res []*Rule
     rule := new(Rule)
     json.Unmarshal(data, rule) // TODO: handle err
-    cfg.dbUpdateRules(rule)
+    err := cfg.dbUpdateRules(rule)
+    catch(err)
     return rule, rule.Id > 0 // broadcast
 }
 
 func (cfg *Configuration) deleteRule(cid int64, data []byte) (interface{}, bool) {
     var id int64
     json.Unmarshal(data, &id)
-    cfg.dbDeleteRule(id)
+    err := cfg.dbDeleteRule(id)
+    catch(err)
     return id, true // broadcast
 }
 
