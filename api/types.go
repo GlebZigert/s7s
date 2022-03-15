@@ -24,6 +24,11 @@ type ReplyMessage struct {
     Data    interface{} `json:"data"`
 }
 
+type ErrorData struct {
+    ErrCode     int64       `json:"errCode"`
+    ErrText     string      `json:"errText"`
+}
+
 type Algorithm struct {
     Id              int64   `json:"id"`
     Name            string  `json:"name"`

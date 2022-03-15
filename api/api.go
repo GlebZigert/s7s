@@ -108,7 +108,7 @@ func (api *API) Do(cid int64, action string, json []byte) (data interface{}, bro
     defer func() {
         if r := recover(); r != nil {
             api.Err("!!! Action '" + action + "' failed for user #", cid, " - ", r)
-            data = "Операция не выполнена (сбой сервера)"
+            data = ErrorData{0, "Внутренний сбой. Повторите попытку."}
             broadcast = false
         }
     }()    
