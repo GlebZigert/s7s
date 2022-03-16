@@ -274,7 +274,7 @@ func (cfg *Configuration) deleteUser(cid int64, data []byte) (interface{}, bool)
         catch(err)
         return id, true
     } else {
-        return "Нельзя удалить встроенного администратора", false
+        return api.ErrorData{0, "Нельзя удалить встроенного администратора"}, false
     }
 }
 
