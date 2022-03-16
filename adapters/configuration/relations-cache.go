@@ -45,22 +45,12 @@ func (cache *RelationsCache) childrenList(parentId int64) (list []int64, err err
     var id int64
     fields := dblayer.Fields {"id": &id}
 
-    rows, values, err := db.Table("users").
+    err = db.Table("users").
         Seek("archived = false AND parent_id = ?", parentId).
-        Get(nil, fields)
-    if nil != err {
-        return
-    }
-    defer rows.Close()
-    for rows.Next() && nil == err {
-        err = rows.Scan(values...)
-        if nil == err {
+        Rows(nil, fields).
+        Each(func() {
             list = append(list, id)
-        }
-    }
-    if nil == err {
-        err = rows.Err()
-    }
+        })
     return
 }
 
@@ -76,21 +66,11 @@ func (cache *RelationsCache) cache() (err error) {
     // TODO: children_id is always greater than parent_id, but until transfer between groups happens (or use timestamp for group change?)
     //
     cond := "parent_id > 0 AND type = 1 AND archived = false" // user root can't have linked devices etc.
-    rows, values, err := db.Table("users").Order("id").Seek(cond).Get(nil, fields)
-    if nil != err {
-        return
-    }
-    defer rows.Close()
+    err = db.Table("users").Order("id").Seek(cond).Rows(nil, fields).Each(func() {
+        parents[userId] = append(parents[userId], parentId)
+        parents[userId] = append(parents[userId], parents[parentId]...)
+    })
 
-    for rows.Next() && nil == err {
-        if err = rows.Scan(values...); nil == err {
-            parents[userId] = append(parents[userId], parentId)
-            parents[userId] = append(parents[userId], parents[parentId]...)
-        }
-    }
-    if nil == err {
-        err = rows.Err()
-    }
     if nil != err {
         return
     }
