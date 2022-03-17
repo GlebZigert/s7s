@@ -33,6 +33,7 @@ func (svc *Rif) Run(_ configuration.ConfigAPI) (err error) {
     configuration.ExportCore(&core)
     var ctx context.Context
     ctx, svc.Cancel = context.WithCancel(context.Background())
+    defer svc.Cancel()
     svc.Stopped = make(chan struct{})
     defer close(svc.Stopped)
 
@@ -55,8 +56,7 @@ func (svc *Rif) Run(_ configuration.ConfigAPI) (err error) {
     go svc.pollEventLog(ctx)
     
     svc.setupApi()
-    //svc.SetServiceStatus(api.EC_SERVICE_READY)
-    
+
     <-ctx.Done()
     ////////////////////////////////////////////////////////
     

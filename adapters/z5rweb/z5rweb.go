@@ -33,6 +33,7 @@ func (svc *Z5RWeb) Run(_ configuration.ConfigAPI) (err error) {
     configuration.ExportCore(&core)
     var ctx context.Context
     ctx, svc.Cancel = context.WithCancel(context.Background())
+    defer svc.Cancel()
     svc.Stopped = make(chan struct{})
     defer close(svc.Stopped)
     
