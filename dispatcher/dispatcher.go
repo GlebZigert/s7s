@@ -171,11 +171,17 @@ func (dispatcher *Dispatcher) runService(service Service) {
         // TODO: dispatcher shutdown can happens here!
         // service should exit with NOT NIL error only in case of real failure
         err := serviceWrapper(service, core)
-        if nil == err {
-            break
+        if nil != err {
+            log.Println("Service", service.GetName(), "crashed, restart in", serviceRestartDelay, "seconds:", err)
+            time.Sleep(serviceRestartDelay * time.Second)
+            if nil == dispatcher.ctx.Err() {
+                // clone service
+                service = factory(api.NewAPI(service.GetSettings(), dispatcher.broadcast))
+                dispatcher.Lock()
+                dispatcher.services[id] = service
+                dispatcher.Unlock()
+            }
         }
-        log.Println("Service", service.GetName(), "crashed, restart in", serviceRestartDelay, "seconds:", err)
-        time.Sleep(serviceRestartDelay * time.Second)
     }
     dispatcher.Lock()
     delete(dispatcher.services, id)
