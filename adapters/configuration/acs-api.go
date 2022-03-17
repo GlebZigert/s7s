@@ -27,12 +27,13 @@ var passtroughEvents = []int64{16, 17}
 
 
 func (cfg *Configuration) forbiddenVisitorsDetector(ctx context.Context) {
+    defer cfg.Log("Forbidden visitors detector stopped")
     forbiddenVisitors := make(map[int64] int64)
     timer := time.NewTimer(5 * time.Second) // initial delay
     for {
         select {
             case <-ctx.Done():
-            return // TODO: return -> break?
+                return // TODO: return -> break?
             case <-timer.C:
                 // TODO: more precise error reporting?
                 cfg.complaints <- cfg.detectForbiddenVisitors(forbiddenVisitors)
@@ -42,8 +43,6 @@ func (cfg *Configuration) forbiddenVisitorsDetector(ctx context.Context) {
         next := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 1 + now.Minute(), 3, 0, time.Local)
         timer.Reset(next.Sub(now))
     }
-    
-    cfg.Log("detectForbiddenVisitors() stopped") // TODO: unreachable
 }
 
 func (cfg *Configuration) detectForbiddenVisitors(forbiddenVisitors map[int64] int64) (err error) {
