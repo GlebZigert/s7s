@@ -5,6 +5,7 @@ import(
     "context"
     "strconv"
     "strings"
+    "database/sql"
 
     "s7server/api"
     "s7server/dblayer"
@@ -49,17 +50,10 @@ func (cfg *Configuration) detectForbiddenVisitors(forbiddenVisitors map[int64] i
     // TODO: optimize performance?
     var events api.EventsList
     forbidden := make(map[int64] int64)
-    loc, parents := cfg.visitorsLocation() // [userId] => zoneId
+    loc, parents, err := cfg.visitorsLocation() // [userId] => zoneId
+    if nil != err {return}
     zones, err := cfg.allowedZones() // [zoneId] = > [user, user, ...]
-    if nil != err {
-        return
-    }
-    //cfg.Log("UL:", loc)
-    //cfg.Log("UP:", parents)
-    //cfg.Log("Z:", zones)
-
-    //cfg.cache.RLock()
-    //defer cfg.cache.RUnlock()
+    if nil != err {return}
 
     for userId, zoneId := range loc {
         if 1 == zoneId {
@@ -78,7 +72,10 @@ func (cfg *Configuration) detectForbiddenVisitors(forbiddenVisitors map[int64] i
             users := append(cfg.cache.parents[parentId], parentId, userId)
             cfg.cache.RUnlock()*/
             parentId := parents[userId]
-            users, _ := cfg.cache.expandParents(userId, parentId) // TODO: handle err
+            users, err := cfg.cache.expandParents(userId, parentId)
+            if nil != err {
+                return err // shadowed
+            }
             allowed = intersected(zones[zoneId], users)
         }
 
@@ -137,14 +134,9 @@ func (cfg *Configuration) EnterZone(event api.Event) {
 func (cfg *Configuration) UserByCard(card string) (userId int64, err error) {
     fields := dblayer.Fields{"user_id": &userId}
     emCard, _ := encodeCard(card)
-    rows, values, err := db.Table("cards").Seek("card = ?", emCard).Get(nil, fields, 1)
-    if nil != err {
-        return
-    }
-    defer rows.Close()
-
-    if rows.Next() {
-        err = rows.Scan(values...)
+    err = db.Table("cards").Seek("card = ?", emCard).First(nil, fields)
+    if sql.ErrNoRows == err {
+        err = nil // NoRows is not really an error
     }
     return
 }
@@ -161,25 +153,26 @@ func encodeCard(card string) (emCard, pin string) {
 // or user_id > 0 if confirmed
 // return zone_id ?
 // TODO: return errors: user not found, AP not allowed, timerange is incorrect
-func (cfg *Configuration) RequestPassage(zoneId int64, card, pin string) (userId, errCode int64) {
+func (cfg *Configuration) RequestPassage(zoneId int64, card, pin string) (userId, errCode int64, err error) {
+    defer func () {cfg.complaints <- err}()
+    
     // encode to EM
     emCard, _ := encodeCard(card)
-    cfg.Log("EM", emCard)
-    
+    //cfg.Log("EM", emCard)
+    /*tabName := "cards"
+    if "64,48690" == emCard { // buggy card emulation
+        tabName += "$"
+    }*/
     // 1. find card
     var dbPin string
     fields := dblayer.Fields{"user_id": &userId, "pin": &dbPin}
-    rows, values, _ := db.Table("cards").Seek("card = ?", emCard).Get(nil, fields)
-    defer rows.Close()
-    if rows.Next() {
-        err := rows.Scan(values...)
-        catch(err)
-    }
-
-    if 0 == userId {
+    err = db.Table("cards").Seek("card = ?", emCard).First(nil, fields)
+    if sql.ErrNoRows == err {
+        err = nil // NoRows is not really an error
         errCode = api.ACS_UNKNOWN_CARD // user (card) not found
         return
     }
+    if nil != err {return}
     
     // pin requred
     if "" != dbPin {
@@ -198,39 +191,45 @@ func (cfg *Configuration) RequestPassage(zoneId int64, card, pin string) (userId
     }
     
     // 2. get user info and and it's parent_id
-    user, _ := cfg.GetUser(userId) // TODO: handle err
+    user, err := cfg.GetUser(userId) // TODO: handle err
+    if nil != err {return}
     if nil == user {
         errCode = api.ACS_UNKNOWN_CARD // card found, but unknown or deleted user - WTF?
         return
     }
 
-    //cfg.cache.RLock()
-    //users := append(cfg.cache.parents[user.ParentId], user.ParentId, userId)
-    //cfg.cache.RUnlock()
-    users, _ := cfg.cache.expandParents(userId, user.ParentId) // TODO: handle err
+    users, err := cfg.cache.expandParents(userId, user.ParentId) // TODO: handle err
+    if nil != err {return}
     
-    // 3. check for anti-passback
-    locId, _ := cfg.visitorLocation(userId) // TODO: handle err
+    
+    // 3. Find applicable zone, rules & timeranges
+    allowedZone, err := cfg.checkZone(zoneId, users)
+    if nil != err {return}
+    if !allowedZone {
+        errCode = api.ACS_ACCESS_DENIED
+        return
+    }
+
+    // 4. check for anti-passback
+    locId, err := cfg.visitorLocation(userId) // TODO: handle err
+    if nil != err {return}
     if locId == zoneId {
         errCode = api.ACS_ANTIPASSBACK // already in zone
         return
     }
     
-    // 4. Find applicable zone, rules & timeranges
-    if !cfg.checkZone(zoneId, users) {
-        errCode = api.ACS_ACCESS_DENIED
-        return
-    }
-
     // 5. check visitors limit
-    if !cfg.checkMaxVisitors(zoneId) {
+    overflow, err := cfg.checkMaxVisitors(zoneId)
+    if nil != err {return}
+    if overflow {
         errCode = api.ACS_MAX_VISITORS
+        return
     }
 
     return
 }
 
-func (cfg *Configuration) checkZone(zoneId int64, users []int64) (pass bool) {
+func (cfg *Configuration) checkZone(zoneId int64, users []int64) (pass bool, err error) {
     wallTime := wallTime()
     monthdayTime := time.Date(
         1970, 1, wallTime.Day(),
@@ -263,14 +262,13 @@ func (cfg *Configuration) checkZone(zoneId int64, users []int64) (pass bool) {
             OR ? BETWEEN tr.'from' AND tr.'to'
         )
         AND el.source_id`
-    rows, _, _ := db.Table(source).
+    err = db.Table(source).
         Seek(cond, zoneId, wallTime, wallTime, monthdayTime, weekdayTime, users).
-        Get(nil, fields, 1)
-    
-    defer rows.Close()
+        First(nil, fields)
 
-    if rows.Next() {
-        pass = true
+    pass = nil == err
+    if sql.ErrNoRows == err {
+        err = nil // NoRows is not really an error
     }
 
     return
@@ -284,30 +282,22 @@ func (cfg *Configuration) visitorLocation(userId int64) (zoneId int64, err error
         "MAX(time)": &timestamp}
 
     startTime := time.Now().AddDate(0, 0, -passtroughScanDeep).Unix()
-    rows, values, err := db.Table("events").
+    err = db.Table("events").
         Seek("zone_id > 0 AND user_id = ? AND time > ? AND event", userId, startTime, passtroughEvents).
         Group("user_id").
-        Get(nil, fields)
-
-    if nil != err {
-        return
-    }
+        First(nil, fields)
     
-    defer rows.Close()
+    if sql.ErrNoRows == err {
+        err = nil // NoRows is not really an error
+    }
 
-    if rows.Next() {
-        err = rows.Scan(values...)
-    }
-    if nil == err {
-        err = rows.Err()
-    }
     return
 }
 
 
 // current location (zone) per each user ([userId] => zoneId)
 // and parents[userId] => parentId
-func (cfg *Configuration) visitorsLocation() (locations, parents map[int64] int64) {
+func (cfg *Configuration) visitorsLocation() (locations, parents map[int64] int64, err error) {
     var parentId, userId, zoneId, timestamp int64
     locations = make(map[int64]int64)
     parents = make(map[int64]int64)
@@ -318,23 +308,20 @@ func (cfg *Configuration) visitorsLocation() (locations, parents map[int64] int6
         "MAX(e.time)": &timestamp}
 
     startTime := time.Now().AddDate(0, 0, -passtroughScanDeep).Unix()
-    rows, values, _ := db.Table("events e JOIN users u ON e.user_id = u.id").
+    err = db.Table("events e JOIN users u ON e.user_id = u.id").
         Seek("u.archived = false AND e.zone_id > 0 AND e.time > ? AND e.event", startTime, passtroughEvents).
         Group("e.user_id").
-        Get(nil, fields)
+        Rows(nil, fields).
+        Each(func() {
+            locations[userId] = zoneId
+            parents[userId] = parentId
+        })
 
-    defer rows.Close()
-
-    for rows.Next() {
-        err := rows.Scan(values...)
-        catch(err)
-        locations[userId] = zoneId
-        parents[userId] = parentId
-    }
     return
 }
 
-func (cfg *Configuration) checkMaxVisitors(zoneId int64) bool {
+// returns true if max visitors reached
+func (cfg *Configuration) checkMaxVisitors(zoneId int64) (max bool, err error) {
     var zid, timestamp, count, maxVisitors, realMax int64
     fields := dblayer.Fields{
         "e.zone_id": &zid,
@@ -346,23 +333,20 @@ func (cfg *Configuration) checkMaxVisitors(zoneId int64) bool {
                         JOIN users u ON e.user_id = u.id`)
     
     startTime := time.Now().AddDate(0, 0, -passtroughScanDeep).Unix()
-    rows, values, _ := table.
+    err = table.
         Seek("u.archived = false AND e.zone_id > 0 AND e.time > ? AND e.event",
              startTime, passtroughEvents).
         Group("e.user_id").
-        Get(nil, fields)
-    defer rows.Close()
+        Rows(nil, fields).
+        Each(func() { // TODO: implement return falue to stop when count >= realMax?
+            if zoneId == zid {
+                count += 1
+                realMax = maxVisitors
+            }
+        })
 
-    for rows.Next() {
-        err := rows.Scan(values...)
-        catch(err)
-        if zoneId == zid {
-            count += 1
-            realMax = maxVisitors
-        }
-    }
     //cfg.Log("MAX", realMax, "COUNT", count, "ZONE", zoneId)
-    return 0 == realMax || count < realMax
+    return 0 != realMax && count >= realMax, err
 }
 
 func (cfg *Configuration) entranceEvents() (list []api.Event, err error) {
@@ -377,25 +361,15 @@ func (cfg *Configuration) entranceEvents() (list []api.Event, err error) {
                         LEFT JOIN users u ON e.user_id = u.id`)
     
     startTime := time.Now().AddDate(0, 0, -passtroughScanDeep).Unix()
-    rows, values, err := table.
+    err = table.
         Seek("u.archived = false AND e.zone_id > 0 AND e.time > ? AND e.event", startTime, passtroughEvents).
         Group("e.user_id").
-        Get(nil, fields)
-    if nil != err {
-        return
-    }
-    defer rows.Close()
+        Rows(nil, fields).
+        Each(func () {
+            list = append(list, *event)
+        })
 
-    for rows.Next() {
-        err = rows.Scan(values...)
-        if nil != err {
-            break
-        }
-        list = append(list, *event)
-    }
-    
     // filter 
-    
     return
 }
 
@@ -433,22 +407,12 @@ func (cfg *Configuration) allowedZones() (zones map[int64] []int64, err error) {
             OR ? BETWEEN tr.'from' AND tr.'to'
             OR ? BETWEEN tr.'from' AND tr.'to'
         )`
-    rows, values, err := db.Table(source).
+    err = db.Table(source).
         Seek(cond, wallTime, wallTime, monthdayTime, weekdayTime).
-        GetDistinct(nil, fields)
-    if nil != err {
-        return
-    }
-    defer rows.Close()
-
-    for rows.Next() {
-        err = rows.Scan(values...)
-        if nil != err {
-            break
-        }
-        zones[zoneId] = append(zones[zoneId], userId)
-    }
-    
+        DistinctRows(nil, fields).
+        Each(func() {
+            zones[zoneId] = append(zones[zoneId], userId)
+        })
     return
 }
 

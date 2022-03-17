@@ -18,6 +18,7 @@ import (
 )
 
 const (
+    LogExchange = true
     maxLosses = 3 // no reporting for 3 times to become "offline"
     maxPayloadSize = 2 * 1024 - 64 - 128 // 64 = JSON overhead, 128 - reserve
     pinWaitTimeout = 10 // seconds
@@ -50,11 +51,13 @@ func (svc *Z5RWeb) Run(_ configuration.ConfigAPI) (err error) {
     
     //svc.openDB(svc.GetStorage() + ".db")
 
-    svc.httpLog, err = os.OpenFile(svc.GetStorage() + ".json", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-    if nil != err {
-        return
+    if LogExchange {
+        svc.httpLog, err = os.OpenFile(svc.GetStorage() + ".json", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+        if nil != err {
+            return
+        }
+        defer svc.httpLog.Close()
     }
-    defer svc.httpLog.Close()
     
     err = svc.loadDevices()
     if err != nil {

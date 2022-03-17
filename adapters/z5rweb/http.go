@@ -68,8 +68,10 @@ func (svc *Z5RWeb) HTTPHandler(w http.ResponseWriter, r *http.Request) (err erro
     body, _ := ioutil.ReadAll(r.Body)
     //svc.Log(string(body))
     //err := json.NewDecoder(r.Body).Decode(&parcel)
-    svc.httpLog.Write([]byte("\n\n========== <<<R ==========\n\n"))
-    svc.httpLog.Write([]byte(body))
+    if LogExchange {
+        svc.httpLog.Write([]byte("\n\n========== <<<R ==========\n\n"))
+        svc.httpLog.Write([]byte(body))
+    }
     err = json.Unmarshal(body, &parcel)
     if err != nil {
         httpErrCode = http.StatusBadRequest
@@ -134,8 +136,10 @@ func (svc *Z5RWeb) HTTPHandler(w http.ResponseWriter, r *http.Request) (err erro
         svc.Settings.KeepAlive,
         strings.Join(messages, ","))
 
-    svc.httpLog.Write([]byte("\n\n========== S>>> ==========\n\n"))
-    svc.httpLog.Write([]byte(message))
+    if LogExchange {
+        svc.httpLog.Write([]byte("\n\n========== S>>> ==========\n\n"))
+        svc.httpLog.Write([]byte(message))
+    }
 
     w.Write([]byte(message))
     return
@@ -198,11 +202,12 @@ func (svc *Z5RWeb) checkAccess(dType string, sn int64, msg *Message) (res interf
         } else {
             card = svc.getLastCard(devId, msg.Reader)
             // try msg.Card as a plain card
-            _, errCode = core.RequestPassage(zoneId, msg.Card, "")
-            if 1 == errCode && "" != card { // maybe msg.Card is a PIN?
-                _, errCode = core.RequestPassage(zoneId, card, msg.Card)
+            _, errCode, err = core.RequestPassage(zoneId, msg.Card, "")
+            if nil == err && 1 == errCode && "" != card { // maybe msg.Card is a PIN?
+                _, errCode, err = core.RequestPassage(zoneId, card, msg.Card)
             }
         }
+        if nil != err {return}
         if 0 == errCode {
             granted = 1
         } else if api.ACS_PIN_REQUIRED == errCode {
