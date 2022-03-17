@@ -64,10 +64,12 @@ func (api *API) ErrChecker(ctx context.Context, complaints chan error, okCode, e
             case <-ctx.Done():
 
             case err := <-complaints:
-                if !timer.Stop() && len(timer.C) > 0 { // ->1
-                    <-timer.C // drain the channel for reuse: https://pkg.go.dev/time#Timer.Stop
-                }
                 if nil != err  {
+                    // stop timer to prevent setting OK state
+                    if !timer.Stop() && len(timer.C) > 0 { // ->1
+                        <-timer.C // drain the channel for reuse: https://pkg.go.dev/time#Timer.Stop
+                    }
+
                     if lastErr != err.Error() {
                         lastErr = err.Error()
                         api.Err(err)
@@ -78,7 +80,7 @@ func (api *API) ErrChecker(ctx context.Context, complaints chan error, okCode, e
                     fail = true
                 } else if fail {
                     fail = false
-                    timer.Reset(1 * time.Second)
+                    timer.Reset(1 * time.Second) // wait more errors before setting OK
                 }
 
             case <-timer.C:
@@ -98,15 +100,12 @@ func (api *API) GetStorage() string {
 }
 
 
-/*func (api *API) GetTitle() string {
-    return api.Settings.Title
-}*/
-
 // exec action handler
 // one thread per client
 func (api *API) Do(cid int64, action string, json []byte) (data interface{}, broadcast bool) {
     defer func() {
         if r := recover(); r != nil {
+            // TODO: api.complaints
             api.Err("!!! Action '" + action + "' failed for user #", cid, " - ", r)
             data = ErrorData{0, "Внутренний сбой. Повторите попытку."}
             broadcast = false
