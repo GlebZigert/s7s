@@ -49,6 +49,9 @@ func _decrypt(data []byte, pass []byte) (bbb []byte, err error) {
 		return
 	}
 	nonceSize := gcm.NonceSize()
+    if len(data) <= nonceSize {
+        return // TODO: maybe return err?
+    }
 	nonce, ciphertext := data[:nonceSize], data[nonceSize:]
 	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
