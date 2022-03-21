@@ -191,7 +191,7 @@ func (cfg *Configuration) processEvent(e *api.Event) (err error) {
         e.ZoneName = zone.Name
     }
     if e.DeviceId > 0 && "" == e.DeviceName {
-        e.DeviceName, err = cfg.getDeviceName(e.ServiceId, e.DeviceId)
+        e.DeviceName, err = cfg.getDeviceName(e.DeviceId)
     }
     
     return
@@ -201,6 +201,68 @@ func (cfg *Configuration) processEvent(e *api.Event) (err error) {
     return cfg.findAlgorithms(e.ServiceId, e.DeviceId, e.FromState, e.Event)
 }*/
 
+func (cfg *Configuration) ZoneDevices(zoneId, userId int64, devList []int64) (devMap map[int64][]int64) {
+    // TODO: handle err
+    list, _ := core.LoadLinks(zoneId, "zone-device")
+
+    ds := make(map[int64] int64) // device-service
+    for i := range list {
+        ds[list[i][1]] = list[i][0]
+    }
+    
+    var devices []int64
+    for _, d := range devList {
+        if _, ok := ds[d]; ok {
+            devices = append(devices, d)
+        }
+    }
+
+    if 0 == len(devices) {
+        // Zone is empty or all devices are "offline"
+        return // return empty list, nothing to control
+    }
+    
+    devMap = map[int64] []int64{0: []int64{}}
+    //devMap[0] = make([]int64, 0) // forbidden devices
+    
+    // TODO: handle err
+    filter, _ := core.Authorize(userId, devices)
+    for _, id := range devices {
+        // filter[0] > 0 => all id are acceptable
+        if 0 == filter[0] && 0 == filter[id] & api.AM_CONTROL {
+             devMap[0] = append(devMap[0], id)
+        }
+        sid := ds[id]
+        if 0 == len(devMap[sid]) {
+            devMap[sid] = []int64{id}
+        } else {
+            devMap[sid] = append(devMap[sid], id)
+        }
+    }
+    return
+    
+    /*if 0 == len(forbidden) {
+        return // it's ok, all devices are controllable
+    }
+    
+    cfg.Log("FORBIDDEN:", forbidden)
+    events := make(api.EventsList, 0, len(forbidden))
+    for _, id := range forbidden {
+        cfg.Log(devMap[id])
+        events = append(events, api.Event{
+            Class: api.EC_CONTROL_FORBIDDEN,
+            ServiceId: devMap[id][0],
+            DeviceId: id,
+            ZoneId: zoneId,
+            UserId: userId,
+        })
+    }
+    cfg.Log("Events:", events)
+    
+    cfg.Broadcast("Events", events)
+    
+    return nil*/
+}
 
 // get userId by login and password
 func (cfg *Configuration) Authenticate(login, token string) (id, role int64, err error) {
@@ -231,8 +293,7 @@ func (cfg *Configuration) Authenticate(login, token string) (id, role int64, err
     return
 }
 
-
-// not all devices are really "deleted", so don't use serviceId
+// not all devices are really "deleted", so don't use serviceId and discard "suspended"
 // devices == nil => check services
 func (cfg *Configuration) Authorize(userId int64, devices []int64) (list map[int64]int64, err error) {
     list = make(map[int64]int64) // [deviceId] => flags

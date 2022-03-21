@@ -127,9 +127,10 @@ func (api *API) Do(cid int64, action string, json []byte) (data interface{}, bro
 // used to notify clients when event happened (was no any queries from client)
 func (api *API) Broadcast(action string, data interface{}) {
     if events, _ := data.(EventsList); len(events) > 0 {
+         // event can't "mimic" into another service
         for i := range events {
-            events[i].ServiceId = api.Settings.Id
-            events[i].ServiceName = api.Settings.Title
+             events[i].ServiceId = api.Settings.Id
+             events[i].ServiceName = api.Settings.Title
         }
     }
     

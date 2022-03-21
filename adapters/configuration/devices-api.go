@@ -2,6 +2,7 @@ package configuration
 
 import (
     "time"
+    "database/sql"
     "encoding/json"
     "s7server/dblayer"
 )
@@ -28,24 +29,12 @@ func (cfg *Configuration) deviceZone(serviceId, deviceId int64) (zoneId int64, e
 }
 
 
-func (cfg *Configuration) getDeviceName(serviceId, deviceId int64) (name string, err error) {
+func (cfg *Configuration) getDeviceName(deviceId int64) (name string, err error) {
     fields := dblayer.Fields{"name": &name}
-
-    rows, values, err := db.Table("devices").
-        Seek("service_id = ? AND id = ?", serviceId, deviceId).
-        Get(nil, fields, 1)
-    if nil != err {
-        return
+    err = db.Table("devices").Seek(deviceId).First(nil, fields)
+    if sql.ErrNoRows == err {
+        err = nil // it's not an error
     }
-    defer rows.Close()
-    
-    if rows.Next() {
-        err = rows.Scan(values...)
-    }
-    if nil == err {
-        err = rows.Err()
-    }
-
     //cfg.Log("GDN:", name, serviceId, deviceId)
     return
 }

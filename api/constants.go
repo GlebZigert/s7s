@@ -80,6 +80,7 @@ var ClassText = map[int64] string {
     EC_FREE_PASS: "Свободный проход",
     EC_NORMAL_ACCESS: "Штатный доступ",
     EC_ALGO_STARTED: "Алгоритм запущен",
+    EC_CONTROL_FORBIDDEN: "Управление устройством запрещено",
     EC_UPS_PLUGGED: "Питание от сети",
     EC_UPS_UNPLUGGED: "Питание от батарей",
     
@@ -132,6 +133,7 @@ const (
     EC_FREE_PASS            = 115
     EC_NORMAL_ACCESS        = 116
     EC_ALGO_STARTED         = 117
+    EC_CONTROL_FORBIDDEN    = 118
     
     // OK
     EC_OK                     = 200

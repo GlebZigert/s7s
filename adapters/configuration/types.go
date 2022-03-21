@@ -256,6 +256,7 @@ type ConfigAPI interface {
     
     Authenticate(string, string)  (userId, role int64, err error)
     Authorize(userId int64, devices []int64) (map[int64]int64, error)
+    ZoneDevices(zoneId, userId int64, devList []int64) map[int64] []int64
     
     // automatic actions (algorithms)
     //CheckEvent(event *api.Event) []Algorithm

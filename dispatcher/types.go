@@ -24,6 +24,7 @@ type HTTPAPI interface {
 }
 
 type ManageableZones interface {
+    GetList()       []int64
     ZoneCommand(userId, zoneCommand int64, devices []int64)
 }
 

@@ -482,48 +482,61 @@ func (dispatcher *Dispatcher) preprocessQuery(userId *int64, ws *websocket.Conn,
 
 func (dispatcher *Dispatcher) doZoneCommand(userId, zoneId, command int64) {
     services := make(map[int64]ManageableZones)
+    var devices []int64
+    sNames := make(map[int64] string)
     dispatcher.RLock()
     for i := range dispatcher.services {
         inter, ok := dispatcher.services[i].(ManageableZones)
         if ok {
+            s := dispatcher.services[i].GetSettings()
+            sNames[s.Id] = s.Title
             services[i] = inter
+            if d := inter.GetList(); len(d) > 0 {
+                devices = append(devices, d...)
+            }
         }
     }
     dispatcher.RUnlock()
 
-    events := api.EventsList{{UserId: userId, Class: command, ZoneId: zoneId}}
-    reply := api.ReplyMessage{Service: 0, Action: "Events", Data: events}
-    dispatcher.broadcast(0, &reply)
-    
-    // TODO: handle err
-    list, _ := core.LoadLinks(zoneId, "zone-device")
+    devMap := core.ZoneDevices(zoneId, userId, devices)
+    if nil == devMap {
+        log.Println("!! Empty zone !!")
+    } else if 0 == len(devMap[0]) { // no forbidden devices
+        events := api.EventsList{{UserId: userId, Class: command, ZoneId: zoneId}}
+        reply := api.ReplyMessage{Service: 0, Action: "Events", Data: events}
+        dispatcher.broadcast(0, &reply)
 
-    var devices []int64
-    for i := range list {
-        devices = append(devices, list[i][1])
-    }
-
-    if 0 == len(devices) {
-        return // Zone is empty
-    }
-
-    // TODO: handle err
-    filter, _ := core.Authorize(userId, devices)
-    devices = make([]int64, len(filter))
-    for id, flags := range filter {
-        // filter[0] > 0 => all id are acceptable
-        if filter[0] > 0 || flags & api.AM_CONTROL > 0 {
-             devices = append(devices, id)
+        for i := range services {
+            if 0 != i && len(devMap[i]) > 0 {
+                // WARN: devices should be read-only
+                go services[i].ZoneCommand(userId, command, devMap[i])
+            }
         }
-    }
-
-    if 0 == len(devices) {
-        return // No permitted devices
-    }
-
-    for i := range services {
-        // WARN: devices should be read-only
-        go services[i].ZoneCommand(userId, command, devices)
+    } else { // report failure
+        events := make(api.EventsList, 0, len(devMap[0]))
+        forbidden := make(map[int64]struct{})
+        for _, id := range devMap[0] {
+            forbidden[id] = struct {}{}
+        }
+        
+        for sid := range devMap {
+            if 0 == sid {continue}
+            for _, id := range devMap[sid] {
+                if _, ok := forbidden[id]; ok {
+                    events = append(events, api.Event{
+                        Class: api.EC_CONTROL_FORBIDDEN,
+                        ServiceId: sid,
+                        ServiceName: sNames[sid],
+                        DeviceId: id,
+                        ZoneId: zoneId,
+                        UserId: userId,
+                    })
+                }
+            }
+        }
+        reply := api.ReplyMessage{Service: 0, Action: "Events", Data: events}
+        log.Println("@@ FORB:", events)
+        dispatcher.broadcast(0, &reply)
     }
 }
 
