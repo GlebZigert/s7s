@@ -10,19 +10,12 @@ import (
 func (cfg *Configuration) deviceZone(serviceId, deviceId int64) (zoneId int64, err error) {
     fields := dblayer.Fields {"target_id": &zoneId}
 
-    rows, values, err := db.Table("external_links").
+    err = db.Table("external_links").
         Seek("link = ? AND scope_id = ? AND source_id = ?", "zone-device", serviceId, deviceId).
-        Get(nil, fields)
-    if nil != err {
-        return
-    }
-    defer rows.Close()
+        First(nil, fields)
 
-    if rows.Next() {
-        err = rows.Scan(values...)
-    }
-    if nil == err {
-        err = rows.Err()
+    if sql.ErrNoRows == err {
+        err = nil // it's not an error
     }
 
     return
@@ -44,16 +37,12 @@ func (cfg *Configuration) getOneDevice(fields dblayer.Fields, serviceId int64, h
     if nil == fields {
         fields = dblayer.Fields{"id": &id}
     }
-    rows, values, err := db.Table("devices").
+    err = db.Table("devices").
         Seek("service_id = ? AND handle = ?", serviceId, handle).
-        Get(nil, fields, 1)
-    if nil != err {
-        return
-    }
-    defer rows.Close()
-    
-    if rows.Next() {
-        err = rows.Scan(values...)
+        First(nil, fields)
+
+    if sql.ErrNoRows == err {
+        err = nil // it's not an error
     }
     
     return
@@ -89,20 +78,12 @@ func (cfg *Configuration) LoadDevices(serviceId int64) (list []Device, err error
         "last_seen":    &dev.LastSeen,
         "data":         &dev.Data}
 
-    rows, values, err := db.Table("devices").Seek("handle IS NOT NULL AND service_id = ?", serviceId).Get(nil, fields)
-    
-    if nil != err {
-        return
-    }
-    
-    defer rows.Close()
-    for rows.Next() {
-        err = rows.Scan(values...)
-        if nil != err {
-            break
-        }
-        list = append(list, *dev)        
-    }
+    err = db.Table("devices").
+        Seek("handle IS NOT NULL AND service_id = ?", serviceId).
+        Rows(nil, fields).
+        Each(func () {
+            list = append(list, *dev)
+        })
     
     return
 }
@@ -129,15 +110,11 @@ func (cfg *Configuration) DeleteDevice(id int64) (err error) {
         "last_seen":    time.Now()} // deletion time
 
     tx, err := db.Tx(qTimeout)
-    if nil != err {
-        return
-    }
+    if nil != err {return}
     defer func () {completeTx(tx, err)}()
     
     _, err = db.Table("devices").Seek(id).Update(tx, fields)
-    if nil != err {
-        return
-    }
+    if nil != err {return}
     err = db.Table("external_links").Delete(tx, "link = ? AND target_id = ?", "user-device", id)
     return
 }
