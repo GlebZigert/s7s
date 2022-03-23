@@ -52,8 +52,6 @@ func (svc *Rif) Run(_ configuration.ConfigAPI) (err error) {
     
     go svc.ErrChecker(ctx, svc.complaints, api.EC_SERVICE_READY, api.EC_SERVICE_FAILURE)
     go svc.connect(ctx)
-    go svc.keepAlive(ctx, svc.Settings.KeepAlive)
-    go svc.pollEventLog(ctx)
     
     svc.setupApi()
 

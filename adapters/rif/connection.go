@@ -27,36 +27,42 @@ func (rif *Rif) connect(ctx context.Context) {
 	newTry := true
     
     listCommand := `<RIFPlusPacket type="Commands"><Commands><Command id="0"/><Command id="10000"/></Commands></RIFPlusPacket>`
-
+    
     var err error
     for !rif.Cancelled(ctx) {
-        if nil != err { // wait before reconnect
-            rif.Warn("connection loop err:", err)
-            // TODO: report error?
-            // rif.SetServiceStatus(api.EC_SERVICE_OFFLINE, api.EC_DATABASE_UNAVAILABLE)
+        if nil != err {
+            if newTry {
+                rif.Warn("External service problem:", err)
+                rif.SetServiceStatus(api.EC_SERVICE_ERROR)
+            }
             rif.Sleep(ctx, reconnectInterval * time.Second)
         }
-
-        if (newTry) {
+        if newTry {
             rif.Log("Trying to connect to", host)
-		}
+        }
 
         dctx, _ := context.WithTimeout(ctx, 500 * time.Millisecond)
         var conn net.Conn
         conn, err = dialer.DialContext(dctx, "tcp", host)
-		if err != nil {
-            rif.SetServiceStatus(api.EC_SERVICE_OFFLINE, api.EC_DATABASE_UNAVAILABLE)
-            newTry = false
+		if nil != err {
+            if newTry {
+                rif.Err("Connection failed:", err)
+                rif.SetServiceStatus(api.EC_SERVICE_OFFLINE, api.EC_DATABASE_UNAVAILABLE)
+                newTry = false
+            }
 			continue
 		}
 
         rif.Lock()
         rif.conn = conn
         rif.Unlock()
-        
-		newTry = true
 
+		newTry = true
         rif.Log("Connected to", host)
+        
+        ectx, cancel := context.WithCancel(ctx)
+        go rif.keepAlive(ectx, rif.Settings.KeepAlive)
+        go rif.pollEventLog(ectx)
 		
 		netReader := bufio.NewReader(rif.conn)
         rif.SendCommand(listCommand)
@@ -81,13 +87,14 @@ func (rif *Rif) connect(ctx context.Context) {
                             case "InitialStatus": err = rif.populate(p.Devices)
                             case "EventsAndStates": rif.update(p.Devices)
                             case "ListJourRecord": rif.scanJourEvents(p.Events)
-                            default: rif.Warn("Unknown RIFPlusPacket type:", p.Type)
+                            default: rif.Warn("Unknown RIFPlusPacket type:", p.Type); /*err = fmt.Errorf("AAAA")*/
                         }
                     }
                     message = ""
                 }
             }
         }
+        cancel()
         
 		// listen for reply
 		/*netReader, _ := charset.NewReaderLabel("windows-1251", rif.conn)
