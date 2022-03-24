@@ -25,6 +25,7 @@ func (rif *Rif) connect(ctx context.Context) {
     //keepAlive := rif.Settings.KeepAlive + 2 // + ping time
 	host := rif.Settings.Host
 	newTry := true
+    waitKeepAlive := false // wait for service's "KeepAlive" replies
     
     listCommand := `<RIFPlusPacket type="Commands"><Commands><Command id="0"/><Command id="10000"/></Commands></RIFPlusPacket>`
     
@@ -64,13 +65,17 @@ func (rif *Rif) connect(ctx context.Context) {
         go rif.keepAlive(ectx, rif.Settings.KeepAlive)
         go rif.pollEventLog(ectx)
 		
-		netReader := bufio.NewReader(rif.conn)
+		netReader := bufio.NewReader(conn)
         rif.SendCommand(listCommand)
         rif.queryEventsChan <-0
 
         var message, packet string
         for nil == err {
             //conn.SetReadDeadline(time.Now().Add(time.Duration(keepAlive) * time.Second))
+            if waitKeepAlive {
+                next := time.Duration(2 + rif.Settings.KeepAlive) * time.Second
+                conn.SetReadDeadline(time.Now().Add(next))
+            }
             packet, err = netReader.ReadString('>')
             if err == nil { // io.EOF
                 message += packet
@@ -87,7 +92,8 @@ func (rif *Rif) connect(ctx context.Context) {
                             case "InitialStatus": err = rif.populate(p.Devices)
                             case "EventsAndStates": rif.update(p.Devices)
                             case "ListJourRecord": rif.scanJourEvents(p.Events)
-                            default: rif.Warn("Unknown RIFPlusPacket type:", p.Type); /*err = fmt.Errorf("AAAA")*/
+                            case "KeepAlive": waitKeepAlive = true // use new protocol version
+                            default: rif.Warn("Unknown RIFPlusPacket type:", p.Type); /*err = fmt.Errorf(p.Type,  "packet is unknown")*/
                         }
                     }
                     message = ""
