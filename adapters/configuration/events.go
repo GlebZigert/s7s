@@ -57,7 +57,7 @@ func (cfg *Configuration) dbDescribeEvent(event *api.Event) bool {
         "reason": event.Reason,
         "reaction": event.Reaction}
     num, err := db.Table(`events`).Seek(event.Id).Update(nil, fields)
-    return  num > 0 && nil != err // event not foud or db error
+    return  num > 0 && nil == err // event found and no db error
 }
 
 func (cfg *Configuration) dbLoadJournal(userId, serviceId int64) (list api.EventsList, err error) {
