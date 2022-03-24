@@ -145,6 +145,11 @@ func (dispatcher *Dispatcher) shutdownService(id int64) {
     if nil != shutdown {
         log.Println("Stopping #", id)
         shutdown()
+
+        dispatcher.Lock()
+        delete(dispatcher.services, id)
+        dispatcher.Unlock()
+
         log.Println("Finished #", id)
     } else {
         log.Println("It's a new service? Can't shutdown unknown #", id)
@@ -156,37 +161,32 @@ func (dispatcher *Dispatcher) runService(service Service) {
     settings := service.GetSettings()
     id := settings.Id
     dispatcher.Lock()
-    if nil == dispatcher.services[id] {
-        dispatcher.services[id] = service
-    } else {
-        id = 0
-    }
+    dispatcher.services[id] = service
     dispatcher.Unlock()
-    
-    if 0 == id {
-        return
-    }
     
     for nil == dispatcher.ctx.Err() {
         // TODO: dispatcher shutdown can happens here!
-        // service should exit with NOT NIL error only in case of real failure
+        // service should exit with NOT NIL error only in case of real failure,
+        // when restart is required
+        log.Println("Starting service #", id)
         err := serviceWrapper(service, core)
         if nil != err {
+            // TODO: what if the service terminated with an error during *.Shutdown()?
             log.Println("Service", service.GetName(), "crashed, restart in", serviceRestartDelay, "seconds:", err)
             time.Sleep(serviceRestartDelay * time.Second)
+
             if nil == dispatcher.ctx.Err() {
                 // clone service
-                service = factory(api.NewAPI(service.GetSettings(), dispatcher.broadcast))
+                service = factory(api.NewAPI(settings, dispatcher.broadcast))
                 dispatcher.Lock()
                 dispatcher.services[id] = service
                 dispatcher.Unlock()
             }
+        } else {
+            break
         }
     }
-    dispatcher.Lock()
-    delete(dispatcher.services, id)
-    dispatcher.Unlock()
-    log.Println("runService: service stopped", service.GetName())
+    log.Println(service.GetName(), "service stopped")
 }
 
 func serviceWrapper(service Service, cfg configuration.ConfigAPI) (err error) {
@@ -548,7 +548,7 @@ func (dispatcher *Dispatcher) updateService(data interface{}) {
         log.Println("[Dispatcher] reconfiguration settings type wrong!")
         return
     }
-    //log.Println("[Diaspatcher] updating service", s)
+    //log.Println("[Dispatcher] updating service", s)
     dispatcher.shutdownService(s.Id)
     // (Re-)Create service
     service := factory(api.NewAPI(s, dispatcher.broadcast))
