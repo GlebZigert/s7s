@@ -202,8 +202,11 @@ func (cfg *Configuration) processEvent(e *api.Event) (err error) {
 }*/
 
 func (cfg *Configuration) ZoneDevices(zoneId, userId int64, devList []int64) (devMap map[int64][]int64) {
-    // TODO: handle err
-    list, _ := core.LoadLinks(zoneId, "zone-device")
+    var err error
+    defer func () {cfg.complaints <- err}()
+    
+    list, err := core.LoadLinks(zoneId, "zone-device")
+    if nil != err {return}
 
     ds := make(map[int64] int64) // device-service
     for i := range list {
@@ -222,11 +225,10 @@ func (cfg *Configuration) ZoneDevices(zoneId, userId int64, devList []int64) (de
         return // return empty list, nothing to control
     }
     
-    devMap = map[int64] []int64{0: []int64{}}
-    //devMap[0] = make([]int64, 0) // forbidden devices
+    filter, err := core.Authorize(userId, devices)
+    if nil != err {return}
     
-    // TODO: handle err
-    filter, _ := core.Authorize(userId, devices)
+    devMap = map[int64] []int64{0: []int64{}} // 0 - forbidden devices
     for _, id := range devices {
         // filter[0] > 0 => all id are acceptable
         if 0 == filter[0] && 0 == filter[id] & api.AM_CONTROL {
@@ -240,28 +242,6 @@ func (cfg *Configuration) ZoneDevices(zoneId, userId int64, devList []int64) (de
         }
     }
     return
-    
-    /*if 0 == len(forbidden) {
-        return // it's ok, all devices are controllable
-    }
-    
-    cfg.Log("FORBIDDEN:", forbidden)
-    events := make(api.EventsList, 0, len(forbidden))
-    for _, id := range forbidden {
-        cfg.Log(devMap[id])
-        events = append(events, api.Event{
-            Class: api.EC_CONTROL_FORBIDDEN,
-            ServiceId: devMap[id][0],
-            DeviceId: id,
-            ZoneId: zoneId,
-            UserId: userId,
-        })
-    }
-    cfg.Log("Events:", events)
-    
-    cfg.Broadcast("Events", events)
-    
-    return nil*/
 }
 
 // get userId by login and password
