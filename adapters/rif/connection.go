@@ -33,7 +33,7 @@ func (rif *Rif) connect(ctx context.Context) {
         if nil != err {
             if newTry {
                 rif.Warn("External service problem:", err)
-                rif.SetServiceStatus(api.EC_SERVICE_ERROR)
+                rif.SetServiceStatus(api.EC_SERVICE_ERROR, api.EC_SERVICE_OFFLINE)
             }
             rif.Sleep(ctx, reconnectInterval * time.Second)
         }
