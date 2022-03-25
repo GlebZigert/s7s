@@ -94,6 +94,7 @@ func (cfg *Configuration) replyLoop(c chan interface{}) {
 
 ///////////////////// API INTERFACE //////////////////////
 func (cfg *Configuration) StartNewShift(userId int64) (err error) {
+    defer func () {cfg.complaints <- err}()
     shiftId, err := cfg.currentShiftId(userId)
     if shiftId == 0 && nil == err {
         events := api.EventsList{api.Event{
@@ -105,6 +106,7 @@ func (cfg *Configuration) StartNewShift(userId int64) (err error) {
 }
 
 func (cfg *Configuration) CompleteShift(userId int64) (err error) {
+    defer func () {cfg.complaints <- err}()
     shiftId, err := cfg.currentShiftId(userId)
     if shiftId > 0 && nil == err {
         events := api.EventsList{api.Event{
@@ -117,6 +119,7 @@ func (cfg *Configuration) CompleteShift(userId int64) (err error) {
 
 
 func (cfg *Configuration) ProcessEvents(events api.EventsList) (err error) {
+    defer func () {cfg.complaints <- err}()
     for i := 0; i < len(events) && nil == err; i++ {
         err = cfg.processEvent(&events[i])
     }
@@ -246,6 +249,7 @@ func (cfg *Configuration) ZoneDevices(zoneId, userId int64, devList []int64) (de
 
 // get userId by login and password
 func (cfg *Configuration) Authenticate(login, token string) (id, role int64, err error) {
+    defer func () {cfg.complaints <- err}()
     var userToken string
     fields := dblayer.Fields {
         "id": &id,
@@ -276,6 +280,7 @@ func (cfg *Configuration) Authenticate(login, token string) (id, role int64, err
 // not all devices are really "deleted", so don't use serviceId and discard "suspended"
 // devices == nil => check services
 func (cfg *Configuration) Authorize(userId int64, devices []int64) (list map[int64]int64, err error) {
+    defer func () {cfg.complaints <- err}()
     list = make(map[int64]int64) // [deviceId] => flags
     
     user, err := cfg.GetUser(userId)

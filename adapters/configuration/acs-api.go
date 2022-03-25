@@ -131,6 +131,7 @@ func (cfg *Configuration) EnterZone(event api.Event) {
 }
 
 func (cfg *Configuration) UserByCard(card string) (userId int64, err error) {
+    defer func () {cfg.complaints <- err}()
     fields := dblayer.Fields{"user_id": &userId}
     emCard, _ := encodeCard(card)
     err = db.Table("cards").Seek("card = ?", emCard).First(nil, fields)

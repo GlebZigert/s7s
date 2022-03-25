@@ -312,6 +312,7 @@ func (cfg *Configuration) loadUsers() (list []User, err error) {
 }
 
 func (cfg *Configuration) GetUser(id int64) (user *User, err error) {
+    defer func () {cfg.complaints <- err}()
     user = new(User)
     //cfg.tables["users"].query("fields").where("cond")
     //db.Table("users").Find("cond").Get(nil, "list")

@@ -6,6 +6,7 @@ import (
 )
 
 func (cfg *Configuration) LoadLinks(sourceId int64, link string) (list []ExtLink, err error) {
+    defer func () {cfg.complaints <- err}()
     //list := make([]ExtLink, 0)
     var id int64
     var scope int64
@@ -37,6 +38,7 @@ func (cfg *Configuration) LoadLinks(sourceId int64, link string) (list []ExtLink
 
 
 func (cfg *Configuration) SaveLinks(sourceId int64, linkType string, list []ExtLink) (err error){
+    defer func () {cfg.complaints <- err}()
     tx, err := db.Tx(qTimeout)
     if nil != err {
         return
