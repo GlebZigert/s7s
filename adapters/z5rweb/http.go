@@ -65,7 +65,7 @@ func (svc *Z5RWeb) HTTPHandler(w http.ResponseWriter, r *http.Request) (err erro
         Messages: []interface{}{}}*/
 
     var parcel Parcel
-    body, _ := ioutil.ReadAll(r.Body)
+    body, err := ioutil.ReadAll(r.Body)
     //svc.Log(string(body))
     //err := json.NewDecoder(r.Body).Decode(&parcel)
     if LogExchange {
