@@ -1,7 +1,7 @@
 package configuration
 
 import (
-//    "database/sql"
+    "database/sql"
 //    "errors"
     "time"
     "strings"
@@ -61,9 +61,6 @@ func (cfg *Configuration) dbDescribeEvent(event *api.Event) bool {
 }
 
 func (cfg *Configuration) dbLoadJournal(userId, serviceId int64) (list api.EventsList, err error) {
-    //user := cfg.GetUser(userId)
-    //devices := cfg.LoadLinks(userId, "user-device")
-
     event := new(api.Event)
     fields := eventFieldsEx(event)
     table := db.Table(`events e
@@ -80,30 +77,14 @@ func (cfg *Configuration) dbLoadJournal(userId, serviceId int64) (list api.Event
     }
     //cfg.Log("SHIFT EVENT ID #", fromId)
     // TODO: load events starting from session opening
-    rows, values, _ := table.
+    err = table.
         Seek("e.service_id = ? AND e.time > ? AND e.id >= ?", serviceId, from, fromId).
         Order("e.time, e.id").
-        Get(nil, fields)
-    defer rows.Close()
-
-    for rows.Next() {
-        err := rows.Scan(values...)
-        catch(err)
-        /*if user.Role != 1 {
-            for i := range devices {
-                if userId == event.UserId ||
-                    devices[i][0] == event.ServiceId &&
-                    devices[i][1] == event.DeviceId {
-                    list = append(list, *event)
-                    break
-                }
-            }
-            
-        } else {*/
+        Rows(nil, fields).
+        Each(func (){
             list = append(list, *event)
-        //}
-    }
-    //cfg.Log("JRN:", list)
+        })
+
     return
 }
 
@@ -195,22 +176,22 @@ func (cfg *Configuration) importEvent(event *api.Event) (err error) {
     event.Id = 0 // just in case
     ev := new(api.Event)
     fields := eventFields(ev)
-    rows, values, err := db.Table("events").
+    err = db.Table("events").
         Seek("external_id = 0 AND service_id = ? AND device_id = ? AND time = ? AND event = ?",
              event.ServiceId, event.DeviceId, event.Time, event.Event).
-        Order("id").Get(nil, fields, 1)
-    if nil != err {
+        Order("id").
+        First(nil, fields)
+    if nil == err { // event was found
+        event.Id = ev.Id
+    } else if sql.ErrNoRows == err { // not found
+        err = nil // NoRows is not a real error
+    } else { // real error
         return
     }
-    if rows.Next() {
-        err = rows.Scan(values...)
-        event.Id = ev.Id
-    }
-    rows.Close()
 
-    if 0 == event.Id {
+    if 0 == event.Id { // Unknown event, save it
         err = cfg.dbLogEvent(event)
-    } else { // Unknown event, save it
+    } else { // update existing event
         _, err = db.Table("events").Seek(event.Id).Update(nil, dblayer.Fields{"external_id": event.ExternalId})
     }
     return
@@ -231,22 +212,18 @@ func (cfg *Configuration) GetLastEvent(serviceId int64) (event *api.Event, err e
     defer func () {cfg.complaints <- err}()
     event = new(api.Event)
     fields := eventFields(event)
-    rows, values, err := db.Table("events").
+    err = db.Table("events").
         Seek("external_id > 0 AND service_id = ?", serviceId).
         Order("external_id DESC").
-        Get(nil, fields, 1)
-    if nil != err {
-        return
+        First(nil, fields)
+    if nil == err {
+        return // all is fine
     }
-    defer rows.Close()
-    if rows.Next() {
-        err = rows.Scan(values...)
-    } else {
-        event = nil
+    
+    // error or not found
+    event = nil
+    if sql.ErrNoRows == err {
+        err = nil // NoRows is not a real error
     }
-    if err != nil {
-        event = nil
-    }
-    //err = errors.New("BBBBBBBBBBBBBBB")
     return
 }
