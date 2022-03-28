@@ -72,7 +72,7 @@ func (api *API) ErrChecker(ctx context.Context, complaints chan error, okCode, e
 
                     if lastErr != err.Error() {
                         lastErr = err.Error()
-                        api.Err(err)
+                        api.Err("Complaint:", err)
                     }
                     if !fail {
                         api.SetServiceStatus(errCode)

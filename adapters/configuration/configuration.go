@@ -48,13 +48,14 @@ func (cfg *Configuration) Run(c ConfigAPI) (err error) {
     core = c
     ctx, cfg.Cancel = context.WithCancel(context.Background())
 
-    dbFilename := cfg.GetStorage() + ".db?_synchronous=NORMAL&_journal_mode=WAL" // _busy_timeout=10000
+    dbFilename := cfg.GetStorage() +
+        ".db?_synchronous=NORMAL&_journal_mode=WAL" // &_locking_mode=EXCLUSIVE //&_busy_timeout=10000
     
     if err = cfg.openDB(dbFilename); nil != err {
         err = fmt.Errorf("Database problem: %w", err)
         return
     }
-    
+
     //cfg.DB.SetMaxOpenConns(1)
     
     /*if err := cfg.cacheRelations(); nil != err {
@@ -511,6 +512,14 @@ func (cfg *Configuration) openDB(fn string) (err error) {
     if nil != err {
         return
     }
+
+    /*ctx, _ := context.WithTimeout(context.TODO(), 1 * time.Second)
+    err = database.PingContext(ctx)
+    if err != nil {
+        database.Close()
+        return
+    }*/
+    
     db.Bind(database, qTimeout)
     err = db.MakeTables(tables)
     if nil != err {

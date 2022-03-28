@@ -54,15 +54,20 @@ func Run(ctx context.Context, host string) (err error) {
         clients: make(map[int64] Client)}
 
     outbox = make(chan api.ReplyMessage, maxQueueSize / 10) // buffered replies
-    go d.queueServer(ctx)
+
     
     cfg := factory(api.NewAPI(&api.Settings{Id: 0, Type: "configuration"}, d.broadcast))
     core = cfg.(configuration.ConfigAPI)
     d.services[0] = cfg
     err = d.services[0].Run(core)
     if nil != err {return}
-    
+    log.Println("Core stared")
+
+    go d.queueServer(ctx)
+
     settings, err := core.Get()
+    log.Println("Services list loaded")
+    
     if nil != err {return}
     
     for _, s := range settings {

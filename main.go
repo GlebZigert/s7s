@@ -68,7 +68,7 @@ func main() {
     
     err := dispatcher.Run(ctx, *host)
     if nil != err {
-        log.Println(err)
+        log.Println("FATAL:", err)
     } else {
         log.Println("Bye!")
     }
