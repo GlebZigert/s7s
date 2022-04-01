@@ -1,5 +1,6 @@
 docs/
 build/
+utils/
 zkt-soap/
 storage/
 rtsp-proxy/
@@ -8,4 +9,3 @@ main.exe
 s7server.exe
 main
 s7server
-
