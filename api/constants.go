@@ -94,6 +94,7 @@ var ClassText = map[int64] string {
     EC_DATABASE_UNAVAILABLE: "БД недоступна",
     EC_SERVICE_ERROR: "Внешняя служба работает некорректно",
     EC_DATABASE_ERROR: "Проблемы с БД",
+    EC_USE_DB_BACKUP: "БД повреждена, используется резервная копия",
 }
 
 
@@ -151,6 +152,7 @@ const (
     EC_SERVICE_FAILURE      = 302 // internal error
     EC_SERVICE_ERROR        = 303 // remote service error
     EC_DATABASE_ERROR       = 304
+    EC_USE_DB_BACKUP        = 305 // primary db failure, use backup
     
     
     // LOST (no link)

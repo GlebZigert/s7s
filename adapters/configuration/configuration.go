@@ -8,8 +8,7 @@ import (
     "context"
     "encoding/json"
     "database/sql"
-    _ "github.com/mattn/go-sqlite3"
-
+    
     "s7server/api"
     "s7server/dblayer"
 )
@@ -17,6 +16,8 @@ import (
 const (
     authSalt = "iATdT7R4JKGg1h1YeDPp:Zl6fyUw10sgh1EGxnyKQ"
     qTimeout = 500 // db query default timeout, msec
+    dbOpenAttempts = 2 // 2 => original + 2 prev backups
+    connParams = "?_synchronous=NORMAL&_journal_mode=WAL" // &_locking_mode=EXCLUSIVE //&_busy_timeout=10000
 )
 
 var db dblayer.DBLayer
@@ -48,13 +49,12 @@ func (cfg *Configuration) Run(c ConfigAPI) (err error) {
     core = c
     ctx, cfg.Cancel = context.WithCancel(context.Background())
 
-    dbFilename := cfg.GetStorage() +
-        ".db?_synchronous=NORMAL&_journal_mode=WAL" // &_locking_mode=EXCLUSIVE //&_busy_timeout=10000
-    
-    if err = cfg.openDB(dbFilename); nil != err {
+    if err = cfg.openDatabase(dbOpenAttempts); nil != err {
         err = fmt.Errorf("Database problem: %w", err)
         return
     }
+    cfg.Log("Database ready")
+    
 
     //cfg.DB.SetMaxOpenConns(1)
     
@@ -505,30 +505,7 @@ func (cfg *Configuration) getTargetsByScope(target string, scopeId int64) []User
 }
 */
 
-func (cfg *Configuration) openDB(fn string) (err error) {
-    //TODO: https://github.com/mattn/go-sqlite3#user-authentication
-    //var db interface{}
-    database, err := sql.Open("sqlite3", fn)
-    if nil != err {
-        return
-    }
 
-    /*ctx, _ := context.WithTimeout(context.TODO(), 1 * time.Second)
-    err = database.PingContext(ctx)
-    if err != nil {
-        database.Close()
-        return
-    }*/
-    
-    db.Bind(database, qTimeout)
-    err = db.MakeTables(tables)
-    if nil != err {
-        db.Close()
-        return
-    }
-    db.MakeTables(tableUpdates) // ignore errors
-    return
-}
 
 func (cfg *Configuration) setupApi() {
     cfg.Api(map[string] api.Action {

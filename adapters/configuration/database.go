@@ -1,9 +1,96 @@
 package configuration
 
 import (
-    //"context"
+    "io"
+    "os"
+    "fmt"
+    "sort"
+    "time"
+    "context"
+    "strings"
+    "path/filepath"
+    "database/sql"    
+    sqlite3 "github.com/mattn/go-sqlite3"
+)
+
+
+import (
+    "s7server/api"
     "s7server/dblayer"
 )
+
+func (cfg *Configuration) tryDatabase(fn string) (err error) {
+    //TODO: https://github.com/mattn/go-sqlite3#user-authentication
+    //var db interface{}
+    database, err := sql.Open("sqlite3", fn + connParams)
+    if nil != err {return}
+
+    ctx, _ := context.WithTimeout(context.TODO(), 1 * time.Second)
+    err = database.PingContext(ctx)
+    
+    if nil != err {
+        database.Close()
+        return
+    }
+
+    db.Bind(database, qTimeout)
+    err = db.MakeTables(tables)
+    if nil != err {
+        db.Close()
+        return
+    }
+    db.MakeTables(tableUpdates) // ignore errors
+    return
+}
+
+func (cfg *Configuration) openDatabase(maxAttempts int) (err error) {
+    dbFile := cfg.GetStorage() + ".db"
+
+    err = cfg.tryDatabase(dbFile)
+    if se, ok := err.(sqlite3.Error); !ok || sqlite3.ErrCorrupt != se.Code {
+        return // unrecoverable error or no error (nil)
+    }
+
+    // primary db malformed, try some backups
+    dbBak := strings.Replace(dbFile, "-0.", "-" + time.Now().Format("20060102150405") + ".", 1)
+    pattern := strings.Replace(dbFile, "-0.", "-*.", 1)
+    dbList, ee := filepath.Glob(pattern)
+    if nil != ee {return fmt.Errorf("Can't list DB backups: %w", ee)}
+    sort.Sort(sort.Reverse(sort.StringSlice(dbList)))
+
+    // strip "configuration-0.db" from list
+    dbList = dbList[0:len(dbList)-1]
+    cfg.Log("Primary DB file is damaged. Found backups:", dbList)
+    if len(dbList) < 2 {return}
+    // backup "configuration-0.db"
+    err = os.Rename(dbFile, dbBak)
+    if nil != err {return}
+    cfg.Log("Primary db saved:", dbFile, "=>", dbBak)
+    
+    for i, fn := range dbList {
+        if i >= maxAttempts {break} // stop, enough
+        cfg.Log("Trying backup", fn)
+        
+        // prepare current backup
+        err = copyFile(fn, dbFile)
+        if nil != err {break}
+
+        err = cfg.tryDatabase(dbFile)
+        if sqliteErr, ok := err.(sqlite3.Error); !ok || sqlite3.ErrCorrupt != sqliteErr.Code {
+            break // unrecoverable error or no error
+        }
+    }
+    if nil == err {
+        // notify about backup usage
+        cfg.Broadcast("Events", api.EventsList{api.Event{Class: api.EC_USE_DB_BACKUP}})
+    } else {
+        // recover original db
+        if nil == os.Rename(dbBak, dbFile) {
+            cfg.Log("Rollback primary db backup:", dbBak, "=>", dbFile)
+        }
+    }
+    return
+}
 
 func (cfg *Configuration) LoadLinks(sourceId int64, link string) (list []ExtLink, err error) {
     defer func () {cfg.complaints <- err}()
@@ -63,5 +150,22 @@ func (cfg *Configuration) SaveLinks(sourceId int64, linkType string, list []ExtL
             break
         }
     }
+    return
+}
+
+//////////////////////////////////////////////////////////////////////
+
+func copyFile(src, dst string) (err error) {
+    // TODO: check existance & !dir?
+    fin, err := os.Open(src)
+    if err != nil {return}
+    defer fin.Close()
+
+    fout, err := os.Create(dst)
+    if err != nil {return}
+    defer fout.Close()
+
+    _, err = io.Copy(fout, fin)
+
     return
 }
