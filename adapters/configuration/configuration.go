@@ -54,11 +54,13 @@ func (cfg *Configuration) Run(c ConfigAPI) (err error) {
         return
     }
     cfg.Log("Database ready")
-    /*
-    err = cfg.backupDatabase()
-    lastTime, err := cfg.lastBackupTime()
-    cfg.Log("LT:", err, time.Now().Sub(lastTime))
-    return fmt.Errorf("Stopped.")*/
+
+    //err = cfg.backupDatabase()
+    
+    //lastTime, err := cfg.lastBackupTime()
+    //cfg.Log("LT:", err, time.Now().Sub(lastTime))
+    
+    //return fmt.Errorf("Stopped.")
 
     //cfg.DB.SetMaxOpenConns(1)
     
@@ -72,6 +74,7 @@ func (cfg *Configuration) Run(c ConfigAPI) (err error) {
 
     go cfg.ErrChecker(ctx, cfg.complaints, api.EC_SERVICE_READY, api.EC_SERVICE_FAILURE)
     go cfg.forbiddenVisitorsDetector(ctx)
+    go cfg.dbBackupSheduler(ctx)
     
     return
 }

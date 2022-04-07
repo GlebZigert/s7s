@@ -27,6 +27,35 @@ const (
     timestampLayout = "20060102150405"
 )
 
+func (cfg *Configuration) dbBackupSheduler(ctx context.Context) {
+    defer cfg.Log("DB backup sheduler stopped")
+    timer := time.NewTimer(1 * time.Minute)
+    for nil == ctx.Err() {
+        select {
+            case <-ctx.Done():
+                return
+
+            case <-timer.C:
+                lastTime, err := cfg.lastBackupTime()
+                // TODO: get backup period from settings
+                if nil == err && time.Now().Sub(lastTime) >= 12 * time.Hour {
+                    start := time.Now()
+                    err = cfg.backupDatabase()
+                    if nil == err {
+                        cfg.Log("Sheduled database backup completed in", time.Now().Sub(start))
+                        cfg.Broadcast("Events", api.EventsList{api.Event{Class: api.EC_DB_BACKED_UP}})
+                    }
+                }
+                if nil != err {
+                    cfg.Err("Sheduled database backup failed")
+                    cfg.Broadcast("Events", api.EventsList{api.Event{Class: api.EC_DB_BACKUP_FAILED}})
+                }
+        }
+        timer.Reset(1 * time.Minute)
+    }
+}
+
+
 func (cfg *Configuration) tryDatabase(fn string) (err error) {
     //TODO: https://github.com/mattn/go-sqlite3#user-authentication
     //var db interface{}
@@ -52,10 +81,8 @@ func (cfg *Configuration) tryDatabase(fn string) (err error) {
 }
 
 func (cfg *Configuration) openDatabase(maxAttempts int) (err error) {
-    dbList, err := cfg.listDatabases()
+    dbFile, dbBak, dbList, err := cfg.listDatabases()
     if nil != err {return}
-    dbFile, dbBak, dbList := dbList[0], dbList[1], dbList[2:]
-    //if 0 == len(dbList) {return}
 
     err = cfg.tryDatabase(dbFile)
     if se, ok := err.(sqlite3.Error); !ok || sqlite3.ErrCorrupt != se.Code {
@@ -95,9 +122,8 @@ func (cfg *Configuration) openDatabase(maxAttempts int) (err error) {
 }
 
 func (cfg *Configuration) backupDatabase() (err error) {
-    dbList, err := cfg.listDatabases()
+    dbFile, dbBak, dbList, err := cfg.listDatabases()
     if nil != err {return}
-    dbFile, dbBak, dbList := dbList[0], dbList[1], dbList[2:]
    
     for i, fn := range dbList {
         if i >= dbMaxBackups {
@@ -116,12 +142,11 @@ func (cfg *Configuration) backupDatabase() (err error) {
 
 // use time.IsZero() when no backups yet?
 func (cfg *Configuration) lastBackupTime() (dt time.Time, err error) {
-    dbList, err := cfg.listDatabases()
-    if nil != err {return}
-    if len(dbList) < 3 {return}
+    _, _, dbList, err := cfg.listDatabases()
+    if nil != err || 0 == len(dbList) {return}
     
     re := regexp.MustCompile(`-(\d{14,14})\.db$`)
-    matches := re.FindStringSubmatch(dbList[2])
+    matches := re.FindStringSubmatch(dbList[0])
     //cfg.Log("MATCHES:", matches)
     if len(matches) < 2 {return}
     dt, err = time.ParseInLocation(timestampLayout, matches[1], time.Now().Location())
@@ -130,17 +155,18 @@ func (cfg *Configuration) lastBackupTime() (dt time.Time, err error) {
 }
 
 // returns [dbFile, bakFile (not created yet), filelist...]
-func (cfg *Configuration) listDatabases() (dbList []string, err error) {
-    dbFile := cfg.GetStorage() + ".db"
-    dbBak := strings.Replace(dbFile, "-0.", "-" + time.Now().Format(timestampLayout) + ".", 1)
+func (cfg *Configuration) listDatabases() (dbFile, dbBak string, dbList []string, err error) {
+    dbFile = cfg.GetStorage() + ".db"
+    dbBak = strings.Replace(dbFile, "-0.", "-" + time.Now().Format(timestampLayout) + ".", 1)
     pattern := strings.Replace(dbFile, "-0.", "-2*.", 1)
     dbList, err = filepath.Glob(pattern)
-    if nil != err {return dbList, fmt.Errorf("Can't list DB backups: %w", err)}
+    if nil != err {
+        err = fmt.Errorf("Can't list DB backups: %w", err)
+        return
+    }
     sort.Sort(sort.Reverse(sort.StringSlice(dbList)))
-    dbList = append([]string{dbFile, dbBak}, dbList[:len(dbList)-1]...)
     return
 }
-
 
 func (cfg *Configuration) LoadLinks(sourceId int64, link string) (list []ExtLink, err error) {
     defer func () {cfg.complaints <- err}()
