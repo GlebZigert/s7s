@@ -166,11 +166,13 @@ func (svc *Rif) scanJourEvents(events []_Event) (err error){
 }
 
 func (svc *Rif) pollEventLog(ctx context.Context) {
+    defer svc.Log("Events polling stopped")
     timer := time.NewTimer(eventsPollInterval * time.Second)
     for nil == ctx.Err() {
         svc.Sleep(ctx, 1 * time.Second)
         select {
             case <-ctx.Done():
+                return
 
             case n := <-svc.queryEventsChan:
                 if !timer.Stop() {
@@ -185,7 +187,6 @@ func (svc *Rif) pollEventLog(ctx context.Context) {
         }
         timer.Reset(eventsPollInterval * time.Second)
     }
-    svc.Log("Events polling stopped")
 }
 
 
