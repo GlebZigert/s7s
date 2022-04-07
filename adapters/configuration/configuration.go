@@ -54,7 +54,11 @@ func (cfg *Configuration) Run(c ConfigAPI) (err error) {
         return
     }
     cfg.Log("Database ready")
-    
+    /*
+    err = cfg.backupDatabase()
+    lastTime, err := cfg.lastBackupTime()
+    cfg.Log("LT:", err, time.Now().Sub(lastTime))
+    return fmt.Errorf("Stopped.")*/
 
     //cfg.DB.SetMaxOpenConns(1)
     

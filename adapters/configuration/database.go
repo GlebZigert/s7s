@@ -6,6 +6,9 @@ import (
     "fmt"
     "sort"
     "time"
+    "regexp"
+	"syscall"
+	"os/exec"
     "context"
     "strings"
     "path/filepath"
@@ -17,6 +20,11 @@ import (
 import (
     "s7server/api"
     "s7server/dblayer"
+)
+
+const (
+    dbMaxBackups = 10
+    timestampLayout = "20060102150405"
 )
 
 func (cfg *Configuration) tryDatabase(fn string) (err error) {
@@ -44,24 +52,18 @@ func (cfg *Configuration) tryDatabase(fn string) (err error) {
 }
 
 func (cfg *Configuration) openDatabase(maxAttempts int) (err error) {
-    dbFile := cfg.GetStorage() + ".db"
+    dbList, err := cfg.listDatabases()
+    if nil != err {return}
+    dbFile, dbBak, dbList := dbList[0], dbList[1], dbList[2:]
+    //if 0 == len(dbList) {return}
 
     err = cfg.tryDatabase(dbFile)
     if se, ok := err.(sqlite3.Error); !ok || sqlite3.ErrCorrupt != se.Code {
         return // unrecoverable error or no error (nil)
     }
 
-    // primary db malformed, try some backups
-    dbBak := strings.Replace(dbFile, "-0.", "-" + time.Now().Format("20060102150405") + ".", 1)
-    pattern := strings.Replace(dbFile, "-0.", "-*.", 1)
-    dbList, ee := filepath.Glob(pattern)
-    if nil != ee {return fmt.Errorf("Can't list DB backups: %w", ee)}
-    sort.Sort(sort.Reverse(sort.StringSlice(dbList)))
-
-    // strip "configuration-0.db" from list
-    dbList = dbList[0:len(dbList)-1]
     cfg.Log("Primary DB file is damaged. Found backups:", dbList)
-    if len(dbList) < 2 {return}
+    if 0 == len(dbList) {return}
     // backup "configuration-0.db"
     err = os.Rename(dbFile, dbBak)
     if nil != err {return}
@@ -91,6 +93,54 @@ func (cfg *Configuration) openDatabase(maxAttempts int) (err error) {
     }
     return
 }
+
+func (cfg *Configuration) backupDatabase() (err error) {
+    dbList, err := cfg.listDatabases()
+    if nil != err {return}
+    dbFile, dbBak, dbList := dbList[0], dbList[1], dbList[2:]
+   
+    for i, fn := range dbList {
+        if i >= dbMaxBackups {
+            err = os.Remove(fn)
+            if nil != err {return}
+        }
+    }
+    
+    // 2. backup database
+    cmd := exec.Command("sqlite3", dbFile, `.backup "` + dbBak + `"`)
+    cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+    err = cmd.Run()
+    //out, err := cmd.CombinedOutput()
+    return
+}
+
+// use time.IsZero() when no backups yet?
+func (cfg *Configuration) lastBackupTime() (dt time.Time, err error) {
+    dbList, err := cfg.listDatabases()
+    if nil != err {return}
+    if len(dbList) < 3 {return}
+    
+    re := regexp.MustCompile(`-(\d{14,14})\.db$`)
+    matches := re.FindStringSubmatch(dbList[2])
+    //cfg.Log("MATCHES:", matches)
+    if len(matches) < 2 {return}
+    dt, err = time.ParseInLocation(timestampLayout, matches[1], time.Now().Location())
+
+    return
+}
+
+// returns [dbFile, bakFile (not created yet), filelist...]
+func (cfg *Configuration) listDatabases() (dbList []string, err error) {
+    dbFile := cfg.GetStorage() + ".db"
+    dbBak := strings.Replace(dbFile, "-0.", "-" + time.Now().Format(timestampLayout) + ".", 1)
+    pattern := strings.Replace(dbFile, "-0.", "-2*.", 1)
+    dbList, err = filepath.Glob(pattern)
+    if nil != err {return dbList, fmt.Errorf("Can't list DB backups: %w", err)}
+    sort.Sort(sort.Reverse(sort.StringSlice(dbList)))
+    dbList = append([]string{dbFile, dbBak}, dbList[:len(dbList)-1]...)
+    return
+}
+
 
 func (cfg *Configuration) LoadLinks(sourceId int64, link string) (list []ExtLink, err error) {
     defer func () {cfg.complaints <- err}()
