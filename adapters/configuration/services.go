@@ -34,13 +34,13 @@ import (
 func (cfg *Configuration) newService(s *api.Settings) (err error) {
     // TODO: cipher password field!
     var password, dbPassword string
-    if "" != s.Password {
-        password, err = encrypt(s.Password)
+    if "" != s.NewPassword {
+        password, err = encrypt(s.NewPassword)
     }
     if nil != err {return}
     
-    if "" != s.DBPassword {
-        dbPassword, err = encrypt(s.DBPassword)
+    if "" != s.NewDBPassword {
+        dbPassword, err = encrypt(s.NewDBPassword)
     }
     if nil != err {return}
     
@@ -74,14 +74,14 @@ func (cfg *Configuration) updService(s api.Settings) (err error) {
             "db_login": &s.DBLogin,
             /*"db_password": &s.dbPassword*/}
     
-    if "" != s.Password {
-        password, err = encrypt(s.Password)
+    if "" != s.NewPassword {
+        password, err = encrypt(s.NewPassword)
         fld["password"] = &password
     }
     if nil != err {return}
     
-    if "" != s.DBPassword {
-        dbPassword, err = encrypt(s.DBPassword)
+    if "" != s.NewDBPassword {
+        dbPassword, err = encrypt(s.NewDBPassword)
         fld["db_password"] = &dbPassword
     }
     if nil != err {return}

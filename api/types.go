@@ -120,7 +120,7 @@ type Settings struct {
     DBName          string   `json:"dbName"`
     DBLogin         string   `json:"dbLogin"`
     DBPassword      string   `json:"-"`
-    NewDBPassword   string   `json:"newDBPassword"` // input from external form 
+    NewDBPassword   string   `json:"dbPassword"` // input from external form 
     
     Status     struct {
         sync.RWMutex

@@ -38,6 +38,7 @@ func (cfg *Configuration) dbBackupSheduler(ctx context.Context) {
             case <-timer.C:
                 lastTime, err := cfg.lastBackupTime()
                 // TODO: get backup period from settings
+                // TODO: atomic db timeouts increase?
                 if nil == err && time.Now().Sub(lastTime) >= 12 * time.Hour {
                     start := time.Now()
                     err = cfg.backupDatabase()

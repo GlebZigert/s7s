@@ -78,6 +78,8 @@ func decrypt(cipher string) (text string, err error) {
     if nil != err {
         return
     }
-    text = string(blob[len(msg_salt):])
+    if len(blob) > len(msg_salt) {
+        text = string(blob[len(msg_salt):]) //TODO: slice out of range
+    }
 	return
 }
