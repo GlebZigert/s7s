@@ -120,14 +120,11 @@ type VisitorLocation struct {
 }
 
 type Configuration struct {
-    //sync.RWMutex
-    //dblayer.DBLayer
     api.API
+    backupLock sync.RWMutex
     
     complaints      chan error
     cache RelationsCache
-    //reply   dispatcher.Reply
-    //db              *sql.DB
 }
 
 type RelationsCache struct {

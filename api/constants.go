@@ -97,6 +97,7 @@ var ClassText = map[int64] string {
     EC_USE_DB_BACKUP: "БД повреждена, используется резервная копия",
     EC_DB_BACKED_UP: "Создана резервная копия БД",
     EC_DB_BACKUP_FAILED: "Не удалось создать копию БД",
+    EC_FREQUENT_BACKUPS: "Слишком частое создание копий БД",
 }
 
 
@@ -157,6 +158,7 @@ const (
     EC_DATABASE_ERROR       = 304
     EC_USE_DB_BACKUP        = 305 // primary db failure, use backup
     EC_DB_BACKUP_FAILED     = 306
+    EC_FREQUENT_BACKUPS     = 307
     
     
     // LOST (no link)

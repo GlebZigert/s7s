@@ -6,6 +6,7 @@ import (
     "fmt"
     "sort"
     "time"
+    "errors"
     "regexp"
 	"syscall"
 	"os/exec"
@@ -36,26 +37,13 @@ func (cfg *Configuration) dbBackupSheduler(ctx context.Context) {
                 return
 
             case <-timer.C:
-                lastTime, err := cfg.lastBackupTime()
                 // TODO: get backup period from settings
                 // TODO: atomic db timeouts increase?
-                if nil == err && time.Now().Sub(lastTime) >= 12 * time.Hour {
-                    start := time.Now()
-                    err = cfg.backupDatabase()
-                    if nil == err {
-                        cfg.Log("Sheduled database backup completed in", time.Now().Sub(start))
-                        cfg.Broadcast("Events", api.EventsList{api.Event{Class: api.EC_DB_BACKED_UP}})
-                    }
-                }
-                if nil != err {
-                    cfg.Err("Sheduled database backup failed")
-                    cfg.Broadcast("Events", api.EventsList{api.Event{Class: api.EC_DB_BACKUP_FAILED}})
-                }
+                cfg.backupDatabase(12 * time.Hour)
         }
         timer.Reset(1 * time.Minute)
     }
 }
-
 
 func (cfg *Configuration) tryDatabase(fn string) (err error) {
     //TODO: https://github.com/mattn/go-sqlite3#user-authentication
@@ -122,7 +110,29 @@ func (cfg *Configuration) openDatabase(maxAttempts int) (err error) {
     return
 }
 
-func (cfg *Configuration) backupDatabase() (err error) {
+func (cfg *Configuration) backupDatabase(minInterval time.Duration) (err error) {
+    cfg.backupLock.Lock()
+    defer cfg.backupLock.Unlock()
+    start := time.Now()
+    
+    defer func () {
+        dur := time.Now().Sub(start)
+        if nil == err {
+            cfg.Log("Database backup completed in", dur)
+            cfg.Broadcast("Events", api.EventsList{api.Event{Class: api.EC_DB_BACKED_UP}})
+        } else if !errors.Is(err, tooFrequentBackups) {
+            cfg.Err("Database backup failed in", dur, ":", err)
+            cfg.Broadcast("Events", api.EventsList{api.Event{Class: api.EC_DB_BACKUP_FAILED}})
+        }
+    }()
+    
+    lastTime, err := cfg.lastBackupTime()
+    if nil != err {return}
+
+    if time.Now().Sub(lastTime) < minInterval {
+        return tooFrequentBackups
+    }
+    
     dbFile, dbBak, dbList, err := cfg.listDatabases()
     if nil != err {return}
    

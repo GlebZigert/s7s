@@ -1,6 +1,9 @@
 package configuration
 
 import (
+    "path/filepath"
+    
+    "errors"
     "encoding/json"
     "s7server/api"
 )
@@ -30,6 +33,36 @@ func (cfg *Configuration) completeShift(cid int64, data []byte) (interface{}, bo
     catch(err)
     return true, false // don't broadcast
 }
+
+///////////////////////////////////////////////////////////////////
+/////////////////////// D B   B A C K U P S ///////////////////////
+///////////////////////////////////////////////////////////////////
+
+func (svc *Configuration) listBackups(cid int64, data []byte) (interface{}, bool) {
+    _, _, dbList, err := svc.listDatabases()
+    catch(err)
+    for i := range dbList {
+        dbList[i] = filepath.Base(dbList[i])
+    }
+    return dbList, false // don't broadcast
+}
+
+func (svc *Configuration) makeBackup(cid int64, data []byte) (interface{}, bool) {
+    svc.Log("MAKING BACKUP!")
+    go func () {
+        err := svc.backupDatabase(minBackupsInterval)
+        if errors.Is(err, tooFrequentBackups) {
+            svc.Broadcast("Events", api.EventsList{api.Event{Class: api.EC_FREQUENT_BACKUPS}})
+        }
+    }()
+    return true, false // don't broadcast
+}
+
+func (svc *Configuration) restoreBackup(id int64, data []byte) (interface{}, bool) {
+    return true, false // don't broadcast
+}
+
+
 
 ///////////////////////////////////////////////////////////////////
 /////////////////////// L O C A T I O N S /////////////////////////

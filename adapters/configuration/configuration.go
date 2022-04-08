@@ -4,6 +4,7 @@ import (
     "fmt"
     "time"
     "sync"
+    "errors"
     "strings"
     "context"
     "encoding/json"
@@ -18,9 +19,14 @@ const (
     qTimeout = 500 // db query default timeout, msec
     dbOpenAttempts = 2 // 2 => original + 2 prev backups
     connParams = "?_synchronous=NORMAL&_journal_mode=WAL" // &_locking_mode=EXCLUSIVE //&_busy_timeout=10000
+    minBackupsInterval = 5 * time.Minute
 )
 
-var db dblayer.DBLayer
+var (
+    db dblayer.DBLayer
+    tooFrequentBackups = errors.New("Too frequent backups")
+)
+
 
 func init() {
     //dblayer.LogTables = []string{}
@@ -516,6 +522,10 @@ func (cfg *Configuration) getTargetsByScope(target string, scopeId int64) []User
 
 func (cfg *Configuration) setupApi() {
     cfg.Api(map[string] api.Action {
+        "ListBackups": cfg.listBackups,
+        "MakeBackup": cfg.makeBackup,
+        "RestoreBackup": cfg.restoreBackup,
+        
         //"ListLocations": cfg.listLocations,
         "ResetAlarm": cfg.resetAlarm,
         "RunAlarm": cfg.runAlarm,
