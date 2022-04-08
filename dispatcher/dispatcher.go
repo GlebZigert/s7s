@@ -31,7 +31,10 @@ const (
     shutdownTimeout = 10 // seconds
 )
 
-var core configuration.ConfigAPI
+var (
+    core configuration.ConfigAPI
+    restartAll context.CancelFunc
+)
 
 func factory(api *api.API) Service {
     var service Service
@@ -45,9 +48,22 @@ func factory(api *api.API) Service {
     return service
 }
 
-func Run(ctx context.Context, host string) (err error) {
+func Run(ctx0 context.Context, host string) (err error) {
+    var ctx context.Context
+    for nil == ctx0.Err() {
+        ctx, restartAll = context.WithCancel(ctx0)
+        err = entryPoint(ctx, host)
+        if nil == ctx0.Err() {
+            log.Println("=== Restarting in", shutdownTimeout, "s to apply new database ===")
+            time.Sleep((1 + shutdownTimeout) * time.Second)
+        }
+    }
+    return
+}
+
+func entryPoint(ctx context.Context, host string) (err error) {
     //seedFilter()
-    var d = Dispatcher{
+    d := Dispatcher{
         ctx: ctx,
         queue: make(chan string, 10),
         services: make(map[int64] Service),
@@ -359,6 +375,7 @@ func (dispatcher *Dispatcher) do(userId int64, q *Query) {
         switch q.Action {
             case "UpdateService": dispatcher.updateService(res) // TODO: control wrong settings
             case "DeleteService": dispatcher.deleteService(res)
+            case "RestoreBackup": restartAll()
         }
     }
 
