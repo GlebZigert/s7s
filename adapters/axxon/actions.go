@@ -295,6 +295,7 @@ func (svc *Axxon) convert_for_client(dev *dev) Device {
 
 	var device Device
 
+	device.Sid = svc.Settings.Id
 	device.Id = dev.id
 	device.Name = dev.pointer.DisplayID + dev.pointer.DisplayName
 	device.Stream = svc.get_RTSP(dev.pointer)
