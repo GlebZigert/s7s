@@ -24,13 +24,14 @@ var outbox chan api.ReplyMessage // everybody have its own copy
 
 func (dispatcher *Dispatcher) queueServer(ctx context.Context) {
     var queue []*api.ReplyMessage // unlimited length queue
+    defer func() {log.Println("Reply queue scan stopped,", len(queue), "messages dropped")}()
     timer := time.NewTimer(sendRetryInterval * time.Second)
     rand.Seed(time.Now().UnixNano()) // for failure emulation
     
     for nil == ctx.Err() {
         select {
             case <-ctx.Done():
-                break
+                return
 
             case msg := <-outbox:
                 timer.Stop()
@@ -62,7 +63,6 @@ func (dispatcher *Dispatcher) queueServer(ctx context.Context) {
         
         timer.Reset(sendRetryInterval * time.Second)
     }
-    log.Println("Reply queue scan stopped,", len(queue), "messages dropped")
 }
 
 // returns count of processed elements

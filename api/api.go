@@ -56,12 +56,14 @@ func (api *API) Api(actions map[string] Action) {
 }
 
 func (api *API) ErrChecker(ctx context.Context, complaints chan error, okCode, errCode int64) {
+    defer api.Log("Error checker for", okCode, "<->", errCode, "stopped")
     timer := time.NewTimer(0) // 1->
     fail := false
     var lastErr string
     for nil == ctx.Err() {
         select {
             case <-ctx.Done():
+                return
 
             case err := <-complaints:
                 if nil != err  {
@@ -87,7 +89,6 @@ func (api *API) ErrChecker(ctx context.Context, complaints chan error, okCode, e
                 api.SetServiceStatus(okCode)
         }
     }
-    api.Log("Error checker for", okCode, "<->", errCode, "stopped")
 }
 
 

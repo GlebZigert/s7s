@@ -83,6 +83,7 @@ func (svc *Z5RWeb) Shutdown() {
     ret := nil == svc.Cancel || nil == svc.Stopped
     svc.RUnlock()
     if ret {
+        svc.Err("Shutdown is called before Run!")
         return
     }
 
