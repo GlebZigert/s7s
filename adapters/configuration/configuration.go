@@ -89,7 +89,7 @@ func (cfg *Configuration) Shutdown() {
     cfg.Log("Shutting down...")
     cfg.Cancel()
     // wait before closing db
-    time.Sleep(3 * time.Second) // TODO: upgrade to wait group?
+    time.Sleep(1 * time.Second) // TODO: upgrade to wait group?
     db.Close()
     
     // lock already is not required, all is stopped
