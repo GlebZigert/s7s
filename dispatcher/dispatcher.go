@@ -55,6 +55,7 @@ func Run(ctx0 context.Context, host string) (err error) {
         err = entryPoint(ctx, host)
         if nil == ctx0.Err() {
             log.Println("=== Restarting in", shutdownTimeout, "s to apply new database ===")
+            
             time.Sleep((1 + shutdownTimeout) * time.Second)
         }
     }
@@ -103,6 +104,13 @@ func entryPoint(ctx context.Context, host string) (err error) {
         err = nil        
         log.Println("HTTP server stopped")
     }
+    
+    // disconnect websockets
+    d.Lock()
+    for i := range d.clients {
+        d.clients[i].ws.Close()
+    }
+    d.Unlock()
 
     d.shutdown()
     
@@ -240,7 +248,7 @@ func (dispatcher *Dispatcher) serveClient(userId int64, ws *websocket.Conn) {
         dispatcher.Lock()
         delete(dispatcher.clients, userId)
         dispatcher.Unlock()
-        log.Println("Stop serving #", userId)
+        log.Println("Stop serving user #", userId)
         dispatcher.broadcastEvent(&api.Event{
             Class: api.EC_USER_LOGGED_OUT,
             UserId: userId})

@@ -59,10 +59,11 @@ func (svc *Configuration) makeBackup(cid int64, data []byte) (interface{}, bool)
 }
 
 func (svc *Configuration) restoreBackup(id int64, data []byte) (interface{}, bool) {
+    svc.Lock()
+    defer svc.Unlock()
+    json.Unmarshal(data, &svc.nextDatabase)
     return true, false // don't broadcast
 }
-
-
 
 ///////////////////////////////////////////////////////////////////
 /////////////////////// L O C A T I O N S /////////////////////////

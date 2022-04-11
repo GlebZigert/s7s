@@ -45,6 +45,37 @@ func (cfg *Configuration) dbBackupSheduler(ctx context.Context) {
     }
 }
 
+func (cfg *Configuration) applyBackup() (err error) {
+    dbFile, dbBak, dbList, err := cfg.listDatabases()
+    if nil != err {return}
+    
+    var i int
+    for i = range dbList {
+        if 0 <= strings.Index(dbList[i], cfg.nextDatabase) {
+            break
+        }
+    }
+    if i >= len(dbList) {return}
+    
+    //cfg.Log("Backup current db:", dbFile, "=>", dbBak)
+    //err = os.Rename(dbFile, dbBak)
+    err = cfg.backupDatabase(0)
+    if nil != err {
+        cfg.Err("Backup failed")
+        return
+    }
+    cfg.Log("Restore backup:", dbList[i], "=>", dbFile)
+    err = copyFile(dbList[i], dbFile)
+    if nil == err {return}
+    
+    cfg.Err("Restore failed, try to rollback")
+    err = os.Rename(dbBak, dbFile)
+    if nil != err {
+        cfg.Err("Rollback failed")
+    }
+    return
+}
+
 func (cfg *Configuration) tryDatabase(fn string) (err error) {
     //TODO: https://github.com/mattn/go-sqlite3#user-authentication
     //var db interface{}
@@ -136,18 +167,20 @@ func (cfg *Configuration) backupDatabase(minInterval time.Duration) (err error) 
     dbFile, dbBak, dbList, err := cfg.listDatabases()
     if nil != err {return}
    
-    for i, fn := range dbList {
-        if i >= dbMaxBackups {
-            err = os.Remove(fn)
-            if nil != err {return}
-        }
-    }
-    
     // 2. backup database
     cmd := exec.Command("sqlite3", dbFile, `.backup "` + dbBak + `"`)
     cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
     err = cmd.Run()
     //out, err := cmd.CombinedOutput()
+    if nil != err {return}
+
+    // 3. clean old databases
+    for i, fn := range dbList {
+        if i >= dbMaxBackups - 1 {
+            err = os.Remove(fn)
+            if nil != err {return}
+        }
+    }
     return
 }
 

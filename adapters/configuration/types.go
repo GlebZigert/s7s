@@ -124,7 +124,8 @@ type Configuration struct {
     backupLock sync.RWMutex
     
     complaints      chan error
-    cache RelationsCache
+    cache           RelationsCache
+    nextDatabase    string // database for recovering
 }
 
 type RelationsCache struct {
