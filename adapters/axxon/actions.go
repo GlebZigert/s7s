@@ -41,7 +41,7 @@ func (svc *Axxon) test_http_connection() bool {
 	//Формируем строку запроса
 	request := "http://" + svc.username + ":" + svc.password + "@" + svc.ipaddr + ":" + svc.port + "/" + "uuid"
 
-	//fmt.Println("Сформирована строка запроса: ",request)
+	fmt.Println("Сформирована строка запроса: ",request)
 
 	//Отправляем запрос
 	resp, err := http.Get(request)
@@ -295,6 +295,7 @@ func (svc *Axxon) convert_for_client(dev *dev) Device {
 
 	var device Device
 
+	device.Sid = svc.Settings.Id
 	device.Id = dev.id
 	device.Name = dev.pointer.DisplayID + dev.pointer.DisplayName
 	device.Stream = svc.get_RTSP(dev.pointer)
@@ -595,11 +596,11 @@ func (svc *Axxon) get_state(camera *Camera) string {
 
 func (svc *Axxon) request_URL(cid int64, data []byte) (interface{}, bool) {
 
-	/*
+	
 	       svc.Log(" ")
 	   svc.Log("[Request_URL]")
 	       svc.Log(" ")
-	*/
+	
 
 	type MyJsonName struct {
 		CameraId  int64  `json:"cameraId"`
@@ -1056,7 +1057,13 @@ func (svc *Axxon) execCommand(cid int64, data []byte) (interface{}, bool) {
 
 				return svc.request_URL_handler(d.id, "undefined", "local"), true
 
-			default:
+			
+
+			case 101:
+
+				return svc.request_URL_handler(d.id, "undefined", "local"), true
+
+			default:				
 			}
 
 		}

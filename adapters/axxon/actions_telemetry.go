@@ -11,7 +11,7 @@ import (
 
 func (svc *Axxon) get_sessionId(cid int64, point string) (int64, int64, int64) {
 
-	fmt.Println("Пытаемся взять доступ к управлению телеметрией камеры  ", point)
+	fmt.Println("Пытаемся взять доступ к управлению телеметрией камеры  ", cid," ", point)
 	const (
 		YOU_HAVE_ACCESS         = 0
 		YOU_YAVE_NO_ACCESS      = 1

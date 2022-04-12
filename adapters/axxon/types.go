@@ -207,6 +207,7 @@ type dev struct {
 
 //struct to send camera options to client
 type Device struct {
+	Sid		   int64  `json:"sid"`
 	Id                 int64  `json:"id"`
 	Name               string `json:"name"`
 	Stream             string `json:"stream"`
