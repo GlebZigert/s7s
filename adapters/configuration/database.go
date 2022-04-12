@@ -8,7 +8,6 @@ import (
     "time"
     "errors"
     "regexp"
-	"syscall"
 	"os/exec"
     "context"
     "strings"
@@ -169,7 +168,8 @@ func (cfg *Configuration) backupDatabase(minInterval time.Duration) (err error) 
    
     // 2. backup database
     cmd := exec.Command("sqlite3", dbFile, `.backup "` + dbBak + `"`)
-    cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+    // TODO: not supported on linux, use conditional build if needed
+    //cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
     err = cmd.Run()
     //out, err := cmd.CombinedOutput()
     if nil != err {return}
