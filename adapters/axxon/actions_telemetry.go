@@ -358,7 +358,7 @@ func (svc *Axxon) Telemetry_preset_info(point string) interface{} {
 
 	*/
 	src, _ := svc.request_to_axxon("control/telemetry/preset/info/" + point)
-	////fmt.Println("[2]")
+	
 	//		fmt.Println("src: ",src)
 
 	////fmt.Println("len: ",len(src))

@@ -97,11 +97,12 @@ func (svc *Axxon) Run(cfg configuration.ConfigAPI) (err error) {
 	svc.eventHandler_done = make(chan bool)
 
 	//Проверяем соеднинение с сервером Axxon
+	res:=false
 	if !svc.test_http_connection() {
 		svc.Log("Не удалось установить соединение с сервером Axxon!! Проверьте настройки!!")
 	} else {
 		svc.Log("Соединение установлено")
-
+		res=true
 		svc.telemetrySessions = make(map[int]telemetrySession)
 
 		svc.Api(map[string]api.Action{
@@ -126,20 +127,29 @@ func (svc *Axxon) Run(cfg configuration.ConfigAPI) (err error) {
 		go backgroundTask(svc)
 
 	}
-
+		
 	<-ctx.Done()
 	//////////////////////////////////////////////////////////////
-
+	if res{
+	
 	svc.quit <- true
 
+	
+	
+		
 	svc.conn.Close()
+
 	svc.quit_eventHandler <- true
+
 
 	<-svc.background_done
 
 	<-svc.eventHandler_done
 
+	}
+
 	svc.SetServiceStatus(api.EC_SERVICE_SHUTDOWN)
+
 	return
 
 	return
