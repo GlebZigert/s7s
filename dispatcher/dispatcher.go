@@ -50,10 +50,10 @@ func factory(api *api.API) Service {
 
 func Run(ctx0 context.Context, host string) (err error) {
     var ctx context.Context
-    for nil == ctx0.Err() {
+    for nil == ctx0.Err() && nil == err {
         ctx, restartAll = context.WithCancel(ctx0)
         err = entryPoint(ctx, host)
-        if nil == ctx0.Err() {
+        if nil == ctx0.Err() && nil == err {
             log.Println("=== Restarting in", shutdownTimeout, "s to apply new database ===")
             
             time.Sleep((1 + shutdownTimeout) * time.Second)
