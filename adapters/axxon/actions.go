@@ -31,17 +31,17 @@ import (
 
 func (svc *Axxon) test_http_connection() bool {
 
-	fmt.Println("Контроль возможности подключения к серверу : ")
+//	fmt.Println("Контроль возможности подключения к серверу : ")
 
-	fmt.Println("логин:  ", svc.username)
-	fmt.Println("пароль: ", svc.password)
-	fmt.Println("ip:     ", svc.ipaddr)
-	fmt.Println("порт:   ", svc.port)
+//	fmt.Println("логин:  ", svc.username)
+//	fmt.Println("пароль: ", svc.password)
+//	fmt.Println("ip:     ", svc.ipaddr)
+//	fmt.Println("порт:   ", svc.port)
 
 	//Формируем строку запроса
 	request := "http://" + svc.username + ":" + svc.password + "@" + svc.ipaddr + ":" + svc.port + "/" + "uuid"
 
-	fmt.Println("Сформирована строка запроса: ",request)
+//	fmt.Println("Сформирована строка запроса: ",request)
 
 	//Отправляем запрос
 	resp, err := http.Get(request)
