@@ -33,59 +33,35 @@ import (
 // TODO: handle encryption error
 func (cfg *Configuration) newService(s *api.Settings) (err error) {
     // TODO: cipher password field!
-    var password, dbPassword string
-    if "" != s.NewPassword {
-        password, err = encrypt(s.NewPassword)
-    }
-    if nil != err {return}
-    
-    if "" != s.NewDBPassword {
-        dbPassword, err = encrypt(s.NewDBPassword)
-    }
-    if nil != err {return}
-    
     fld := dblayer.Fields {
-            "type": &s.Type,
-            "title": &s.Title,
-            "host": &s.Host,
-            "login": &s.Login,
-            "password": &password,
-            "keep_alive": &s.KeepAlive,
-            "db_host": &s.DBHost,
-            "db_name": &s.DBName,
-            "db_login": &s.DBLogin,
-            "db_password": dbPassword}
-    
+            "type": s.Type,
+            "title": s.Title,
+            "host": s.Host,
+            "login": s.Login,
+            "keep_alive": s.KeepAlive,
+            "db_host": s.DBHost,
+            "db_name": s.DBName,
+            "db_login": s.DBLogin,
+    }
+    cipherPasswords(s, fld)
     s.Id, err = db.Table("services").Insert(nil, fld)
     return nil
 }
 
 func (cfg *Configuration) updService(s api.Settings) (err error) {
     // type field is absent due it can't be changed
-    var password, dbPassword string
     fld := dblayer.Fields {
-            "title": &s.Title,
-            "host": &s.Host,
-            "login": &s.Login,
+            "title": s.Title,
+            "host": s.Host,
+            "login": s.Login,
             //"password": &password,
-            "keep_alive": &s.KeepAlive,
-            "db_host": &s.DBHost,
-            "db_name": &s.DBName,
-            "db_login": &s.DBLogin,
+            "keep_alive": s.KeepAlive,
+            "db_host": s.DBHost,
+            "db_name": s.DBName,
+            "db_login": s.DBLogin,
             /*"db_password": &s.dbPassword*/}
     
-    if "" != s.NewPassword {
-        password, err = encrypt(s.NewPassword)
-        fld["password"] = &password
-    }
-    if nil != err {return}
-    
-    if "" != s.NewDBPassword {
-        dbPassword, err = encrypt(s.NewDBPassword)
-        fld["db_password"] = &dbPassword
-    }
-    if nil != err {return}
-    
+    cipherPasswords(&s, fld)
     _, err = db.Table("services").Seek(s.Id).Update(nil, fld)
     return
 }
@@ -133,3 +109,19 @@ func (cfg *Configuration) loadServices() (list []*api.Settings, err error) {
     return
 }
 
+
+func cipherPasswords(s *api.Settings, fld dblayer.Fields) (err error) {
+    // TODO: remove next 2 lines after upplying new db schema
+    fld["password"] = ""
+    fld["db_password"] = ""
+
+    if "" != s.Password {
+        fld["password"], err = encrypt(s.Password)
+    }
+    
+    if nil == err && "" != s.DBPassword {
+        fld["db_password"], err = encrypt(s.DBPassword)
+    }
+
+    return
+}

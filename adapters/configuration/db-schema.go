@@ -51,12 +51,12 @@ var tables []string = []string {`
         title       TEXT,
         host        TEXT,
         login       TEXT,
-        password    TEXT,
+        password    TEXT NOT NULL DEFAULT '',
         keep_alive  INTEGER,
         db_host     TEXT,
         db_name     TEXT,
         db_login    TEXT,
-        db_password TEXT,
+        db_password TEXT NOT NULL DEFAULT '',
         archived    INTEGER
     )`,
     // devices cache for unique device_id for all subsystems
