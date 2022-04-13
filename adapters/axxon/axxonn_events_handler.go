@@ -146,9 +146,9 @@ func (svc *Axxon) Take_axxon_events() {
 					*/
 				} else {
 
-					fmt.Println(" ")
-					fmt.Println("[!!]rcv: ", rcv)
-					fmt.Println(" ")
+					//fmt.Println(" ")
+					//fmt.Println("[!!]rcv: ", rcv)
+					//fmt.Println(" ")
 
 					//если есть принятые сообщения от Axxon
 					if len(rcv.Objects) > 0 {
@@ -161,27 +161,27 @@ func (svc *Axxon) Take_axxon_events() {
 
 							//берем fccesspoint устройства по которому будем сверять событие с сервера Axxon
 							point := svc.devList[j].pointer.VideoStreams[0].AccessPoint
-							fmt.Println("Наши камеры: ", point)
+							//fmt.Println("Наши камеры: ", point)
 
 							//gперебираем все полученные события
 
 							for i := 0; i < len(rcv.Objects); i++ {
 
 								//По accesspoint проверяем, для этой ли камеры это событие
-								fmt.Println("пришли камеры: ", rcv.Objects[i].Name)
+								//fmt.Println("пришли камеры: ", rcv.Objects[i].Name)
 
 								if rcv.Objects[i].Name == point {
-									fmt.Println("[2] ")
+									
 
 									//Далее в зависимости от типа события
 									if rcv.Objects[i].Type == "devicestatechanged" {
-										//  fmt.Println("[2][1] ")
+								
 
 										//     fmt.Println("обьект: ",rcv.Objects[i].Name,"; тип: ",rcv.Objects[i].Type,"; состояние: ",rcv.Objects[i].State)
 										//Добавь изменения в listDevices
-										fmt.Println(" ")
-										fmt.Println("Камера ", point, " Изменила состояние на ", rcv.Objects[i].State)
-										fmt.Println(" ")
+										//fmt.Println(" ")
+										//fmt.Println("Камера ", point, " Изменила состояние на ", rcv.Objects[i].State)
+										//fmt.Println(" ")
 
 										prev_dev_state := svc.devList[j].state
 
@@ -198,16 +198,16 @@ func (svc *Axxon) Take_axxon_events() {
 											event_class = api.EC_LOST
 											text = "Сигнал потерян"
 										}
-										var id int64
-										id = svc.devList[j].id
-										fmt.Println("id: ", id)
+										//var id int64
+										//id = svc.devList[j].id
+										//fmt.Println("id: ", id)
 
 										//	  fmt.Printf("[current_dev_state] ",current_dev_state)
 
 										//									  fmt.Printf("[prev_dev_state]", prev_dev_state)
 										if current_dev_state != prev_dev_state {
 
-											fmt.Printf("Изменение состояния камера  ", svc.devList[j].pointer.DisplayName)
+											//fmt.Printf("Изменение состояния камера  ", svc.devList[j].pointer.DisplayName)
 
 											//				  fmt.Printf("[APPEND]")
 											//Оформляем событие нужным нам образом и добавляем в лист событий
@@ -242,13 +242,12 @@ func (svc *Axxon) Take_axxon_events() {
 
 										svc.devList[j].state = "alarm"
 										// if rcv.Objects[i].Type=="alert"||rcv.Objects[i].Type=="alert_state"{
-										fmt.Println("[2][2] ")
-										fmt.Println(" \n")
+										
 
 										//Берем айди камеры и текущее время
 										dt := time.Now()
-										fmt.Printf("dt.type:  %T\n", dt)
-										fmt.Println("Name ", rcv.Objects[i].Name, " id: ", svc.devList[j].id, " dt: ", dt.String())
+										//fmt.Printf("dt.type:  %T\n", dt)
+										//fmt.Println("Name ", rcv.Objects[i].Name, " id: ", svc.devList[j].id, " dt: ", dt.String())
 
 										//   svc.alerts.find(svc.devices[j].Id,dt)
 										//
@@ -256,22 +255,22 @@ func (svc *Axxon) Take_axxon_events() {
 										//  svc.alerts=append(svc.alerts,alert{id:1,dt:dt})
 
 										//    fmt.Println("svc.alerts: ",len(svc.alerts))
-
+/*
 										fmt.Println(" \n")
 										fmt.Println("Name ", rcv.Objects[i].Name)
 										fmt.Println("State ", rcv.Objects[i].State)
 										fmt.Println("Type ", rcv.Objects[i].Type)
 										fmt.Println(" \n")
-
+*/
 										//Проверка: если на эту секунду уже была тревога с этой камеры - не пишем.
 										//list с айдишниками камер и временм последней тревоги.
 										var result bool
 										result = svc.find_alert(svc.devList[j].id, dt)
 
-										fmt.Printf("result: %t", result)
+										//fmt.Printf("result: %t", result)
 
 										if result == false {
-											fmt.Printf("[APPEND]")
+										//	fmt.Printf("[APPEND]")
 											ee = append(ee, api.Event{
 												ExternalId:  1,
 												Event:       2,
@@ -320,12 +319,10 @@ func (svc *Axxon) Take_axxon_events() {
 
 					svc.Broadcast("ListDevices", svc.make_devList_for_client())
 
-					//	fmt.Println(" \n")
-					//	fmt.Println(" \n")
+		
 				}
-				//svc.Log("[2]")
+			
 
-				//---------
 
 			}
 		}
@@ -351,7 +348,7 @@ func parseTime(s string) time.Time {
 
 func (svc *Axxon) Send_to_events_websocket() {
 
-	fmt.Println("[Send_to_events_websocket]")
+	//fmt.Println("[Send_to_events_websocket]")
 	if svc.websocket_is_connected {
 
 		type Message struct {
@@ -364,11 +361,11 @@ func (svc *Axxon) Send_to_events_websocket() {
 
 			msg.Include = append(msg.Include, point)
 		}
-		fmt.Println("msg.Include: ", msg.Include)
+		//fmt.Println("msg.Include: ", msg.Include)
 
 		//  msg.Include  = []string{"hosts/ASTRAAXXON/DeviceIpint.15/SourceEndpoint.video:0:0",
 		//              "hosts/ASTRAAXXON/DeviceIpint.16/SourceEndpoint.video:0:0"}
-		fmt.Println("Message", msg)
+		//fmt.Println("Message", msg)
 		if err := websocket.JSON.Send(svc.conn, msg); err != nil {
 			fmt.Println(err)
 		}

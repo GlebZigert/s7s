@@ -184,7 +184,7 @@ func (devices DeviceList) Filter(list map[int64]int64) interface{} {
 
 		}
 
-		fmt.Println(devices[i].Name, "; access: ", devices[i].AccessMode)
+		//fmt.Println(devices[i].Name, "; access: ", devices[i].AccessMode)
 
 	}
 	if len(res) > 0 {
