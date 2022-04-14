@@ -230,10 +230,13 @@ func (svc *Axxon) control_connection_status(res bool) {
 	if res == false {
 		fmt.Println("[ERROR  http.Get(request)]")
 		svc.SetServiceStatus(api.EC_SERVICE_OFFLINE)
-
+		svc.websocket_is_connected=false
 	} else {
 
 		svc.SetServiceStatus(api.EC_SERVICE_ONLINE)
+		if svc.websocket_is_connected==false{
+			svc.websocket_is_connected=svc.websocket_connection()
+		}
 	}
 }
 

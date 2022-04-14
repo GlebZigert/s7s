@@ -146,9 +146,9 @@ func (svc *Axxon) Take_axxon_events() {
 					*/
 				} else {
 
-					//fmt.Println(" ")
-					//fmt.Println("[!!]rcv: ", rcv)
-					//fmt.Println(" ")
+					fmt.Println(" ")
+					fmt.Println("[!!]rcv: ", rcv)
+					fmt.Println(" ")
 
 					//если есть принятые сообщения от Axxon
 					if len(rcv.Objects) > 0 {

@@ -128,7 +128,7 @@ func (dispatcher *Dispatcher) processReply(reply *api.ReplyMessage) (err error) 
     }
     if original, ok := reply.Data.(configuration.Filterable); ok {
         // filter by devices permissions
-        log.Println("::: APPLY DEV FILTER :::", reply.Service, reply.Action)
+        //log.Println("::: APPLY DEV FILTER :::", reply.Service, reply.Action)
         // INFO: filtering performed inside services to handle special conditions such as groups (virtual elements)
         idList := original.GetList()
         filter, err = core.Authorize(cid, idList)
