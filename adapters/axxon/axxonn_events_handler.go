@@ -305,7 +305,7 @@ func (svc *Axxon) Take_axxon_events() {
 						if len(ee) > 0 {
 
 							fmt.Println("Отправляю событие ", ee)
-							svc.cfg.ImportEvents(ee)
+						//	svc.cfg.ImportEvents(ee)
 							svc.Broadcast("Events", ee)
 						}
 

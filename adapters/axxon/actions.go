@@ -1021,14 +1021,14 @@ func (svc *Axxon) execCommand(cid int64, data []byte) (interface{}, bool) {
 	command := new(api.Command)
 	json.Unmarshal(data, command) // TODO: handle err
 
-	/*
-	   //fmt.Println("[Axxon Exec Command]", *command )
+	
+	   fmt.Println("[Axxon Exec Command]", *command )
 
-	   //fmt.Println("command.DeviceId: ",command.DeviceId)
-	   //fmt.Println("command.Command: ",command.Command)
-	   //fmt.Println("command.Argument: ",command.Argument)
-	 //fmt.Println("len( svc.devices): ",len( svc.devices))
-	*/
+	   fmt.Println("command.DeviceId: ",command.DeviceId)
+	   fmt.Println("command.Command: ",command.Command)
+	   fmt.Println("command.Argument: ",command.Argument)
+	// fmt.Println("len( svc.devices): ",len( svc.devices))
+	
 
 	for i := 0; i < len(svc.devList); i++ {
 		/*
