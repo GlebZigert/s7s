@@ -361,11 +361,11 @@ func (svc *Axxon) Send_to_events_websocket() {
 
 			msg.Include = append(msg.Include, point)
 		}
-		//fmt.Println("msg.Include: ", msg.Include)
+		fmt.Println("msg.Include: ", msg.Include)
 
 		//  msg.Include  = []string{"hosts/ASTRAAXXON/DeviceIpint.15/SourceEndpoint.video:0:0",
 		//              "hosts/ASTRAAXXON/DeviceIpint.16/SourceEndpoint.video:0:0"}
-		//fmt.Println("Message", msg)
+		fmt.Println("Message", msg)
 		if err := websocket.JSON.Send(svc.conn, msg); err != nil {
 			fmt.Println(err)
 		}
