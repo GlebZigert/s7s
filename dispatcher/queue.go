@@ -51,11 +51,12 @@ func (dispatcher *Dispatcher) queueServer(ctx context.Context) {
         n, err := dispatcher.scanQueue(queue)
         
         if nil == err && n > 0 {
-            log.Println("Queue: all", n, "items processed")
+        //    log.Println("Queue: all", n, "items processed")
         }
         if nil != err {
-            log.Println("Queue: only", n, "of", len(queue), "processed")
+        //    log.Println("Queue: only", n, "of", len(queue), "processed")
         }
+        
         if n > 0 { // TODO: cut slice really
             queue = queue[n:]
         }
@@ -98,7 +99,7 @@ func (dispatcher *Dispatcher) scanQueue(queue []*api.ReplyMessage) (n int, err e
 
 func (dispatcher *Dispatcher) processReply(reply *api.ReplyMessage) (err error) {
     cid := reply.UserId
-    log.Println("Reply to", cid, ">", reply.Service, reply.Action, "task", reply.Task)
+    //log.Println("Reply to", cid, ">", reply.Service, reply.Action, "task", reply.Task)
     //reply := ReplyMessage{Service: service, Action: action, Task: 0, Data: data}
     //log.Println(header)
 
@@ -127,7 +128,7 @@ func (dispatcher *Dispatcher) processReply(reply *api.ReplyMessage) (err error) 
     }
     if original, ok := reply.Data.(configuration.Filterable); ok {
         // filter by devices permissions
-        log.Println("::: APPLY DEV FILTER :::", reply.Service, reply.Action)
+        //log.Println("::: APPLY DEV FILTER :::", reply.Service, reply.Action)
         // INFO: filtering performed inside services to handle special conditions such as groups (virtual elements)
         idList := original.GetList()
         filter, err = core.Authorize(cid, idList)

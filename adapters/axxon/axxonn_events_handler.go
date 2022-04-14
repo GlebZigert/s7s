@@ -71,9 +71,9 @@ func (svc *Axxon) websocket_connection() (res bool) {
 
 func (svc *Axxon) Init_event_websocket(axxonn, myaddr string) (res bool) {
 
-	fmt.Println("[Init_event_websocket]")
-	fmt.Println("axxonn: ", axxonn)
-	fmt.Println("myaddr: ", myaddr)
+	//fmt.Println("[Init_event_websocket]")
+	//fmt.Println("axxonn: ", axxonn)
+	//fmt.Println("myaddr: ", myaddr)
 
 	config, err := websocket.NewConfig(axxonn, myaddr)
 	if err != nil {
@@ -82,16 +82,16 @@ func (svc *Axxon) Init_event_websocket(axxonn, myaddr string) (res bool) {
 
 	req, _ := http.NewRequest("", "", nil)
 	req.SetBasicAuth(svc.username, svc.password)
-	username, password, _ := req.BasicAuth()
-	fmt.Println("username: ", username)
-	fmt.Println("password: ", password)
+	//username, password, _ := req.BasicAuth()
+	//fmt.Println("username: ", username)
+	//fmt.Println("password: ", password)
 
 	config.Header = http.Header{
 		"Authorization": req.Header["Authorization"],
 	}
 
-	fmt.Println("req.Header[Authorization]: ", req.Header["Authorization"])
-	fmt.Println("config.Header: ", config.Header)
+	//fmt.Println("req.Header[Authorization]: ", req.Header["Authorization"])
+	//fmt.Println("config.Header: ", config.Header)
 
 	svc.conn, err = websocket.DialConfig(config)
 	if err != nil {
@@ -128,9 +128,9 @@ func (svc *Axxon) Take_axxon_events() {
 
 			select {
 			case <-svc.quit_eventHandler:
-				svc.Log(" ")
-				svc.Log("eventHandler STOPPING...")
-				svc.Log(" ")
+			//	svc.Log(" ")
+			//	svc.Log("eventHandler STOPPING...")
+			//	svc.Log(" ")
 				svc.eventHandler_done <- true
 				return
 			default:
@@ -146,9 +146,9 @@ func (svc *Axxon) Take_axxon_events() {
 					*/
 				} else {
 
-					//fmt.Println(" ")
-					//fmt.Println("[!!]rcv: ", rcv)
-					//fmt.Println(" ")
+				//	fmt.Println(" ")
+				//	fmt.Println("[!!]rcv: ", rcv)
+				//	fmt.Println(" ")
 
 					//если есть принятые сообщения от Axxon
 					if len(rcv.Objects) > 0 {
@@ -305,7 +305,7 @@ func (svc *Axxon) Take_axxon_events() {
 						if len(ee) > 0 {
 
 							fmt.Println("Отправляю событие ", ee)
-							svc.cfg.ImportEvents(ee)
+						//	svc.cfg.ImportEvents(ee)
 							svc.Broadcast("Events", ee)
 						}
 
@@ -365,7 +365,7 @@ func (svc *Axxon) Send_to_events_websocket() {
 
 		//  msg.Include  = []string{"hosts/ASTRAAXXON/DeviceIpint.15/SourceEndpoint.video:0:0",
 		//              "hosts/ASTRAAXXON/DeviceIpint.16/SourceEndpoint.video:0:0"}
-		//fmt.Println("Message", msg)
+		fmt.Println("Message", msg)
 		if err := websocket.JSON.Send(svc.conn, msg); err != nil {
 			fmt.Println(err)
 		}

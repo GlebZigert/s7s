@@ -230,10 +230,13 @@ func (svc *Axxon) control_connection_status(res bool) {
 	if res == false {
 		fmt.Println("[ERROR  http.Get(request)]")
 		svc.SetServiceStatus(api.EC_SERVICE_OFFLINE)
-
+		svc.websocket_is_connected=false
 	} else {
 
 		svc.SetServiceStatus(api.EC_SERVICE_ONLINE)
+		if svc.websocket_is_connected==false{
+			svc.websocket_is_connected=svc.websocket_connection()
+		}
 	}
 }
 
@@ -1021,14 +1024,14 @@ func (svc *Axxon) execCommand(cid int64, data []byte) (interface{}, bool) {
 	command := new(api.Command)
 	json.Unmarshal(data, command) // TODO: handle err
 
-	/*
-	   //fmt.Println("[Axxon Exec Command]", *command )
+	
+	   fmt.Println("[Axxon Exec Command]", *command )
 
-	   //fmt.Println("command.DeviceId: ",command.DeviceId)
-	   //fmt.Println("command.Command: ",command.Command)
-	   //fmt.Println("command.Argument: ",command.Argument)
-	 //fmt.Println("len( svc.devices): ",len( svc.devices))
-	*/
+	   fmt.Println("command.DeviceId: ",command.DeviceId)
+	   fmt.Println("command.Command: ",command.Command)
+	   fmt.Println("command.Argument: ",command.Argument)
+	// fmt.Println("len( svc.devices): ",len( svc.devices))
+	
 
 	for i := 0; i < len(svc.devList); i++ {
 		/*
