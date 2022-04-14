@@ -51,6 +51,14 @@ func eventFieldsEx(event *api.Event) dblayer.Fields {
     return fields
 }
 
+func (cfg *Configuration) cleanupEvents(maxEvents int64) (err error) {
+    var id int64
+    table := db.Table(`events`)
+    fields := dblayer.Fields {"id": &id}
+    err = table.Order("id DESC").Rows(nil, fields, maxEvents, 1).Each(func() {})
+    if nil != err {return}
+    return table.Delete(nil, "id < ?", id)
+}
 
 func (cfg *Configuration) dbDescribeEvent(event *api.Event) bool {
     fields := dblayer.Fields {

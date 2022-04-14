@@ -16,10 +16,12 @@ import (
 
 const (
     authSalt = "iATdT7R4JKGg1h1YeDPp:Zl6fyUw10sgh1EGxnyKQ"
-    qTimeout = 500 // db query default timeout, msec
+    qTimeout = 1500 // db query default timeout, msec // TODO: atomic increase during backup?
     dbOpenAttempts = 2 // 2 => original + 2 prev backups
     connParams = "?_synchronous=NORMAL&_journal_mode=WAL" // &_locking_mode=EXCLUSIVE //&_busy_timeout=10000
+    maxDBEvents = 100e3 // max events count to store in database
     minBackupsInterval = 5 * time.Minute
+    dbBackupInterval = 12 * time.Hour
 )
 
 var (

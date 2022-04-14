@@ -29,6 +29,7 @@ const (
 
 func (cfg *Configuration) dbBackupSheduler(ctx context.Context) {
     defer cfg.Log("DB backup sheduler stopped")
+    var cleanup bool // cleanup on next tick after backup
     timer := time.NewTimer(1 * time.Minute)
     for nil == ctx.Err() {
         select {
@@ -38,7 +39,12 @@ func (cfg *Configuration) dbBackupSheduler(ctx context.Context) {
             case <-timer.C:
                 // TODO: get backup period from settings
                 // TODO: atomic db timeouts increase?
-                cfg.backupDatabase(12 * time.Hour)
+                if nil == cfg.backupDatabase(dbBackupInterval) {
+                    cleanup = true
+                } else if cleanup && nil == cfg.cleanupEvents(maxDBEvents) {
+                    cfg.Log("Events list is shrinked to", maxDBEvents, "items")
+                    cleanup = false
+                }
         }
         timer.Reset(1 * time.Minute)
     }
