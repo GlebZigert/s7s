@@ -78,12 +78,12 @@ func (cfg *Configuration) Run(c ConfigAPI) (err error) {
     }*/
     
     cfg.setupApi()
-    cfg.complaints = make(chan error, 10)
+    cfg.complaints = make(chan error, 100)
 
     go cfg.ErrChecker(ctx, cfg.complaints, api.EC_SERVICE_READY, api.EC_SERVICE_FAILURE)
     go cfg.forbiddenVisitorsDetector(ctx)
     go cfg.dbBackupSheduler(ctx)
-    
+    cfg.Log("CORE STARTED")
     return
 }
 

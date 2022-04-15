@@ -37,7 +37,7 @@ func (svc *Z5RWeb) Run(_ configuration.ConfigAPI) (err error) {
     svc.Stopped = make(chan struct{})
     defer close(svc.Stopped)
     
-    svc.complaints = make(chan error, 10)
+    svc.complaints = make(chan error, 100)
     go svc.ErrChecker(ctx, svc.complaints, api.EC_SERVICE_READY, api.EC_SERVICE_FAILURE)
     
     rand.Seed(time.Now().UnixNano())

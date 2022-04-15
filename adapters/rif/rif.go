@@ -47,7 +47,7 @@ func (svc *Rif) Run(_ configuration.ConfigAPI) (err error) {
     svc.waitReply = make(map[string]int64)
     svc.queryEventsChan = make(chan int64, 1)
     //defer close(svc.queryEventsChan)
-    svc.complaints = make(chan error, 10)
+    svc.complaints = make(chan error, 100)
     //defer close(svc.queryEventsChan)
     
     go svc.ErrChecker(ctx, svc.complaints, api.EC_SERVICE_READY, api.EC_SERVICE_FAILURE)
