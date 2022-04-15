@@ -29,6 +29,8 @@ var addCardStep = 0
 
 func (svc *Z5RWeb) HTTPHandler(w http.ResponseWriter, r *http.Request) (err error) {
     var httpErrCode int
+    timeStr := time.Now().Format("2006-01-02T15:04:05.999")
+
     defer func () {
         // TODO: create err in case of err == nil && httpErrCode != 0
         svc.complaints <- err
@@ -69,7 +71,7 @@ func (svc *Z5RWeb) HTTPHandler(w http.ResponseWriter, r *http.Request) (err erro
     //svc.Log(string(body))
     //err := json.NewDecoder(r.Body).Decode(&parcel)
     if LogExchange {
-        svc.httpLog.Write([]byte("\n\n========== <<<R ==========\n\n"))
+        svc.httpLog.Write([]byte("\n\n========== <<<R " + timeStr + " ==========\n\n"))
         svc.httpLog.Write([]byte(body))
     }
     err = json.Unmarshal(body, &parcel)
@@ -92,15 +94,15 @@ func (svc *Z5RWeb) HTTPHandler(w http.ResponseWriter, r *http.Request) (err erro
         switch (msg.Operation) {
             case "":
                 if msg.Success == 1 {
-                    svc.Log("!! SUCC:", msg.Id)
+                    //svc.Log("!! SUCC:", msg.Id)
                 }
             case "power_on":
-                svc.Log("!! P_ON !!")
+                //svc.Log("!! P_ON !!")
                 reply, err = svc.handlePowerOn(parcel.Type, parcel.SN, &msg)
                     
             case "events":
-                svc.Log("!! EVENTS !!")
-                svc.Log(msg)
+                //svc.Log("!! EVENTS !!")
+                //svc.Log(msg)
                 reply, err = svc.handleEvents(parcel.Type, parcel.SN, &msg)
 
             case "ping":
@@ -108,7 +110,7 @@ func (svc *Z5RWeb) HTTPHandler(w http.ResponseWriter, r *http.Request) (err erro
                 reply, err = svc.handlePing(parcel.Type, parcel.SN, &msg)
         
             case "check_access":
-                svc.Log("!! CA !!")
+                //svc.Log("!! CA !!")
                 reply, err = svc.checkAccess(parcel.Type, parcel.SN, &msg)
                 
         }
@@ -137,7 +139,7 @@ func (svc *Z5RWeb) HTTPHandler(w http.ResponseWriter, r *http.Request) (err erro
         strings.Join(messages, ","))
 
     if LogExchange {
-        svc.httpLog.Write([]byte("\n\n========== S>>> ==========\n\n"))
+        svc.httpLog.Write([]byte("\n\n========== " + timeStr + " S>>> ==========\n\n"))
         svc.httpLog.Write([]byte(message))
     }
 
@@ -147,7 +149,7 @@ func (svc *Z5RWeb) HTTPHandler(w http.ResponseWriter, r *http.Request) (err erro
 
 func (svc *Z5RWeb) logDevice(dType string, sn int64) (err error) {
     defer func () {svc.complaints <- err}()
-    var events api.EventsList
+    //var events api.EventsList
     handle := svc.makeHandle(dType, sn)
     dev, devId := svc.findDevice(handle)
     if nil != dev {
@@ -157,20 +159,18 @@ func (svc *Z5RWeb) logDevice(dType string, sn int64) (err error) {
             dev.Online = true
             notify = true
         }
-        device := dev.Device // copy for future using
+        device := dev.Device // copy for further usage
+        dev.LastSeen = time.Now() // TouchDevice don't change it (only in copy)
         svc.Unlock()
         err = core.TouchDevice(svc.Settings.Id, &device) // TODO: restore it
         if notify {
             // INFO: it will never return an error because no user affected (card = "")
             ev, _ := svc.setState(devId, EID_DEVICE_ONLINE, "", "", "")
-            events = api.EventsList{ev}
+            svc.Broadcast("Events", api.EventsList{ev})
         }
         
-        if nil != events {
-            svc.Broadcast("Events", events)
-        }
     } else {
-        //svc.Log("Dev found!")
+        //svc.Log("New dev found!")
     }
     return
 }
@@ -258,26 +258,30 @@ func mapEventCode(reader, errCode int64) int64 {
 
 func (svc *Z5RWeb) handlePing(dType string, sn int64, msg *Message) (res interface{}, err error) {
     var modes = []int64{api.EC_NORMAL_ACCESS, api.EC_POINT_BLOCKED, api.EC_FREE_PASS}
+    var events api.EventsList
     handle := svc.makeHandle(dType, sn)
     dev, devId := svc.findDevice(handle)
     //svc.Log("CURRENT MODE:", msg.Mode)
-    if nil != dev && msg.Active == 1{
+    if nil != dev && msg.Active == 1 {
+        svc.Lock()
         dev.Active = msg.Active
         if dev.Mode != msg.Mode && int(msg.Mode) < len(modes) {
-            svc.RLock()
             name := dev.Name
-            svc.RUnlock()
-            svc.Broadcast("Events", api.EventsList{api.Event{
+            events = append(events, api.Event{
                 Class: modes[msg.Mode],
                 DeviceId: devId,
-                DeviceName: name}})
+                DeviceName: name})
         }
         dev.Mode = msg.Mode
-        
         dev.LastSeen = time.Now()
+        svc.Unlock()
     } else {// re-activate
         svc.Warn("Device not found, re-activate:", dType, sn)
         res = &SetActiveCmd {Id: svc.getMessageId(), Operation: "set_active", Active: 0, Online: 0}
+    }
+
+    if nil != events {
+        svc.Broadcast("Events", events)
     }
 
     return

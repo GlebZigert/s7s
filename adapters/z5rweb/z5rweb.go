@@ -113,7 +113,7 @@ func (svc *Z5RWeb) ZoneCommand(userId, zoneCommand int64, devList []int64) {
     svc.Log("ZONE-COMMAND", devList, zoneCommand)
     for _, devId := range devList {
         if code, ok := modes[zoneCommand]; ok {
-            cmd := fmt.Sprintf(`{"deviceId": %d, "command": %d, "argument": %d}`, devId, 37, code)
+            cmd := fmt.Sprintf(`{"deviceId": %d, "command": %d, "argument": %d}`, devId, 370 + code, 0)
             svc.Log("CMD:", cmd)
             svc.execCommand(userId, []byte(cmd))
         }
