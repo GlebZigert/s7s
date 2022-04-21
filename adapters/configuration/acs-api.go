@@ -1,6 +1,7 @@
 package configuration
 
 import(
+    "fmt"
     "time"
     "context"
     "strconv"
@@ -145,7 +146,8 @@ func (cfg *Configuration) UserByCard(card string) (userId int64, err error) {
 func encodeCard(card string) (emCard, pin string) {
     p1, _ := strconv.ParseInt(card[len(card)-6:len(card)-4], 16, 32)
     p2, _ := strconv.ParseInt(card[len(card)-4:], 16, 32)
-    emCard = strconv.FormatInt(p1, 10) + "," + strconv.FormatInt(p2, 10)
+    //emCard = strconv.FormatInt(p1, 10) + "," + strconv.FormatInt(p2, 10)
+    emCard = fmt.Sprintf("%03d,%05d", p1, p2)
     pin = strings.Replace(strings.TrimLeft(card, "0"), "A", "0", -1)
     return 
 }
@@ -158,7 +160,7 @@ func (cfg *Configuration) RequestPassage(zoneId int64, card, pin string) (userId
     
     // encode to EM
     emCard, _ := encodeCard(card)
-    //cfg.Log("EM", emCard)
+    //cfg.Log("EM", card, "=", emCard)
     /*tabName := "cards"
     if "64,48690" == emCard { // buggy card emulation
         tabName += "$"
