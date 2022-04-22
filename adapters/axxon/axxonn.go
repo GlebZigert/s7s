@@ -2,7 +2,7 @@ package axxon
 
 import (
 	//    "log"
-	    "fmt"
+	//    "fmt"
 	"context"
 	"s7server/adapters/configuration"
 	"s7server/api"
@@ -35,9 +35,9 @@ func waiter(svc *Axxon) {
 	for _ = range ticker.C {
 
 		select {
-		case <-svc.quit_background:
+		case <-svc.quit_waiter:
 
-			fmt.Printf("waiter done")
+			svc.Log("waiter done")
 			svc.waiter_done <- true
 			
 			return
@@ -50,10 +50,10 @@ func waiter(svc *Axxon) {
 				if svc.work == false{
 
 
-				fmt.Printf("waiting for the Axxon")
+			//	svc.Log("waiting for the Axxon")
 
 				if !svc.test_http_connection() {
-					svc.Log("Не удалось установить соединение с сервером Axxon!! Проверьте настройки!!")
+				//	svc.Log("Не удалось установить соединение с сервером Axxon!! Проверьте настройки!!")
 				} else {
 
 					svc.Log("Соединение установлено")
@@ -178,40 +178,47 @@ func (svc *Axxon) Run(cfg configuration.ConfigAPI) (err error) {
 
 
 	<-ctx.Done()
+	svc.Log("<-ctx.Done()")
 	//////////////////////////////////////////////////////////////
+
+
 	if svc.work{
 	
-
+	//	svc.Log("1")
 	if svc.background_is_running{
 		svc.quit_background <- true
 	}
-		
+	//svc.Log("2")	
 	svc.conn.Close()
-
+	//svc.Log("3")
 	if svc.eventHandler_is_running{	
 	svc.quit_eventHandler <- true
 	}
 
-	if svc.waiter_is_running{	
-		svc.quit_waiter <- true
-	}	
-
+	//svc.Log("4")
 	if svc.background_is_running{
 	<-svc.background_done
+	//svc.Log("background_done")
 	}
-	
+	//svc.Log("5")
 	if svc.eventHandler_is_running{		
 	<-svc.eventHandler_done
+	//svc.Log("eventHandler_done")
 	}
 
-	if svc.waiter_is_running{		
+	//svc.Log("6")
+	}
+
+	//svc.Log("7")
+	if svc.waiter_is_running{	
+		svc.quit_waiter <- true
 		<-svc.waiter_done
+	//	svc.Log("waiter_done")
 	}	
-
-	}
+	
 
 	svc.SetServiceStatus(api.EC_SERVICE_SHUTDOWN)
-
+	
 	return
 
 	return
