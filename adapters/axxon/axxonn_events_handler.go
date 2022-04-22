@@ -131,9 +131,12 @@ func (svc *Axxon) Take_axxon_events() {
 			//	svc.Log(" ")
 			//	svc.Log("eventHandler STOPPING...")
 			//	svc.Log(" ")
+			svc.conn.Close()
 				svc.eventHandler_done <- true
 				return
 			default:
+				
+				if svc.websocket_is_connected {
 				//	  svc.Log("[1]")
 
 				if err := websocket.JSON.Receive(svc.conn, &rcv); err != nil {
@@ -146,9 +149,9 @@ func (svc *Axxon) Take_axxon_events() {
 					*/
 				} else {
 
-				//	fmt.Println(" ")
-				//	fmt.Println("[!!]rcv: ", rcv)
-				//	fmt.Println(" ")
+					fmt.Println(" ")
+					fmt.Println("[!!]rcv: ", rcv)
+					fmt.Println(" ")
 
 					//если есть принятые сообщения от Axxon
 					if len(rcv.Objects) > 0 {
@@ -321,6 +324,7 @@ func (svc *Axxon) Take_axxon_events() {
 
 		
 				}
+			}
 			
 
 
