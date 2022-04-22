@@ -12,6 +12,7 @@ import (
 )
 
 const (
+    LogExchange = false
     daysDeep = 3 // archive deep
     eventsPollInterval = 30 // seconds
     eventsPacketSize = 100
@@ -38,11 +39,13 @@ func (svc *Rif) Run(_ configuration.ConfigAPI) (err error) {
     defer close(svc.Stopped)
 
     // log
-    svc.xmlLog, err = os.OpenFile(svc.GetStorage() + ".xml", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-    if err != nil {
-        return
+    if LogExchange {
+        svc.xmlLog, err = os.OpenFile(svc.GetStorage() + ".xml", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+        if err != nil {
+            return
+        }
+        defer svc.xmlLog.Close()
     }
-    defer svc.xmlLog.Close()
     
     svc.waitReply = make(map[string]int64)
     svc.queryEventsChan = make(chan int64, 1)

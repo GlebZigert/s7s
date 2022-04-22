@@ -18,7 +18,7 @@ import (
 )
 
 const (
-    LogExchange = true
+    LogExchange = false
     maxLosses = 3 // no reporting for 3 times to become "offline"
     maxPayloadSize = 2 * 1024 - 64 - 128 // 64 = JSON overhead, 128 - reserve
     pinWaitTimeout = 10 // seconds
