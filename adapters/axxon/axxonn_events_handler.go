@@ -108,6 +108,8 @@ func (svc *Axxon) Init_event_websocket(axxonn, myaddr string) (res bool) {
 
 func (svc *Axxon) Take_axxon_events() {
 
+	svc.eventHandler_is_running = true;
+
 	if svc.websocket_is_connected {
 
 		type Receive struct {
@@ -131,9 +133,12 @@ func (svc *Axxon) Take_axxon_events() {
 			//	svc.Log(" ")
 			//	svc.Log("eventHandler STOPPING...")
 			//	svc.Log(" ")
+			svc.conn.Close()
 				svc.eventHandler_done <- true
 				return
 			default:
+				
+				if svc.websocket_is_connected {
 				//	  svc.Log("[1]")
 
 				if err := websocket.JSON.Receive(svc.conn, &rcv); err != nil {
@@ -321,6 +326,7 @@ func (svc *Axxon) Take_axxon_events() {
 
 		
 				}
+			}
 			
 
 
@@ -365,7 +371,7 @@ func (svc *Axxon) Send_to_events_websocket() {
 
 		//  msg.Include  = []string{"hosts/ASTRAAXXON/DeviceIpint.15/SourceEndpoint.video:0:0",
 		//              "hosts/ASTRAAXXON/DeviceIpint.16/SourceEndpoint.video:0:0"}
-		fmt.Println("Message", msg)
+		//fmt.Println("Message", msg)
 		if err := websocket.JSON.Send(svc.conn, msg); err != nil {
 			fmt.Println(err)
 		}
