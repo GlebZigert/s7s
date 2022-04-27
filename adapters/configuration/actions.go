@@ -138,14 +138,19 @@ func (cfg *Configuration) listZones(cid int64, data []byte) (interface{}, bool) 
     zones, err := cfg.loadZones()
     catch(err)
     
-    events, err := cfg.entranceEvents()
+    user, err := cfg.GetUser(cid)
     catch(err)
     
-    // entrance events
-    for i := range events {
-        ee[events[i].ZoneId] = append(ee[events[i].ZoneId], events[i])
+    // control visitor's location?
+    if _, ok := api.ARMFilter[int64(user.Role)][api.EC_ENTER_ZONE]; ok || api.ARM_ADMIN == user.Role {
+        events, err := cfg.entranceEvents()
+        catch(err)
+
+        // entrance events
+        for i := range events {
+            ee[events[i].ZoneId] = append(ee[events[i].ZoneId], events[i])
+        }
     }
-    
     // lin
     for i := range zones {
         zones[i].EntranceEvents = ee[zones[i].Id]
