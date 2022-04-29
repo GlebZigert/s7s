@@ -114,26 +114,34 @@ func (dispatcher *Dispatcher) processReply(reply *api.ReplyMessage) (err error) 
         return // abort sending, client disconnected or no clients at all (cid == 0)
     }
 
-    var filter map[int64]int64
+    var devFilter map[int64] int64
+    var svcFilter map[int64] struct{}
     defer func (d interface{}) {reply.Data = d}(reply.Data) // save & restore original data
     
     if events, _ := reply.Data.(api.EventsList); len(events) > 0 && 0 != events[0].Id {
         // send processed events & filter list by devices permissions
-        log.Println("::: APPLY EV FILTER :::", len(events), " events for svc #", reply.Service)
-        idList := events.GetList()
-        filter, err = core.Authorize(cid, idList)
+        //log.Println("::: APPLY EV FILTER :::", len(events), " events for svc #", reply.Service)
+        //log.Println(events)
+        svcList, devList := events.GetList()
+        //log.Println("Svc & Dev list:", svcList, devList)
+        devFilter, err = core.Authorize(cid, devList)
         if nil == err {
-            reply.Data = events.Filter(cid, filter, api.ARMFilter[client.role])
+            svcFilter, err = dispatcher.visibleServices(cid, svcList)
         }
+        //log.Println("FLT:", devFilter, err)
+        if nil == err {
+            reply.Data = events.Filter(cid, svcFilter, devFilter, api.ARMFilter[client.role])
+        }
+        //log.Println("DATA", reply.Data)
     }
     if original, ok := reply.Data.(configuration.Filterable); ok {
         // filter by devices permissions
         //log.Println("::: APPLY DEV FILTER :::", reply.Service, reply.Action)
         // INFO: filtering performed inside services to handle special conditions such as groups (virtual elements)
         idList := original.GetList()
-        filter, err = core.Authorize(cid, idList)
+        devFilter, err = core.Authorize(cid, idList)
         if nil == err {
-            reply.Data = original.Filter(filter)
+            reply.Data = original.Filter(devFilter)
         }
     }
     
@@ -179,4 +187,24 @@ func (dispatcher *Dispatcher) scanAlgorithms(events api.EventsList) {
             }
         }
     }
+}
+
+
+func (dispatcher *Dispatcher) visibleServices(userId int64, svcList []int64) (list map[int64]struct{}, err error) {
+    dispatcher.RLock()
+    defer dispatcher.RUnlock()
+    list = make(map[int64]struct{})
+    var filter map[int64] int64
+    for _, id := range svcList {
+        if 0 == id {continue}
+        if service, ok := dispatcher.services[id]; ok {
+            idList := service.GetList()
+            filter, err = core.Authorize(userId, idList)
+            if nil != err {return}
+            if len(filter) > 0 {
+                list[id] = struct{}{}
+            }
+        }
+    }
+    return
 }

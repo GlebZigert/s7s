@@ -147,37 +147,45 @@ func (services ServicesList) Filter (list map[int64]int64) interface{} {
     return res
 }*/
 
-func (events EventsList) GetList () []int64 {
-    list := make([]int64, 0, len(events))
+func (events EventsList) GetList () (svcList []int64, devList []int64) {
+    devs := make(map[int64] struct{})
+    svcs := make(map[int64] struct{})
     
     for _, ev := range events {
-        list = append(list, ev.DeviceId)
-    }
-
-    return list
-}
-
-func (events EventsList) Filter (userId int64, devFilter map[int64]int64, classFilter map[int64] struct{}) interface{} {
-    var res EventsList
-    for i := range events {
-        // list[0] > 0 => whole service accessible
-        if devFilter[0] > 0 || userId == events[i].UserId || devFilter[events[i].DeviceId] > 0 {
-            res = append(res, events[i])
-        } else {
-            if _, ok := classFilter[events[i].Class]; ok {
-                res = append(res, events[i])
-            }
-            /*if 0 == events[i].ServiceId {
-                res = append(res, events[i])
-            }*/
-            /*for _, ec := range classFilter {
-                if ec == events[i].Class {
-                    res = append(res, events[i])
-                    break
-                }
-            }*/
+        if 0 != ev.DeviceId {
+            //devList = append(devList, ev.DeviceId)
+            devs[ev.DeviceId] = struct{}{}
+        } else if 0 != ev.ServiceId {
+            //sysList = append(sysList, ev.ServiceId)
+            svcs[ev.ServiceId] = struct{}{}
         }
     }
+
+    devList = make([]int64, 0, len(devs))
+    for id := range devs {
+        devList = append(devList, id)
+    }
+    svcList = make([]int64, 0, len(svcs))
+    for id := range svcs {
+        svcList = append(svcList, id)
+    }
+    return
+}
+
+func (events EventsList) Filter (userId int64, sysFilter map[int64] struct{}, devFilter map[int64]int64, classFilter map[int64] struct{}) interface{} {
+    var res EventsList
+    for i := range events {
+        // devFilter[0] > 0 => whole service accessible
+        _, ok := classFilter[events[i].Class]
+        _, sysOk := sysFilter[events[i].ServiceId]
+        if  ok ||
+            userId == events[i].UserId ||
+            0 == events[i].DeviceId && 0 != events[i].ServiceId && sysOk ||
+            devFilter[0] > 0 || devFilter[events[i].DeviceId] > 0 {
+                res = append(res, events[i])
+        }
+    }
+
     if len(res) > 0 {
         return res
     } else {
