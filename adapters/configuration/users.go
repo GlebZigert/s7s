@@ -178,7 +178,8 @@ func (cfg *Configuration) dbUpdateUser(user *User, filter map[string] interface{
 
     if nil != filter {
         for field := range fields {
-            if _, ok := filter[field]; !ok {
+            camelField := toCamelCase(field)
+            if _, ok := filter[camelField]; !ok {
                 delete(fields, field)
             }
         }
@@ -341,6 +342,35 @@ func (cfg *Configuration) GetUser(id int64) (user *User, err error) {
 /////////////////////////////////////////////////////////////////////
 ///////////////////////////// E X T R A /////////////////////////////
 /////////////////////////////////////////////////////////////////////
+
+func toSnakeCase(camel string) (snake string) {
+	for i, r := range camel {
+		c := string(r)
+		lower := strings.ToLower(c)
+		if 0 == i {
+			snake += lower
+		} else {
+			if c == lower {
+				snake += lower
+			} else {
+				snake += "_" + lower
+			}
+		}
+	}
+	return
+}
+
+func toCamelCase(snake string) (camel string) {
+	list := strings.Split(strings.ToLower(snake), "_")
+	for i := range list {
+		if 0 == i {
+			continue
+		}
+		list[i] = strings.Title(list[i])
+	}
+	return strings.Join(list, "")
+}
+
 
 func md5hex(text string) string {
    hash := md5.Sum([]byte(text))

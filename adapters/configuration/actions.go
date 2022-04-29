@@ -286,7 +286,7 @@ func (cfg *Configuration) updateUser(cid int64, data []byte) (interface{}, bool)
     json.Unmarshal(data, user) // TODO: handle err
     //cfg.Log("UpdateUser", *user)
     // TODO: timeout lo timit multiple submissions (no spam!)
-    cfg.Log("Update/create user:", *user)
+    //cfg.Log("Update/create user:", *user)
     err := cfg.dbUpdateUser(user, filter)
     catch(err)
     user.Password = ""
