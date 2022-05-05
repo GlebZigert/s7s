@@ -184,24 +184,57 @@ func (cfg *Configuration) dbUpdateUser(user *User, filter map[string] interface{
             }
         }
     }
-    
+
     if len(user.Password) > 0 {
         fields["token"] = md5hex(authSalt + user.Password)
     }
-    
-    if 0 == user.Id {
-        if nil != fields["name"] && "" != fields["name"] {
-            fields["parent_id"] = user.ParentId
-            fields["type"] = user.Type
-            fields["role"] = user.Role
-            fields["archived"] = user.Archived
-            user.Id, err = db.Table("users").Insert(nil, fields)
-        }
-    } else if len(fields) > 0 {
-        _, err = db.Table("users").Seek(user.Id).Update(nil, fields)
-    }
-    if 0 == user.Id {return}
 
+    // if 0 == len(fields) {return}
+
+    if 0 != len(fields) { // user fields update required
+        var userId int64
+        tx, eee := db.Tx(qTimeout)
+        err = eee
+        if nil != err {return}
+        //defer func () {completeTx(tx, err)}()
+        
+        // check for duplicate login
+        if "" != fields["login"] {
+            err = db.Table("users").Seek("login = ?", fields["login"]).First(tx, dblayer.Fields {"id": &userId})
+        }
+
+        if sql.ErrNoRows == err {
+            err = nil // it's not an error
+        }
+
+        if nil != err {return}
+
+        if 0 != userId && userId != user.Id {
+            tx.Rollback()
+            user.Errors = append(user.Warnings, "указанный логин занят")
+            return // duplicate login
+        }
+
+        if 0 == user.Id {
+            if nil != fields["name"] && "" != fields["name"] {
+                fields["parent_id"] = user.ParentId
+                fields["type"] = user.Type
+                fields["role"] = user.Role
+                fields["archived"] = user.Archived
+                user.Id, err = db.Table("users").Insert(tx, fields)
+            }
+        } else {
+            _, err = db.Table("users").Seek(user.Id).Update(tx, fields)
+        }
+
+        if nil != err {
+            tx.Rollback()
+            return
+        }
+        tx.Commit()
+    }
+    
+    // update user's relations if needed
     if nil == err && nil != filter["zones"] {
         err = cfg.SaveLinks(user.Id, "user-zone", user.Zones)
     }

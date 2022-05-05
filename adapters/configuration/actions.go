@@ -4,6 +4,7 @@ import (
     "path/filepath"
     
     "errors"
+    "strings"
     "encoding/json"
     "s7server/api"
 )
@@ -299,7 +300,8 @@ func (cfg *Configuration) updateUser(cid int64, data []byte) (interface{}, bool)
     }
     
     if len(user.Errors) > 0 {
-        return user, false
+        reply := api.ErrorData{0, strings.Join(user.Errors, "\n")}
+        return reply, false
     } else {
         return user, true
     }
