@@ -311,7 +311,7 @@ func (cfg *Configuration) visitorsLocation() (locations, parents map[int64] int6
 
     startTime := time.Now().AddDate(0, 0, -passtroughScanDeep).Unix()
     err = db.Table("events e JOIN users u ON e.user_id = u.id").
-        Seek("u.archived = false AND e.zone_id > 0 AND e.time > ? AND e.event", startTime, passtroughEvents).
+        Seek("u.archived = 0 AND e.zone_id > 0 AND e.time > ? AND e.event", startTime, passtroughEvents).
         Group("e.user_id").
         Rows(nil, fields).
         Each(func() {
@@ -336,7 +336,7 @@ func (cfg *Configuration) checkMaxVisitors(zoneId int64) (max bool, err error) {
     
     startTime := time.Now().AddDate(0, 0, -passtroughScanDeep).Unix()
     err = table.
-        Seek("u.archived = false AND e.zone_id > 0 AND e.time > ? AND e.event",
+        Seek("u.archived = 0 AND e.zone_id > 0 AND e.time > ? AND e.event",
              startTime, passtroughEvents).
         Group("e.user_id").
         Rows(nil, fields).
@@ -364,7 +364,7 @@ func (cfg *Configuration) entranceEvents() (list []api.Event, err error) {
     
     startTime := time.Now().AddDate(0, 0, -passtroughScanDeep).Unix()
     err = table.
-        Seek("u.archived = false AND e.zone_id > 0 AND e.time > ? AND e.event", startTime, passtroughEvents).
+        Seek("u.archived = 0 AND e.zone_id > 0 AND e.time > ? AND e.event", startTime, passtroughEvents).
         Group("e.user_id").
         Rows(nil, fields).
         Each(func () {
@@ -567,7 +567,7 @@ cache {
     rows, values := db.Table("external_links el LEFT JOIN users u ON el.source_id = u.id").
         // TODO: children_id is always greater than parent_id, but until transfer between groups happens (or use timestamp for group change?)
         Order("u.id"). 
-        Seek(`u.type = 1 AND u.archived = false AND el.link = ?`, linkType).
+        Seek(`u.type = 1 AND u.archived = 0 AND el.link = ?`, linkType).
         Get(nil, fields)
     defer rows.Close()
 

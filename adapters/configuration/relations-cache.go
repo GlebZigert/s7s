@@ -46,7 +46,7 @@ func (cache *RelationsCache) childrenList(parentId int64) (list []int64, err err
     fields := dblayer.Fields {"id": &id}
 
     err = db.Table("users").
-        Seek("archived = false AND parent_id = ?", parentId).
+        Seek("archived = 0 AND parent_id = ?", parentId).
         Rows(nil, fields).
         Each(func() {
             list = append(list, id)
@@ -65,7 +65,7 @@ func (cache *RelationsCache) cache() (err error) {
 
     // TODO: children_id is always greater than parent_id, but until transfer between groups happens (or use timestamp for group change?)
     //
-    cond := "parent_id > 0 AND type = 1 AND archived = false" // user root can't have linked devices etc.
+    cond := "parent_id > 0 AND type = 1 AND archived = 0" // user root can't have linked devices etc.
     err = db.Table("users").Order("id").Seek(cond).Rows(nil, fields).Each(func() {
         parents[userId] = append(parents[userId], parentId)
         parents[userId] = append(parents[userId], parents[parentId]...)

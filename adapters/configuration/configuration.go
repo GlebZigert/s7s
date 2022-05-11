@@ -280,7 +280,7 @@ func (cfg *Configuration) Authenticate(login, token string) (id, role int64, err
         "token": &userToken}
 
     rows, values, err := db.Table("users").
-        Seek("login = ? AND role > ? AND archived = ?", login, 0, false).
+        Seek("login = ? AND role > ? AND archived = ?", login, 0, 0).
         Get(nil, fields)
 
     if nil != err {
@@ -464,7 +464,7 @@ func (cfg *Configuration) getTargetsByScope(target string, scopeId int64) []User
         Order("u.id"). // children_id can't be greater than parent_id
         Seek(
             `u.archived = ? AND u.type = ? AND ul.target = ? AND ul.scope_id = ?`,
-            false, 1, target, scopeId).
+            0, 1, target, scopeId).
         Get(nil, fields)
     defer rows.Close()
 
@@ -490,7 +490,7 @@ func (cfg *Configuration) getTargetsByScope(target string, scopeId int64) []User
         "parent_id": &parentId}
     rows, values = db.Table("users").
         Order("id"). // children_id can't be greater than parent_id
-        Seek("archived = ? AND type = ?", false, 1).
+        Seek("archived = ? AND type = ?", 0, 1).
         Get(fld)
     
     for rows.Next() {
@@ -510,7 +510,7 @@ func (cfg *Configuration) getTargetsByScope(target string, scopeId int64) []User
     rows, values = table.
         Seek(
             `u.archived = ? AND u.type <> ? AND ul.target = ? AND ul.scope_id = ? OR parent`,
-            false, 1, target, scopeId, ids).
+            0, 1, target, scopeId, ids).
         Get(nil, fields)
     defer rows.Close()
     for rows.Next() {

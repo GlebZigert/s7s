@@ -96,12 +96,12 @@ func (cfg *Configuration) tryDatabase(fn string) (err error) {
     }
 
     db.Bind(database, qTimeout)
-    err = db.MakeTables(tables)
+    err = db.MakeTables(tables, true)
     if nil != err {
         db.Close()
         return
     }
-    db.MakeTables(tableUpdates) // ignore errors
+    db.MakeTables(tableUpdates, false) // ignore errors
     return
 }
 

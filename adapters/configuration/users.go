@@ -1,7 +1,7 @@
 package configuration
 
 import (
-//    "strconv"
+    "time"
     "strings"
     "crypto/md5"
     "encoding/hex"
@@ -10,6 +10,8 @@ import (
     "s7server/dblayer"
     "s7server/api"
 )
+
+const userRelations = `link IN ("user-zone", "user-device", "user-rule")`
 
 /////////////////////////////////////////////////////////////////////
 ///////////////////////////// U S E R S /////////////////////////////
@@ -220,7 +222,7 @@ func (cfg *Configuration) dbUpdateUser(user *User, filter map[string] interface{
                 fields["parent_id"] = user.ParentId
                 fields["type"] = user.Type
                 fields["role"] = user.Role
-                fields["archived"] = user.Archived
+                //fields["archived"] = user.Archived
                 user.Id, err = db.Table("users").Insert(tx, fields)
             }
         } else {
@@ -254,30 +256,41 @@ func (cfg *Configuration) dbUpdateUser(user *User, filter map[string] interface{
 // for internal usage - recursively delete whole branch
 func (cfg *Configuration) deleteBranch(tx *sql.Tx, ids []int64) (err error) {
     var groups []int64
+    var all []int64
     var userId int64
-    cond := "type = 1 AND archived = false AND parent_id"
-    // fing subgroups
-    fields := dblayer.Fields {"id": &userId}
+    var userType int
+    
+    // 1. fing subgroups & all children
+    fields := dblayer.Fields {"id": &userId, "type": &userType}
+    cond := "archived = 0 AND parent_id"
     err = db.Table("users").Seek(cond, ids).Rows(tx, fields).Each(func() {
-        groups = append(groups, userId)
+        if 1 == userType {
+            groups = append(groups, userId)
+        }
+        all = append(all, userId)
     })
     if nil != err {return}
     
-    // "delete" sub-subnodes if needed
+    // 2. "delete" sub-groups if needed
     if len(groups) > 0 {
         err = cfg.deleteBranch(tx, groups)
     }
+    if nil != err {return}
     
-    // "delete" direct subnodes of current parents list
-    fields = dblayer.Fields{"archived": true}
+    // "delete" direct subnodes
+    fields = dblayer.Fields{"archived": time.Now().Unix()}
     if nil == err {
-        _, err = db.Table("users").Seek(cond, ids).Update(tx, fields)
+        _, err = db.Table("users").Seek("archived = 0 AND id", all).Update(tx, fields)
     }
+    
+    // delete cards
     if nil == err {
-        db.Table("cards").Delete(tx, "user_id", ids)
+        err = db.Table("cards").Delete(tx, "user_id", all)
     }
+    
+    // delete links
     if nil == err {
-        db.Table("external_links").Delete(tx, `link IN ("user-zone", "user-device") AND source_id`, ids)
+        err = db.Table("external_links").Delete(tx, userRelations + ` AND source_id`, all)
     }
     return
 }
@@ -290,15 +303,15 @@ func (cfg *Configuration) dbDeleteUser(id int64) (err error) {
     
     // delete from the end of branch (prevent loss of nodes in case of error)
     err = cfg.deleteBranch(tx, []int64{id})
-    // if was no errors, delete "root" of all barnch
+    // if was no errors, delete "root" of all barnches
     if nil == err {
-        _, err = db.Table("users").Seek(id).Update(tx, "archived = true")
+        _, err = db.Table("users").Seek(id).Update(tx, dblayer.Fields{"archived": time.Now().Unix()})
     }
     if nil == err {
         err = db.Table("cards").Delete(tx, "user_id = ?", id)
     }
     if nil == err {
-        err = db.Table("external_links").Delete(tx, `link IN ("user-zone", "user-device") AND source_id = ?`, id)
+        err = db.Table("external_links").Delete(tx, userRelations + ` AND source_id = ?`, id)
     }
     // TODO: clean broken links for user links, if users "deleted" instead "archived"
     // SELECT ul.user_id FROM user_links ul LEFT JOIN users u ON ul.user_id = u.id AND u.archived = false WHERE u.id IS NULL;
@@ -327,7 +340,7 @@ func (cfg *Configuration) loadUsers() (list []User, err error) {
         "position":     &user.Position,
         "login":        &user.Login}
 
-    err = db.Table("users").Seek("archived = false").Rows(nil, fields).Each(func() {
+    err = db.Table("users").Seek("archived = 0").Rows(nil, fields).Each(func() {
         list = append(list, *user)
         userMap[user.Id] = len(list) - 1
     })
@@ -352,7 +365,7 @@ func (cfg *Configuration) GetUser(id int64) (user *User, err error) {
     //db.Table("users").Find("cond").Get(nil, "list")
     fields := dblayer.Fields {
         "id":           &user.Id,
-        "archived":     &user.Archived,
+        //"archived":     &user.Archived,
         "parent_id":    &user.ParentId,
         "type":         &user.Type,
         "role":         &user.Role,
@@ -364,7 +377,7 @@ func (cfg *Configuration) GetUser(id int64) (user *User, err error) {
         "position":     &user.Position,
         "login":        &user.Login}
 
-    err = db.Table("users").Seek("archived = false AND id = ?", id).First(nil, fields)
+    err = db.Table("users").Seek("archived = 0 AND id = ?", id).First(nil, fields)
     if nil != err {
         user = nil // it's not an error
     }

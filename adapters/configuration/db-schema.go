@@ -15,9 +15,15 @@ var tableUpdates []string = []string {
                 1, api.UT_PERSONAL, api.ARM_ADMIN,
                 "Администратор", "Администратор",
                 md5hex(authSalt + "Start7")),
+    "INSERT INTO zones VALUES(1, 'Внешняя территория', 0, NULL)",
+    
+    // MIGRATIONS HERE >>>
+    //"ALTER TABLE users RENAME COLUMN archived TO deleted",
+    //"ALTER TABLE users ADD COLUMN archived INTEGER NOT NULL DEFAULT 0",
+    //"UPDATE users SET archived = strftime('%s') WHERE deleted = true",
     //"ALTER TABLE events ADD COLUMN zone_id INTEGER NOT NULL DEFAULT 0",
     //"ALTER TABLE zones ADD COLUMN max_visitors INTEGER NOT NULL DEFAULT 0",
-    "INSERT INTO zones VALUES(1, 'Внешняя территория', 0, NULL)"}
+}
 
 var tables []string = []string {`
     CREATE TABLE IF NOT EXISTS maps (
@@ -81,7 +87,7 @@ var tables []string = []string {`
         parent_id       INTEGER NOT NULL DEFAULT 0,
         type            INTEGER NOT NULL,
         role            INTEGER NOT NULL,
-        archived        BOOLEAN NOT NULL DEFAULT FALSE,
+        archived        INTEGER NOT NULL DEFAULT 0,
         name            TEXT NOT NULL,
         surename        TEXT NOT NULL DEFAULT '',
         middle_name     TEXT NOT NULL DEFAULT '',

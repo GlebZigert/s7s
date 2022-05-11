@@ -59,8 +59,8 @@ func logQuery(table, q string, p interface{}) {
     }
 }
 
-func (dbl *DBLayer) MakeTables(tables []string) (err error){
-    for i := 0; i < len(tables) && nil == err; i++ {
+func (dbl *DBLayer) MakeTables(tables []string, strict bool) (err error){
+    for i := 0; i < len(tables) && (nil == err || !strict); i++ {
         //log.Println(tables[i])
         ctx, _ := context.WithTimeout(context.TODO(), dbl.timeout)
         _, err = dbl.db.ExecContext(ctx, tables[i])

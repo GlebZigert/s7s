@@ -31,7 +31,7 @@ type User struct {
     ParentId    int64       `json:"parentId"`
     Type        int         `json:"type"`
     Role        int         `json:"role"`
-    Archived    bool        `json:"-"`
+    Archived    int64       `json:"-"`
     
     Name        string      `json:"name,omitempty"`
     Surename    string      `json:"surename,omitempty"`
