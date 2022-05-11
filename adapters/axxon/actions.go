@@ -231,8 +231,10 @@ func (svc *Axxon) control_connection_status(res bool) {
 		fmt.Println("[ERROR  http.Get(request)]")
 		svc.SetServiceStatus(api.EC_SERVICE_OFFLINE)
 		//Закрой вебсокет соединение
+		if svc.websocket_is_connected{}
 		svc.conn.Close()
 		svc.websocket_is_connected=false
+	}
 	} else {
 
 		svc.SetServiceStatus(api.EC_SERVICE_ONLINE)
