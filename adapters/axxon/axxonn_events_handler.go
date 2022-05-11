@@ -134,6 +134,7 @@ func (svc *Axxon) Take_axxon_events() {
 			//	svc.Log("eventHandler STOPPING...")
 			//	svc.Log(" ")
 			svc.conn.Close()
+			svc.websocket_is_connected=false
 				svc.eventHandler_done <- true
 				return
 			default:
