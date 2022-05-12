@@ -37,7 +37,7 @@ func (cfg *Configuration) forbiddenVisitorsDetector(ctx context.Context) {
                 return // TODO: return -> break?
             case <-timer.C:
                 // TODO: more precise error reporting?
-                cfg.complaints <- cfg.detectForbiddenVisitors(forbiddenVisitors)
+                cfg.complaints <- de(cfg.detectForbiddenVisitors(forbiddenVisitors), "ForbiddenVisitorsDetector")
         }
 
         now := time.Now()
@@ -132,7 +132,7 @@ func (cfg *Configuration) EnterZone(event api.Event) {
 }
 
 func (cfg *Configuration) UserByCard(card string) (userId int64, err error) {
-    defer func () {cfg.complaints <- err}()
+    defer func () {cfg.complaints <- de(err, "UserByCard")}()
     fields := dblayer.Fields{"user_id": &userId}
     emCard, _ := encodeCard(card)
     err = db.Table("cards").Seek("card = ?", emCard).First(nil, fields)
@@ -156,7 +156,7 @@ func encodeCard(card string) (emCard, pin string) {
 // return zone_id ?
 // TODO: return errors: user not found, AP not allowed, timerange is incorrect
 func (cfg *Configuration) RequestPassage(zoneId int64, card, pin string) (userId, errCode int64, err error) {
-    defer func () {cfg.complaints <- err}()
+    defer func () {cfg.complaints <- de(err, "RequestPassage")}()
     
     // encode to EM
     emCard, _ := encodeCard(card)

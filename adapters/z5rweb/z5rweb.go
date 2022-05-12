@@ -399,3 +399,12 @@ func (svc *Z5RWeb) getJob(devId int64, usedBytes int) (list []string){
     }
     return
 }
+
+// describe error
+func de(err error, desc string) error {
+    if nil != err {
+        return fmt.Errorf("%s: %w", desc, err)
+    } else {
+        return nil
+    }
+}

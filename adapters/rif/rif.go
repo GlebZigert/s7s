@@ -115,7 +115,7 @@ func (svc *Rif) ZoneCommand(userId, zoneCommand int64, devList []int64) {
 
 
 func (svc *Rif) scanJourEvents(events []_Event) (err error){
-    defer func () {svc.complaints <- err}()
+    defer func () {svc.complaints <- de(err, "ScanJourEvents")}()
     //svc.Log(">>> EA:", len(events))
     var devId int64
     ee := make([]api.Event, 0, len(events))
@@ -194,7 +194,7 @@ func (svc *Rif) pollEventLog(ctx context.Context) {
 
 
 func (svc *Rif) getEventLog(nextId int64) (err error){
-    defer func () {svc.complaints <- err}()
+    defer func () {svc.complaints <- de(err, "GetEventLog")}()
     var cmd string
     if 0 == nextId {
         // get real last stored event id from the db
@@ -221,7 +221,7 @@ func (svc *Rif) getEventLog(nextId int64) (err error){
 }
 
 func (svc *Rif) populate(devices []_Device) (err error) {
-    defer func () {svc.complaints <- err}()
+    defer func () {svc.complaints <- de(err, "Populate")}()
     var fixedId int64
     nextGroup := int64(9e15) // ~Number.MAX_SAFE_INTEGER
 
@@ -404,6 +404,14 @@ func (svc *Rif) notify(list interface{}, action string) {
     }
 }*/
 
+// describe error
+func de(err error, desc string) error {
+    if nil != err {
+        return fmt.Errorf("%s: %w", desc, err)
+    } else {
+        return nil
+    }
+}
 
 func parseTime(s string) time.Time {
     loc := time.Now().Location()

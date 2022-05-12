@@ -117,7 +117,7 @@ func (cfg *Configuration) replyLoop(c chan interface{}) {
 
 ///////////////////// API INTERFACE //////////////////////
 func (cfg *Configuration) StartNewShift(userId int64) (err error) {
-    defer func () {cfg.complaints <- err}()
+    defer func () {cfg.complaints <- de(err, "StartNewShift")}()
     shiftId, err := cfg.currentShiftId(userId)
     if shiftId == 0 && nil == err {
         events := api.EventsList{api.Event{
@@ -129,7 +129,7 @@ func (cfg *Configuration) StartNewShift(userId int64) (err error) {
 }
 
 func (cfg *Configuration) CompleteShift(userId int64) (err error) {
-    defer func () {cfg.complaints <- err}()
+    defer func () {cfg.complaints <- de(err, "CompleteShift")}()
     shiftId, err := cfg.currentShiftId(userId)
     if shiftId > 0 && nil == err {
         events := api.EventsList{api.Event{
@@ -142,7 +142,7 @@ func (cfg *Configuration) CompleteShift(userId int64) (err error) {
 
 
 func (cfg *Configuration) ProcessEvents(events api.EventsList) (err error) {
-    defer func () {cfg.complaints <- err}()
+    defer func () {cfg.complaints <- de(err, "ProcessEvents")}()
     for i := 0; i < len(events) && nil == err; i++ {
         err = cfg.processEvent(&events[i])
     }
@@ -229,7 +229,7 @@ func (cfg *Configuration) processEvent(e *api.Event) (err error) {
 
 func (cfg *Configuration) ZoneDevices(zoneId, userId int64, devList []int64) (devMap map[int64][]int64) {
     var err error
-    defer func () {cfg.complaints <- err}()
+    defer func () {cfg.complaints <- de(err, "ZoneDevices")}()
     
     list, err := core.LoadLinks(zoneId, "zone-device")
     if nil != err {return}
@@ -272,7 +272,7 @@ func (cfg *Configuration) ZoneDevices(zoneId, userId int64, devList []int64) (de
 
 // get userId by login and password
 func (cfg *Configuration) Authenticate(login, token string) (id, role int64, err error) {
-    defer func () {cfg.complaints <- err}()
+    defer func () {cfg.complaints <- de(err, "Authenticate")}()
     var userToken string
     fields := dblayer.Fields {
         "id": &id,
@@ -303,7 +303,7 @@ func (cfg *Configuration) Authenticate(login, token string) (id, role int64, err
 // not all devices are really "deleted", so don't use serviceId and discard "suspended"
 // devices == nil => check services
 func (cfg *Configuration) Authorize(userId int64, devices []int64) (list map[int64]int64, err error) {
-    defer func () {cfg.complaints <- err}()
+    defer func () {cfg.complaints <- de(err, "Authorize")}()
     list = make(map[int64]int64) // [deviceId] => flags
     
     if 0 == userId {
@@ -582,6 +582,15 @@ func (cfg *Configuration) setupApi() {
 }*/
 
 //////////////////////////////////////////////////////////////////////
+
+// describe error
+func de(err error, desc string) error {
+    if nil != err {
+        return fmt.Errorf("%s: %w", desc, err)
+    } else {
+        return nil
+    }
+}
 
 func completeTx(tx *sql.Tx, err error) {
     if nil != err {

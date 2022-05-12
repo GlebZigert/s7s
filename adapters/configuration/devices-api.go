@@ -49,7 +49,7 @@ func (cfg *Configuration) getOneDevice(fields dblayer.Fields, serviceId int64, h
 }
 
 func (cfg *Configuration) GlobalDeviceId(serviceId int64, handle, name string) (id int64, err error) {
-    defer func () {cfg.complaints <- err}()
+    defer func () {cfg.complaints <- de(err, "GlobalDeviceId")}()
     id, err = cfg.getOneDevice(nil, serviceId, handle)
     if nil != err {
         return
@@ -70,7 +70,7 @@ func (cfg *Configuration) GlobalDeviceId(serviceId int64, handle, name string) (
 }
 
 func (cfg *Configuration) LoadDevices(serviceId int64) (list []Device, err error) {
-    defer func () {cfg.complaints <- err}()
+    defer func () {cfg.complaints <- de(err, "LoadDevices")}()
     dev := new(Device) 
     fields := dblayer.Fields {
         "id":           &dev.Id,
@@ -91,7 +91,7 @@ func (cfg *Configuration) LoadDevices(serviceId int64) (list []Device, err error
 }
 
 func (cfg *Configuration) SaveDevice(serviceId int64, dev *Device, data interface{}) (err error) {
-    defer func () {cfg.complaints <- err}()
+    defer func () {cfg.complaints <- de(err, "SaveDevice")}()
     fields := dblayer.Fields {
         "id":           &dev.Id,
         "service_id":   serviceId,
@@ -108,7 +108,7 @@ func (cfg *Configuration) SaveDevice(serviceId int64, dev *Device, data interfac
 }
 
 func (cfg *Configuration) DeleteDevice(id int64) (err error) {
-    defer func () {cfg.complaints <- err}()
+    defer func () {cfg.complaints <- de(err, "DeleteDevice")}()
     fields := dblayer.Fields {
         "handle":       nil,
         "last_seen":    time.Now()} // deletion time
@@ -124,7 +124,7 @@ func (cfg *Configuration) DeleteDevice(id int64) (err error) {
 }
 
 func (cfg *Configuration) TouchDevice(serviceId int64, dev *Device) (err error) {
-    defer func () {cfg.complaints <- err}()
+    defer func () {cfg.complaints <- de(err, "TouchDevice")}()
     dev.LastSeen = time.Now()
     fields := dblayer.Fields {"last_seen": dev.LastSeen}
     _, err = db.Table("devices").Seek(dev.Id).Update(nil, fields)

@@ -206,7 +206,7 @@ func (cfg *Configuration) importEvent(event *api.Event) (err error) {
 }
 
 func (cfg *Configuration) ImportEvents(events []api.Event) (err error) {
-    defer func () {cfg.complaints <- err}()
+    defer func () {cfg.complaints <- de(err, "ImportEvents")}()
     for i := range events {
         err = cfg.importEvent(&events[i])
         if nil != err {
@@ -217,7 +217,7 @@ func (cfg *Configuration) ImportEvents(events []api.Event) (err error) {
 }
 
 func (cfg *Configuration) GetLastEvent(serviceId int64) (event *api.Event, err error) {
-    defer func () {cfg.complaints <- err}()
+    defer func () {cfg.complaints <- de(err, "GetLastEvent")}()
     event = new(api.Event)
     fields := eventFields(event)
     err = db.Table("events").

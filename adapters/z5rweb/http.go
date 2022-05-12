@@ -33,7 +33,7 @@ func (svc *Z5RWeb) HTTPHandler(w http.ResponseWriter, r *http.Request) (err erro
 
     defer func () {
         // TODO: create err in case of err == nil && httpErrCode != 0
-        svc.complaints <- err
+        svc.complaints <- de(err, "HTTPHandler")
         if nil != err && 0 == httpErrCode {
             httpErrCode = http.StatusInternalServerError
         }
@@ -148,7 +148,7 @@ func (svc *Z5RWeb) HTTPHandler(w http.ResponseWriter, r *http.Request) (err erro
 }
 
 func (svc *Z5RWeb) logDevice(dType string, sn int64) (err error) {
-    defer func () {svc.complaints <- err}()
+    defer func () {svc.complaints <- de(err, "LogDevice")}()
     //var events api.EventsList
     handle := svc.makeHandle(dType, sn)
     dev, devId := svc.findDevice(handle)
