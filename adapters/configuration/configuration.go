@@ -306,18 +306,20 @@ func (cfg *Configuration) Authorize(userId int64, devices []int64) (list map[int
     defer func () {cfg.complaints <- err}()
     list = make(map[int64]int64) // [deviceId] => flags
     
-    user, err := cfg.GetUser(userId)
-    if nil != err {
+    if 0 == userId {
+        list[0] = api.AM_CONTROL
         return
     }
-    
-    if user != nil {
-        switch user.Role {
-            case api.ARM_ADMIN: list[0] = api.AM_CONTROL
-            case api.ARM_SECRET: list[0] = api.AM_WATCH
-        }
+
+    user, err := cfg.GetUser(userId)
+    if nil != err {return}
+
+    switch user.Role {
+        case api.ARM_ADMIN: list[0] = api.AM_CONTROL
+        case api.ARM_SECRET: list[0] = api.AM_WATCH
     }
-    if nil == user || len(list) > 0 || len(devices) == 0 {
+
+    if len(list) > 0 || len(devices) == 0 {
         return // in any case, if list[i] == 0, then user can't do anything
     }
     /*cfg.cache.RLock()

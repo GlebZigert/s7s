@@ -530,7 +530,7 @@ func (dispatcher *Dispatcher) doZoneCommand(userId, zoneId, command int64) {
 
     devMap := core.ZoneDevices(zoneId, userId, devices)
     if nil == devMap {
-        log.Println("!! Empty zone !!")
+        log.Println("Empty zone", zoneId, "for", userId)
     } else if 0 == len(devMap[0]) { // no forbidden devices
         events := api.EventsList{{UserId: userId, Class: command, ZoneId: zoneId}}
         reply := api.ReplyMessage{Service: 0, Action: "Events", Data: events}
