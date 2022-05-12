@@ -358,8 +358,9 @@ func (cfg *Configuration) loadUsers() (list []User, err error) {
     return
 }
 
+// returns nil if user not found, without sql.ErrNoRows
 func (cfg *Configuration) GetUser(id int64) (user *User, err error) {
-    //defer func () {cfg.complaints <- de(err, "GetUser")}()
+    defer func () {cfg.complaints <- de(err, "GetUser")}()
     user = new(User)
     //cfg.tables["users"].query("fields").where("cond")
     //db.Table("users").Find("cond").Get(nil, "list")
@@ -381,6 +382,10 @@ func (cfg *Configuration) GetUser(id int64) (user *User, err error) {
     if nil != err {
         user = nil // it's not an error
     }
+    if sql.ErrNoRows == err {
+        err = nil // NoRows is not really an error
+    }
+    
     return
 }
 

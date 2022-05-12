@@ -199,7 +199,9 @@ func (cfg *Configuration) processEvent(e *api.Event) (err error) {
         if nil != err {
             return
         }
-        e.UserName = user.Name + " " + user.Surename
+        if nil != user { // user was found
+            e.UserName = user.Name + " " + user.Surename
+        }
     }
     if 0 == e.ZoneId && e.DeviceId > 0 {
         // check that device in zone
@@ -312,7 +314,7 @@ func (cfg *Configuration) Authorize(userId int64, devices []int64) (list map[int
     }
 
     user, err := cfg.GetUser(userId)
-    if nil != err {return}
+    if nil == user /*|| nil != err*/ {return} // not found or db error
 
     switch user.Role {
         case api.ARM_ADMIN: list[0] = api.AM_CONTROL

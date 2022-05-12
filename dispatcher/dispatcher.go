@@ -354,8 +354,8 @@ func (dispatcher *Dispatcher) changeUser(userId int64, ws *websocket.Conn, cred 
         return nil, api.EC_DATABASE_ERROR
     }
     
-    user, err := core.GetUser(clientId) // TODO: handle err
-    if nil != err {
+    user, err := core.GetUser(clientId)
+    if nil == user /*|| nil != err*/ { // not found or db error
         return nil, api.EC_DATABASE_ERROR
     }
     return user, 0

@@ -7,6 +7,7 @@ import (
     "strings"
     "encoding/json"
     "s7server/api"
+    "database/sql"
 )
 
 func (svc *Configuration) resetAlarm(cid int64, data []byte) (interface{}, bool) {
@@ -141,6 +142,9 @@ func (cfg *Configuration) listZones(cid int64, data []byte) (interface{}, bool) 
     
     user, err := cfg.GetUser(cid)
     catch(err)
+    if nil == user { // user not found
+        panic(sql.ErrNoRows)
+    }
     
     // control visitor's location?
     if _, ok := api.ARMFilter[int64(user.Role)][api.EC_ENTER_ZONE]; ok || api.ARM_ADMIN == user.Role {
