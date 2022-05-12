@@ -202,7 +202,7 @@ func (cfg *Configuration) dbUpdateUser(user *User, filter map[string] interface{
         
         // check for duplicate login
         if "" != fields["login"] {
-            err = db.Table("users").Seek("login = ?", fields["login"]).First(tx, dblayer.Fields {"id": &userId})
+            err = db.Table("users").Seek("archived = 0 AND login = ?", fields["login"]).First(tx, dblayer.Fields {"id": &userId})
         }
 
         if sql.ErrNoRows == err {
