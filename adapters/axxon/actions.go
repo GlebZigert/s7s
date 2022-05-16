@@ -31,17 +31,17 @@ import (
 
 func (svc *Axxon) test_http_connection() bool {
 
-//	fmt.Println("Контроль возможности подключения к серверу : ")
+	//	fmt.Println("Контроль возможности подключения к серверу : ")
 
-//	fmt.Println("логин:  ", svc.username)
-//	fmt.Println("пароль: ", svc.password)
-//	fmt.Println("ip:     ", svc.ipaddr)
-//	fmt.Println("порт:   ", svc.port)
+	//	fmt.Println("логин:  ", svc.username)
+	//	fmt.Println("пароль: ", svc.password)
+	//	fmt.Println("ip:     ", svc.ipaddr)
+	//	fmt.Println("порт:   ", svc.port)
 
-	//Формируем строку запроса
-	request := "http://" + svc.username + ":" + svc.password + "@" + svc.ipaddr + ":" + svc.port + "/" + "uuid"
+		//Формируем строку запроса
+		request := "http://" + svc.username + ":" + svc.password + "@" + svc.ipaddr + ":" + svc.port + "/" + "uuid"
 
-//	fmt.Println("Сформирована строка запроса: ",request)
+	//	fmt.Println("Сформирована строка запроса: ",request)
 
 	//Отправляем запрос
 	resp, err := http.Get(request)
@@ -310,6 +310,8 @@ func (svc *Axxon) convert_for_client(dev *dev) Device {
 	device.Id = dev.id
 	device.Name = dev.pointer.DisplayID + dev.pointer.DisplayName
 	device.Stream = svc.get_RTSP(dev.pointer)
+
+	device.IPAddress = dev.pointer.IPAddress
 
 	device.State = dev.state
 
