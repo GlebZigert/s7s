@@ -207,6 +207,7 @@ func (devices DeviceList) Filter(list map[int64]int64) interface{} {
 //
 type dev struct {
 	id                 int64
+	IPAddress          string
 	VIDEOSOURSEID      string
 	TelemetryControlID string
 	AccessMode         int64
@@ -219,6 +220,7 @@ type dev struct {
 type Device struct {
 	Sid		   int64  `json:"sid"`
 	Id                 int64  `json:"id"`
+	IPAddress        string        `json:"ipadress"`	
 	Name               string `json:"name"`
 	Stream             string `json:"stream"`
 	State              string `json:"state"`
