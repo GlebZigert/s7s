@@ -233,6 +233,7 @@ type Device struct {
 	AccessMode     int64  `json:"accessMode"`
 }
 
+
 type intervals struct {
 	Intervals []struct {
 		Begin string `json:"begin"`
