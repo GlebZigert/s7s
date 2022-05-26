@@ -1,6 +1,8 @@
 package configuration
 
 import (
+    "archive/zip"
+    "os/exec"
     "net/http"
     "strconv"
     "strings"
@@ -30,8 +32,9 @@ func (cfg *Configuration) HTTPHandler(w http.ResponseWriter, r *http.Request) (e
         if errors.Is(err, argumentError) {
             // TODO: log argument err?
             httpStatus(w, http.StatusBadRequest)
-        } else {
+        } else if nil != err {
             // TODO: log db error
+            httpStatus(w, http.StatusInternalServerError)
         }
     } else {
         http.NotFound(w, r)
@@ -39,8 +42,62 @@ func (cfg *Configuration) HTTPHandler(w http.ResponseWriter, r *http.Request) (e
     return
 }
 
+func zipString(fileName string, fileBody []byte) []byte {
+    // Create a buffer to write our archive to.
+    buf := new(bytes.Buffer)
+
+    // Create a new zip archive.
+    zipWriter := zip.NewWriter(buf)
+
+    zipFile, err := zipWriter.Create(fileName)
+    if err != nil {
+        // TODO: handle err
+    }
+    _, err = zipFile.Write(fileBody)
+    if err != nil {
+        // TODO: handle err
+    }
+
+    // Make sure to check the error on Close.
+    err = zipWriter.Close()
+    if err != nil {
+        fmt.Println(err)
+    }
+
+    return buf.Bytes()
+}
+
 var httpHandlers = map[string] func(*Configuration, http.ResponseWriter, *http.Request) error {
-    ///////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////
+"get-log": func (cfg *Configuration, w http.ResponseWriter, r *http.Request) (err error) {
+    err = fmt.Errorf("%w: %s", argumentError, "Wrong token")
+    token := getStringVal(r.Form["token"]) // TODO: use sessions instead?
+    //fmt.Println("Token:", token)
+    start := time.Now().Unix()
+    for i := start - 3; i <= start + 3; i++ {
+        check := md5hex(authSalt + strconv.FormatInt(i, 10))
+        //fmt.Println("checking", i, check)
+        if token == check {
+            err = nil
+            break
+        }
+    }
+    if nil != err {return}
+    
+    cmd := exec.Command("journalctl", "-u", "s7server", "--since", "24 hours ago", "--no-pager")
+    // sudo usermod -a -G systemd-journal s7server
+    // TODO: SysProcAttr not supported on linux, use conditional build if needed
+    //cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+    //err = cmd.Run()
+    out, err := cmd.CombinedOutput()
+    if nil != err {return}
+
+    data := zipString("rif7log-" + time.Now().Format(timestampLayout) + ".txt", out)
+    w.Write(data)
+
+    return
+},
+///////////////////////////////////////////////////////////////////////////////////
 "plan": func (cfg *Configuration, w http.ResponseWriter, r *http.Request) (err error) {
     id, err := getIntVal(r.Form["id"])
     if nil != err {
