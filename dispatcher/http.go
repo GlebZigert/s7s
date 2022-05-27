@@ -88,7 +88,7 @@ func (dispatcher *Dispatcher) socketServer(ws *websocket.Conn) {
         return // not ready, try later
     }
     
-    log.Println("New client")
+    log.Println("New client:", ws.Request().RemoteAddr)
     
     ws.SetReadDeadline(time.Now().Add(loginTimeout * time.Second))
     err := websocket.JSON.Receive(ws, &cred)
@@ -110,7 +110,9 @@ func (dispatcher *Dispatcher) socketServer(ws *websocket.Conn) {
     }
     websocket.JSON.Send(ws, reply) 
     if 0 == errClass {
+        log.Println("Serving #", user.Id, "(" + cred.Login + ")")
         dispatcher.serveClient(user.Id, ws)
-        //go heartbeat(ws)
+    } else {
+        log.Println("Wrong password or unknown user:", cred.Login)
     }
 }

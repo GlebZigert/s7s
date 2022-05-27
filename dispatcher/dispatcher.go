@@ -253,7 +253,6 @@ func (dispatcher *Dispatcher) serveClient(userId int64, ws *websocket.Conn) {
             Class: api.EC_USER_LOGGED_OUT,
             UserId: userId})
     }()
-    log.Println("Serving #", userId)
 
     //var msg string
     var q Query
@@ -275,7 +274,7 @@ func (dispatcher *Dispatcher) serveClient(userId int64, ws *websocket.Conn) {
         } else if q.Service == 0 && q.Action == "KeepAlive" {
             //log.Println("KeepAlive", userId)
         } else {
-            log.Println("Client", userId, "=>", q.Service, q.Action + "([", len(q.Data), "]byte)")
+            log.Println("Client", userId, "=>", q.Service, "." + q.Action + ":", len(q.Data), "byte(s)")
             // userId may be changed (TODO: ws is the same?)
             if res := dispatcher.preprocessQuery(&userId, ws, q); res != nil {
                 reply := api.ReplyMessage{Service: q.Service, Action: q.Action, Task: q.Task, Data: res}
