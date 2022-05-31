@@ -40,6 +40,14 @@ type UPSStatus struct {
 
 type DevList []Device // for filtering
 
+func (devices DevList) GetList() []int64 {
+    ids := make([]int64, len(devices))
+    for i := range devices {
+        ids[i] = devices[i].Id
+    }
+    return ids
+}
+
 func (devices DevList) Filter(list map[int64]int64) interface{} {
     var res DevList
     for i := range devices {
