@@ -334,6 +334,8 @@ func (svc *Rif) update(devices []_Device) {
 func (svc *Rif) matchUser(deviceId, event int64) (userId int64) {
     key := fmt.Sprintf("%d:%d", deviceId, event)
     //svc.Log("%%%%%%%%%%%%%%%%%%%%", key, svc.waitReply)
+    svc.Lock()
+    defer svc.Unlock()
     userId = svc.waitReply[key]
     if userId > 0 {
         delete (svc.waitReply, key)
@@ -342,8 +344,8 @@ func (svc *Rif) matchUser(deviceId, event int64) (userId int64) {
 }
 
 func (svc *Rif) queueWait(deviceId, command, cid int64) {
-    svc.RLock()
-    svc.RUnlock()
+    svc.Lock()
+    defer svc.Unlock()
     if _, ok := responses[command]; ok {
         for _, code := range responses[command] {
             key := fmt.Sprintf("%d:%d", deviceId, code)
