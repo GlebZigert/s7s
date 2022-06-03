@@ -301,6 +301,7 @@ func (svc *Rif) update(devices []_Device) {
     //svc.Log(devices)
     events := make(api.EventsList, 0, len(devices))
     //var list = make(map[int]Device, len(devices))
+    svc.Lock()
     for i, _ := range devices {
         if fixedId, ok = svc.idMap[devices[i].Id]; !ok {
             svc.Log("Unknown device", devices[i])
@@ -328,14 +329,13 @@ func (svc *Rif) update(devices []_Device) {
                 Time:       dt.Unix()})
         }
     }
+    svc.Unlock()
     svc.Broadcast("Events", events)
 }
 
 func (svc *Rif) matchUser(deviceId, event int64) (userId int64) {
     key := fmt.Sprintf("%d:%d", deviceId, event)
     //svc.Log("%%%%%%%%%%%%%%%%%%%%", key, svc.waitReply)
-    svc.Lock()
-    defer svc.Unlock()
     userId = svc.waitReply[key]
     if userId > 0 {
         delete (svc.waitReply, key)
