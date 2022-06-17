@@ -189,7 +189,10 @@ func (svc *Axxon) Run(cfg configuration.ConfigAPI) (err error) {
 		svc.quit_background <- true
 	}
 	//svc.Log("2")	
+	if svc.websocket_is_connected{
 	svc.conn.Close()
+	svc.websocket_is_connected=false
+	}
 	//svc.Log("3")
 	if svc.eventHandler_is_running{	
 	svc.quit_eventHandler <- true
