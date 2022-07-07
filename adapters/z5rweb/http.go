@@ -27,10 +27,26 @@ const (
 
 var addCardStep = 0
 
-func (svc *Z5RWeb) HTTPHandler(w http.ResponseWriter, r *http.Request) (err error) {
-    var httpErrCode int
-    timeStr := time.Now().Format("2006-01-02T15:04:05.999")
+func (svc *Z5RWeb) checkAuth (w http.ResponseWriter, r *http.Request) (httpErrCode int) {
+    //svc.Log(svc.Settings.Login, ":", svc.Settings.Password)
+    u, p, ok := r.BasicAuth()
+    //svc.Log(u, "=", p)
+    if !ok {
+        w.Header().Set("WWW-Authenticate", `Basic realm="Restricted", charset="UTF-8"`)
+		httpErrCode = http.StatusUnauthorized
+	} else if u != svc.Settings.Login {
+		httpErrCode = http.StatusUnauthorized
+        svc.Warn("Wrong username for", r.RemoteAddr)
+    } else if p != svc.Settings.Password {
+		httpErrCode = http.StatusUnauthorized
+        svc.Warn("Wrong password for", r.RemoteAddr)
+	}
+    return
+}
 
+func (svc *Z5RWeb) HTTPHandler(w http.ResponseWriter, r *http.Request) (err error) {
+    timeStr := time.Now().Format("2006-01-02T15:04:05.999")    
+    var httpErrCode int
     defer func () {
         // TODO: create err in case of err == nil && httpErrCode != 0
         svc.complaints <- de(err, "HTTPHandler")
@@ -41,6 +57,12 @@ func (svc *Z5RWeb) HTTPHandler(w http.ResponseWriter, r *http.Request) (err erro
             http.Error(w, http.StatusText(httpErrCode), httpErrCode)
         }
     }()
+    
+    httpErrCode = svc.checkAuth(w, r)
+    if 0 != httpErrCode {
+        return
+    }
+    
     svc.RLock()
     ready := svc.devices != nil
     svc.RUnlock()
