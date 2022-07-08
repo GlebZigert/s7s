@@ -41,6 +41,7 @@ type Client struct {
 	ws *websocket.Conn
 	//token	string
     role    int64
+    token   string
 }
 
 type Error struct {
@@ -65,6 +66,7 @@ type Dispatcher struct {
     cfg             configuration.ConfigAPI
 	services		map[int64] Service
 	clients			map[int64] Client
+    sessions		map[string] int64
     queue           chan string
 	clientsCount	int
 	nextClient		int

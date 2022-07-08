@@ -70,20 +70,6 @@ func zipString(fileName string, fileBody []byte) []byte {
 var httpHandlers = map[string] func(*Configuration, http.ResponseWriter, *http.Request) error {
 ///////////////////////////////////////////////////////////////////////////////////
 "get-log": func (cfg *Configuration, w http.ResponseWriter, r *http.Request) (err error) {
-    err = fmt.Errorf("%w: %s", argumentError, "Wrong token")
-    token := getStringVal(r.Form["token"]) // TODO: use sessions instead?
-    //fmt.Println("Token:", token)
-    start := time.Now().Unix()
-    for i := start - 3; i <= start + 3; i++ {
-        check := md5hex(authSalt + strconv.FormatInt(i, 10))
-        //fmt.Println("checking", i, check)
-        if token == check {
-            err = nil
-            break
-        }
-    }
-    if nil != err {return}
-    
     cmd := exec.Command("journalctl", "-u", "s7server", "--since", "24 hours ago", "--no-pager")
     // sudo usermod -a -G systemd-journal s7server
     // TODO: SysProcAttr not supported on linux, use conditional build if needed

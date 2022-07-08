@@ -8,7 +8,9 @@ import (
     "sync"
 //    "io/ioutil"
     "errors"
+    "strconv"
     "context"
+    "math/rand"
     "encoding/json"
 //    "encoding/base64"
 	"golang.org/x/net/websocket"
@@ -64,6 +66,7 @@ func Run(ctx0 context.Context, host string) (err error) {
 
 func entryPoint(ctx context.Context, host string) (err error) {
     //seedFilter()
+    rand.Seed(time.Now().UnixNano())
     d := Dispatcher{
         ctx: ctx,
         queue: make(chan string, 10),
@@ -292,6 +295,7 @@ func (dispatcher *Dispatcher) serveClient(userId int64, ws *websocket.Conn) {
 
 func (dispatcher *Dispatcher) changeUser(userId int64, ws *websocket.Conn, cred *Credentials) (*configuration.User, int64) {
     var errClass int64
+    var token string
     clientId, role, err := core.Authenticate(cred.Login, cred.Token)
     if nil != err {
         return nil, api.EC_DATABASE_ERROR
@@ -320,7 +324,8 @@ func (dispatcher *Dispatcher) changeUser(userId int64, ws *websocket.Conn, cred 
     }
     if errClass == 0 {
         delete(dispatcher.clients, userId)
-        dispatcher.clients[clientId] = Client{ws, role}
+        token = makeToken(20)
+        dispatcher.clients[clientId] = Client{ws, role, token}
     }
     dispatcher.Unlock()
 
@@ -357,7 +362,16 @@ func (dispatcher *Dispatcher) changeUser(userId int64, ws *websocket.Conn, cred 
     if nil == user /*|| nil != err*/ { // not found or db error
         return nil, api.EC_DATABASE_ERROR
     }
+    user.Token = token
     return user, 0
+}
+
+func makeToken(size int) string {
+    token := ""
+    for ; len(token) < size; {
+        token += strconv.FormatInt(rand.Int63(), 36)
+    }
+    return token[:size]
 }
 
 func (dispatcher *Dispatcher) do(userId int64, q *Query) {

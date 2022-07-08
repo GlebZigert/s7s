@@ -8,7 +8,9 @@ import (
     "strconv"
     "context"
 	"net/http"
-	"golang.org/x/net/websocket"
+    "crypto/md5"
+    "encoding/hex"
+    "golang.org/x/net/websocket"
 )
 
 import (
@@ -64,6 +66,13 @@ func (dispatcher *Dispatcher) httpHandler(w http.ResponseWriter, r *http.Request
         return
     }
     
+    if 0 == id {
+        if code := dispatcher.checkAuth(w, r); code > 0 {
+            http.Error(w, http.StatusText(code), code)
+            return
+        }
+    }
+
     dispatcher.RLock()
     service, ok := dispatcher.services[int64(id)]
     dispatcher.RUnlock()
@@ -78,6 +87,48 @@ func (dispatcher *Dispatcher) httpHandler(w http.ResponseWriter, r *http.Request
     }
     http.NotFound(w, r)
 }
+
+func (dispatcher *Dispatcher) checkAuth(w http.ResponseWriter, r *http.Request) (httpErrCode int) {
+    var ok bool
+    var client Client
+    u, p, ok := r.BasicAuth()
+    if !ok {
+        w.Header().Set("WWW-Authenticate", `Basic realm="Restricted", charset="UTF-8"`)
+		log.Println("No credentials for", r.RemoteAddr)
+        httpErrCode = http.StatusUnauthorized
+        return
+	}
+    
+    id, err := strconv.ParseInt(u, 10, 64)
+    if nil == err && id > 0 {
+        dispatcher.RLock()
+        client, ok = dispatcher.clients[id]
+        dispatcher.RUnlock()
+    }
+    
+    if !ok {
+		httpErrCode = http.StatusUnauthorized
+        log.Println("Wrong username for", r.RemoteAddr)
+        return
+    }
+    
+    // use short-time session keys, +- 5 seconds
+    var check string
+    start := time.Now().Unix()
+    for i := start - 10; i <= start + 10; i++ {
+        check = md5hex(client.token + strconv.FormatInt(i, 10))
+        if p == check {
+            break
+        }
+    }    
+    if p != check {
+		httpErrCode = http.StatusUnauthorized
+        log.Println("Wrong password for", r.RemoteAddr)
+	}
+
+    return
+}
+
 
 
 func (dispatcher *Dispatcher) socketServer(ws *websocket.Conn) {
@@ -115,4 +166,9 @@ func (dispatcher *Dispatcher) socketServer(ws *websocket.Conn) {
     } else {
         log.Println("Wrong password or unknown user:", cred.Login)
     }
+}
+
+func md5hex(text string) string {
+   hash := md5.Sum([]byte(text))
+   return hex.EncodeToString(hash[:])
 }

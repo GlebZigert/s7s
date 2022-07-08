@@ -42,6 +42,7 @@ type User struct {
     
     Login       string      `json:"login,omitempty"`
     Password    string      `json:"password"`
+    Token       string      `json:"token"` // session token (temp password)
     //NewPassword string      `json:"newPassword"` // input from extrenal form
     Cards       []string    `json:"cards"`
     
