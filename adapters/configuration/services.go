@@ -95,12 +95,12 @@ func (cfg *Configuration) loadServices() (list []*api.Settings, err error) {
         })
     if nil == err {
         for i := range list {
-            if len(s.Password) > 0 {
+            if len(list[i].Password) > 0 {
                 list[i].Password, err = decrypt(list[i].Password)
             }
             if nil != err {break}
             
-            if len(s.DBPassword) > 0 {
+            if len(list[i].DBPassword) > 0 {
                 list[i].DBPassword, err = decrypt(list[i].DBPassword)
             }
             if nil != err {break}
