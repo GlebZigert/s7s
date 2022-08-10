@@ -2,6 +2,11 @@
 
 // "card": "7D4E87747474"
 // "card": "0000007D4E87"
+
+//{"type":"Z5RWEB","sn":50274,"messages":[{"id":1409959708,"operation":"events","events":[{"flag": 0,"event": 2,"time": "2022-08-09 09:31:00","card": "000000929F4C"}]}]}
+//{"type":"Z5RWEB","sn":40002327,"messages":[{"id":1194953865,"operation":"events","events":[{"flag": 0,"event": 3,"time": "2022-08-09 09:31:54","card": "000000C30371"}]}]}
+
+
 package z5rweb
 
 import (
@@ -225,7 +230,7 @@ func (svc *Z5RWeb) checkAccess(dType string, sn int64, msg *Message) (res interf
             card = svc.getLastCard(devId, msg.Reader)
             // try msg.Card as a plain card
             _, errCode, err = core.RequestPassage(zoneId, msg.Card, "")
-            if nil == err && 1 == errCode && "" != card { // maybe msg.Card is a PIN?
+            if nil == err && api.ACS_UNKNOWN_CARD == errCode && "" != card { // maybe msg.Card is a PIN?
                 _, errCode, err = core.RequestPassage(zoneId, card, msg.Card)
             }
         }

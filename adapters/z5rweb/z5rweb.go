@@ -160,8 +160,8 @@ func (svc *Z5RWeb) setState(devId, code int64, text, card, dts string) (event ap
         //userId = svc.getLastUser(dev.Id)
         userId, err = core.UserByCard(card)
         if nil == err && 0 == userId {
-            card = svc.getLastCard(devId, reader)
-            if "" != card {
+            if crd := svc.getLastCard(devId, reader); "" != crd {
+                card = crd
                 userId, err = core.UserByCard(card)
                 //svc.cleanLastCard(dev.Id, reader)
             }
