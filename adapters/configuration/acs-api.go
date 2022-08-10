@@ -134,21 +134,22 @@ func (cfg *Configuration) EnterZone(event api.Event) {
 func (cfg *Configuration) UserByCard(card string) (userId int64, err error) {
     defer func () {cfg.complaints <- de(err, "UserByCard")}()
     fields := dblayer.Fields{"user_id": &userId}
-    emCard, _ := encodeCard(card)
-    err = db.Table("cards").Seek("card = ?", emCard).First(nil, fields)
+    emCard, hexCard, _ := encodeCard(card)
+    err = db.Table("cards").Seek("card IN(?, ?)", emCard, hexCard).First(nil, fields)
     if sql.ErrNoRows == err {
         err = nil // NoRows is not really an error
     }
     return
 }
 
-
-func encodeCard(card string) (emCard, pin string) {
+// list card variants: 123,12345; HEX[6]; DEC
+func encodeCard(card string) (emCard, hex, pin string) {
     p1, _ := strconv.ParseInt(card[len(card)-6:len(card)-4], 16, 32)
     p2, _ := strconv.ParseInt(card[len(card)-4:], 16, 32)
     //emCard = strconv.FormatInt(p1, 10) + "," + strconv.FormatInt(p2, 10)
     emCard = fmt.Sprintf("%03d,%05d", p1, p2)
     pin = strings.Replace(strings.TrimLeft(card, "0"), "A", "0", -1)
+    hex = card[len(card)-6:]
     return 
 }
 // returns 0 if forbidden
@@ -159,7 +160,7 @@ func (cfg *Configuration) RequestPassage(zoneId int64, card, pin string) (userId
     defer func () {cfg.complaints <- de(err, "RequestPassage")}()
     
     // encode to EM
-    emCard, _ := encodeCard(card)
+    emCard, hexCard, _ := encodeCard(card)
     //cfg.Log("EM", card, "=", emCard)
     /*tabName := "cards"
     if "64,48690" == emCard { // buggy card emulation
@@ -168,7 +169,7 @@ func (cfg *Configuration) RequestPassage(zoneId int64, card, pin string) (userId
     // 1. find card
     var dbPin string
     fields := dblayer.Fields{"user_id": &userId, "pin": &dbPin}
-    err = db.Table("cards").Seek("card = ?", emCard).First(nil, fields)
+    err = db.Table("cards").Seek("card IN(?, ?)", emCard, hexCard).First(nil, fields)
     if sql.ErrNoRows == err {
         err = nil // NoRows is not really an error
         errCode = api.ACS_UNKNOWN_CARD // user (card) not found
@@ -181,8 +182,8 @@ func (cfg *Configuration) RequestPassage(zoneId int64, card, pin string) (userId
         if "" == pin {
             errCode = api.ACS_PIN_REQUIRED // pin required
         } else {
-            emCard, pin = encodeCard(pin)
-            if dbPin != emCard && dbPin != pin {
+            emCard, hexCard, pin = encodeCard(pin)
+            if dbPin != emCard && dbPin != hexCard && dbPin != pin {
                 errCode = api.ACS_WRONG_PIN // wrong pin
             }
         }
