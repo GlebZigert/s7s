@@ -13,9 +13,10 @@ import (
 )
 
 const (
-    PayloadLimit = 16 * 1024 * 1024
+    payloadLimit = 10 * 1024 * 1024
 )
 var argumentError = errors.New("HTTP argument error")
+
 
 func (cfg *Configuration) HTTPHandler(w http.ResponseWriter, r *http.Request) (err error) {
     parts := strings.Split(r.URL.Path, "/")
@@ -91,7 +92,7 @@ var httpHandlers = map[string] func(*Configuration, http.ResponseWriter, *http.R
     }
 
     if "POST" == r.Method {
-        r.Body = http.MaxBytesReader(w, r.Body, PayloadLimit)
+        r.Body = http.MaxBytesReader(w, r.Body, payloadLimit)
         buf := new(bytes.Buffer)
         buf.ReadFrom(r.Body)
         err = cfg.dbUpdatePlanPicture(int64(id), buf.Bytes())
@@ -119,13 +120,12 @@ var httpHandlers = map[string] func(*Configuration, http.ResponseWriter, *http.R
         return fmt.Errorf("%w: id", argumentError)
     }
     if "POST" == r.Method {
-        r.Body = http.MaxBytesReader(w, r.Body, PayloadLimit)
-        buf := new(bytes.Buffer)
-        buf.ReadFrom(r.Body)
-        err = cfg.dbUpdateUserPicture(int64(id), buf.Bytes())
-        if nil != err {
-            return
-        }
+        reader := http.MaxBytesReader(w, r.Body, payloadLimit)
+        var photo []byte
+        photo, err = makeUserPhoto(reader)
+        if nil != err {return}
+        err = cfg.dbUpdateUserPicture(int64(id), photo)
+        if nil != err {return}
         cfg.Broadcast("UserUpload", id)
     } else if "GET" == r.Method {
         picture, err := cfg.dbLoadUserPicture(int64(id))
