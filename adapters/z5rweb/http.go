@@ -241,7 +241,7 @@ func (svc *Z5RWeb) checkAccess(dType string, sn int64, msg *Message) (res interf
             // wait for pin
             svc.setLastCard(devId, msg.Reader, msg.Card)
             svc.ignoreEvent(msg.Card, 2 + int64(msg.Reader) - 1)
-            svc.Log("Wait for pin")
+            //svc.Log("Wait for pin")
         } else {
             // analyze passage attempt results
             event := mapEventCode(msg.Reader, errCode)

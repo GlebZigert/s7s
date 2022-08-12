@@ -313,7 +313,7 @@ func (svc *Z5RWeb) logWrongPin(card string) (alarm bool) {
         }
     }
     svc.wrongPinTimes[card] = wpt
-    svc.Log("WPT:", alarm, wpt)
+    //svc.Log("WPT:", alarm, wpt)
     return
 }
 
