@@ -23,6 +23,7 @@ var tableUpdates []string = []string {
     //"UPDATE users SET archived = strftime('%s') WHERE deleted = true",
     //"ALTER TABLE events ADD COLUMN zone_id INTEGER NOT NULL DEFAULT 0",
     //"ALTER TABLE zones ADD COLUMN max_visitors INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE cards ADD COLUMN key INTEGER NOT NULL DEFAULT 0",
 }
 
 var tables []string = []string {`
@@ -102,7 +103,8 @@ var tables []string = []string {`
     CREATE TABLE IF NOT EXISTS cards (
         user_id     INTEGER NOT NULL,
         pin         TEXT NOT NULL,
-        card        TEXT UNIQUE NOT NULL
+        card        TEXT UNIQUE NOT NULL,
+        key         INTEGER UNIQUE NOT NULL
     )`,
     // @priority < 100 - "basic" rules
     // @priority >= 1000 - "advanced" rules (online)

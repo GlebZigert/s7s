@@ -80,63 +80,52 @@ func (cfg *Configuration) saveUserCards(user *User) (err error) {
     var userId int64
     var card string
     var badCards []string
-    var onlyCards []string
+    var key int64
+    var keys []int64
+    cards := make(map[int64] [2]string)
     
-    cards := make(map[string] string)
-    
-    // 1. filter unsafe cards (non-numeric?)
+    // 1. make keys
     for i := range user.Cards {
-        //if _, err := strconv.ParseInt(user.Cards[i], 16, 64); err == nil {
-        parts := strings.Split(strings.TrimSpace(user.Cards[i]), " ")
-        card = parts[len(parts)-1]
-        if len(parts) > 1 {
-            cards[card] =  parts[0]
-        } else {
-            cards[card] =  ""
-        }
-        onlyCards = append(onlyCards, card)
-        //} else {
-        //  badCards = append(badCards, user.Cards[i])
-        //}
+        parts := strings.Split(" " + strings.TrimSpace(user.Cards[i]), " ")
+        card = parts[len(parts) - 1]
+        key = keyFromCard(card)
+        keys = append(keys, key)
+        cards[key] = [2]string{parts[len(parts) - 2], card}
     }
-
-    // 2. load cards from db
-    table := db.Table("cards")
-    cond := "user_id = ? OR card IN('" + strings.Join(onlyCards, "','") + "')"
-    fields := dblayer.Fields {"user_id": &userId, "card": &card}
     
-    err = table.Seek(cond, user.Id).Rows(nil, fields).Each(func() {
-        if _, ok := cards[card]; ok && user.Id != userId {
-            // someone else's card
-            badCards = append(badCards, card) 
-            delete(cards, card)
-        }
-    })
-    if nil != err {return}
-
     tx, err := db.Tx(qTimeout)
     if nil != err {return}
     defer func () {completeTx(tx, err)}()
-    
+
+    // 2. load cards from db
+    table := db.Table("cards")
+    fields := dblayer.Fields{"user_id": &userId, "key": &key}
+    err = table.Seek("key", keys).Rows(tx, fields).Each(func() {
+        if card, ok := cards[key]; ok && user.Id != userId {
+            // someone else's card
+            badCards = append(badCards, card[0] + " " + card[1])
+            delete(cards, key)
+        }
+    })
+
+    if nil != err {return}
+
+    // 3. clean old
     // TODO: delete unused, update only updated cards?
     err = table.Delete(tx, "user_id = ?", user.Id)
     if nil != err {return}
-    
-    // insert cards
-    userId = user.Id
-    for card, pin := range cards {
-        fields["card"] = card
-        fields["pin"] = pin
+
+    // 4. insert cards
+    for key, pc := range cards {
+        fields = dblayer.Fields{"user_id": user.Id, "pin": pc[0], "card": pc[1], "key": key}
         _, err = table.Insert(tx, fields)
         if nil != err {return}
-        // TODO: notify subscribers
     }
-    //cfg.Log("BAD:", badCards)
-    //cfg.Log("GOOD:", cards)
+
     if len(badCards) > 0 {
-        user.Warnings = append(user.Warnings, "Следующие карты не были сохранены: " + strings.Join(badCards, "; "))
+        user.Warnings = append(user.Warnings, "Следующие карты не были сохранены:\n" + strings.Join(badCards, "\n"))
     }
-    // 5. TODO: notify subscribers
+    // 5. TODO: notify subscribers?
     return
 }
 

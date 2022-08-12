@@ -1,11 +1,10 @@
 package configuration
 
 import(
-    "fmt"
     "time"
-    "context"
     "strconv"
     "strings"
+    "context"
     "database/sql"
 
     "s7server/api"
@@ -134,8 +133,8 @@ func (cfg *Configuration) EnterZone(event api.Event) {
 func (cfg *Configuration) UserByCard(card string) (userId int64, err error) {
     defer func () {cfg.complaints <- de(err, "UserByCard")}()
     fields := dblayer.Fields{"user_id": &userId}
-    emCard, hexCard, _ := encodeCard(card)
-    err = db.Table("cards").Seek("card IN(?, ?)", emCard, hexCard).First(nil, fields)
+    key := keyFromCard("#" + card)
+    err = db.Table("cards").Seek("key = ?", key).First(nil, fields)
     if sql.ErrNoRows == err {
         err = nil // NoRows is not really an error
     }
@@ -143,15 +142,14 @@ func (cfg *Configuration) UserByCard(card string) (userId int64, err error) {
 }
 
 // list card variants: 123,12345; HEX[6]; DEC
-func encodeCard(card string) (emCard, hex, pin string) {
+/*func encodeCard(card string) (emCard, hex, pin string) {
     p1, _ := strconv.ParseInt(card[len(card)-6:len(card)-4], 16, 32)
     p2, _ := strconv.ParseInt(card[len(card)-4:], 16, 32)
-    //emCard = strconv.FormatInt(p1, 10) + "," + strconv.FormatInt(p2, 10)
     emCard = fmt.Sprintf("%03d,%05d", p1, p2)
     pin = strings.Replace(strings.TrimLeft(card, "0"), "A", "0", -1)
     hex = card[len(card)-6:]
     return 
-}
+}*/
 // returns 0 if forbidden
 // or user_id > 0 if confirmed
 // return zone_id ?
@@ -159,17 +157,12 @@ func encodeCard(card string) (emCard, hex, pin string) {
 func (cfg *Configuration) RequestPassage(zoneId int64, card, pin string) (userId, errCode int64, err error) {
     defer func () {cfg.complaints <- de(err, "RequestPassage")}()
     
-    // encode to EM
-    emCard, hexCard, _ := encodeCard(card)
-    //cfg.Log("EM", card, "=", emCard)
-    /*tabName := "cards"
-    if "64,48690" == emCard { // buggy card emulation
-        tabName += "$"
-    }*/
     // 1. find card
     var dbPin string
+    key := keyFromCard("#" + card)
+    cfg.Log("Seeking key", key, "for card", card)
     fields := dblayer.Fields{"user_id": &userId, "pin": &dbPin}
-    err = db.Table("cards").Seek("card IN(?, ?)", emCard, hexCard).First(nil, fields)
+    err = db.Table("cards").Seek("key = ?", key).First(nil, fields)
     if sql.ErrNoRows == err {
         err = nil // NoRows is not really an error
         errCode = api.ACS_UNKNOWN_CARD // user (card) not found
@@ -177,23 +170,21 @@ func (cfg *Configuration) RequestPassage(zoneId int64, card, pin string) (userId
     }
     if nil != err {return}
     
-    // pin requred
+    // 2. check pin
     if "" != dbPin {
-        if "" == pin {
+        if "" == pin { // pin is requred but not provided
             errCode = api.ACS_PIN_REQUIRED // pin required
         } else {
-            emCard, hexCard, pin = encodeCard(pin)
-            if dbPin != emCard && dbPin != hexCard && dbPin != pin {
+            key = keyFromCard(dbPin)
+            pinKey, _ := strconv.Atoi(strings.Replace(strings.TrimLeft(pin, "0"), "A", "0", -1))
+            if key != int64(pinKey) && key != keyFromCard("#" + pin) {
                 errCode = api.ACS_WRONG_PIN // wrong pin
             }
         }
     }
+    if 0 != errCode {return}
     
-    if 0 != errCode {
-        return
-    }
-    
-    // 2. get user info and and it's parent_id
+    // 3. get user info and and it's parent_id
     user, err := cfg.GetUser(userId) // TODO: handle err
     if nil != err {return}
     if nil == user {
@@ -205,7 +196,7 @@ func (cfg *Configuration) RequestPassage(zoneId int64, card, pin string) (userId
     if nil != err {return}
     
     
-    // 3. Find applicable zone, rules & timeranges
+    // 4. Find applicable zone, rules & timeranges
     allowedZone, err := cfg.checkZone(zoneId, users)
     if nil != err {return}
     if !allowedZone {
@@ -213,7 +204,7 @@ func (cfg *Configuration) RequestPassage(zoneId int64, card, pin string) (userId
         return
     }
 
-    // 4. check for anti-passback
+    // 5. check for anti-passback
     locId, err := cfg.visitorLocation(userId) // TODO: handle err
     if nil != err {return}
     if locId == zoneId {
@@ -221,7 +212,7 @@ func (cfg *Configuration) RequestPassage(zoneId int64, card, pin string) (userId
         return
     }
     
-    // 5. check visitors limit
+    // 6. check visitors limit
     overflow, err := cfg.checkMaxVisitors(zoneId)
     if nil != err {return}
     if overflow {

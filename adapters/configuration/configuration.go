@@ -5,6 +5,7 @@ import (
     "time"
     "sync"
     "errors"
+    "strconv"
     "strings"
     "context"
     "encoding/json"
@@ -584,6 +585,23 @@ func (cfg *Configuration) setupApi() {
 }*/
 
 //////////////////////////////////////////////////////////////////////
+
+// extract last 3 bytes from card number (card format: 000,00000 or 1234567890)
+func keyFromCard(card string) (key int64) {
+    if strings.HasPrefix(card, "#") {
+        key, _ = strconv.ParseInt(card[1:], 16, 64)
+    } else if strings.ContainsRune(card, ',') {
+        pair := strings.Split(card, ",")
+        n, _ := strconv.ParseInt(pair[0], 10, 64)
+        key, _ = strconv.ParseInt(pair[1], 10, 64)
+        key = 65536 * n + key
+    } else {
+        key, _ = strconv.ParseInt(card, 10, 64)
+    }
+    
+    key = key & 0xFFFFFF
+    return
+}
 
 // describe error
 func de(err error, desc string) error {
