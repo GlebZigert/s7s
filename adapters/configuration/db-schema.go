@@ -27,6 +27,10 @@ var tableUpdates []string = []string {
 }
 
 var tables []string = []string {`
+    CREATE TABLE IF NOT EXISTS settings (
+        name        TEXT PRIMARY KEY,
+        value       TEXT
+    )`,`
     CREATE TABLE IF NOT EXISTS maps (
         id          INTEGER PRIMARY KEY AUTOINCREMENT,
         type        TEXT,

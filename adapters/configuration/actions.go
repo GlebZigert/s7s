@@ -10,6 +10,21 @@ import (
     "database/sql"
 )
 
+func (cfg *Configuration) updateSettings(cid int64, data []byte) (interface{}, bool) {
+    var s = new(SettingsPair)
+    err := json.Unmarshal(data, s)
+    catch(err)
+    err = cfg.dbUpdateSettings(s.Name, s.Value)
+    catch(err)
+    return s, true // broadcast
+}
+
+func (cfg *Configuration) listSettings(cid int64, data []byte) (interface{}, bool) {
+    list, err := cfg.dbListSettings()
+    catch(err)
+    return list, false // don't broadcast
+}
+
 func (svc *Configuration) resetAlarm(cid int64, data []byte) (interface{}, bool) {
     events := api.EventsList{{
         UserId: cid,

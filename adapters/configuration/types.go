@@ -298,6 +298,11 @@ type EventFilter struct {
     Class       int         `json:"class"`
 }
 
+type SettingsPair struct {
+    Name    string  `json:"name"`
+    Value   string  `json:"value"`
+}
+
 /*func (info *EnterZone) Filter (list map[int64]int64) interface{} {}*/
 
 

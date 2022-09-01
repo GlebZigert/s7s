@@ -536,6 +536,9 @@ func (cfg *Configuration) getTargetsByScope(target string, scopeId int64) []User
 
 func (cfg *Configuration) setupApi() {
     cfg.Api(map[string] api.Action {
+        "UpdateSettings": cfg.updateSettings,
+        "ListSettings": cfg.listSettings,
+        
         "ListBackups": cfg.listBackups,
         "MakeBackup": cfg.makeBackup,
         "RestoreBackup": cfg.restoreBackup,
