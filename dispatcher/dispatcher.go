@@ -31,6 +31,7 @@ const (
     loginTimeout = 3 // seconds
     keepAliveInterval = 10 + 2 // seconds (time + ping)
     shutdownTimeout = 10 // seconds
+    maxTimeMismatch = 10 // seconds, max client-server time distance (sync required)
 )
 
 var (
@@ -296,6 +297,15 @@ func (dispatcher *Dispatcher) serveClient(userId int64, ws *websocket.Conn) {
 func (dispatcher *Dispatcher) changeUser(userId int64, ws *websocket.Conn, cred *Credentials) (*configuration.User, int64) {
     var errClass int64
     var token string
+    var now = time.Now().Unix()
+
+    if now - cred.Timestamp / 1e3 > maxTimeMismatch || cred.Timestamp / 1e3 - now > maxTimeMismatch {
+        dispatcher.broadcastEvent(&api.Event{
+            Class: api.EC_TIME_MISMATCH})
+        return nil, api.EC_TIME_MISMATCH
+    }
+    
+    
     clientId, role, err := core.Authenticate(cred.Login, cred.Token)
     if nil != err {
         return nil, api.EC_DATABASE_ERROR

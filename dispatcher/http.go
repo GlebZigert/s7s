@@ -115,7 +115,7 @@ func (dispatcher *Dispatcher) checkAuth(w http.ResponseWriter, r *http.Request) 
     // use short-time session keys, +- 5 seconds
     var check string
     start := time.Now().Unix()
-    for i := start - 10; i <= start + 10; i++ {
+    for i := start - maxTimeMismatch; i <= start + maxTimeMismatch; i++ {
         check = md5hex(client.token + strconv.FormatInt(i, 10))
         if p == check {
             break
@@ -163,6 +163,8 @@ func (dispatcher *Dispatcher) socketServer(ws *websocket.Conn) {
     if 0 == errClass {
         log.Println("Serving #", user.Id, "(" + cred.Login + ")")
         dispatcher.serveClient(user.Id, ws)
+    } else if api.EC_TIME_MISMATCH == errClass {
+        log.Println("Client/server time offset is more than", maxTimeMismatch, "seconds")
     } else {
         log.Println("Wrong password or unknown user:", cred.Login)
     }

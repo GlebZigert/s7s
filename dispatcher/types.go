@@ -50,8 +50,9 @@ type Error struct {
 }
 
 type Credentials struct {
-    Login   string   `json:"login"`
-    Token   string   `json:"token"`
+    Login       string   `json:"login"`
+    Token       string   `json:"token"`
+    Timestamp   int64    `json:"timestamp"`
 }
 
 type ZoneCommand struct {

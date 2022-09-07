@@ -66,6 +66,7 @@ var ClassText = map[int64] string {
     EC_LOGIN_FAILED: "Ошибка аутентификации",
     EC_USER_LOGGED_OUT: "Пользователь отключился",
     EC_ARM_TYPE_MISMATCH: "Смена типа АРМ недопустима",
+    EC_TIME_MISMATCH: "Требуется синхронизация времени клиента и сервера",
     EC_LOGIN_TIMEOUT: "Реквизиты доступа не получены вовремя",
     EC_USERS_LIMIT_EXCEED: "Превышено максимальное число пользователей",
     EC_USER_SHIFT_STARTED: "Начало новой смены",
@@ -129,7 +130,7 @@ const (
     EC_LOGIN_TIMEOUT        = 107
     EC_USER_SHIFT_STARTED   = 108
     EC_USER_SHIFT_COMPLETED = 109
-    //EC_SERVICE_READY        = 110
+    EC_TIME_MISMATCH        = 110
     EC_SERVICE_SHUTDOWN     = 111
     EC_ARMED                = 112
     EC_DISARMED             = 113
