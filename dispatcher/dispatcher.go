@@ -299,7 +299,7 @@ func (dispatcher *Dispatcher) changeUser(userId int64, ws *websocket.Conn, cred 
     var token string
     var now = time.Now().Unix()
 
-    if now - cred.Timestamp / 1e3 > maxTimeMismatch || cred.Timestamp / 1e3 - now > maxTimeMismatch {
+    if now - cred.Timestamp / 1e3 > maxTimeMismatch-2 || cred.Timestamp / 1e3 - now > maxTimeMismatch-2 {
         dispatcher.broadcastEvent(&api.Event{
             Class: api.EC_TIME_MISMATCH})
         return nil, api.EC_TIME_MISMATCH
