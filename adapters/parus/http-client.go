@@ -2,12 +2,17 @@ package parus
 
 import (
     "io"
-	"io/ioutil"
-    "net/http"
 	"net"
-	"errors"
+    "fmt"
     "time"
-//    "fmt"
+    "errors"
+    "net/http"
+	"io/ioutil"
+)
+
+var (
+    httpError = errors.New("HTTP status error")
+    connError = errors.New("Connection problem")
 )
 
 func httpClient() *http.Client{
@@ -20,34 +25,22 @@ func httpClient() *http.Client{
                 DisableKeepAlives: true}}
 }
 
-func getRequest(url string) (res []byte, eRet error) {
-	defer func () {
-		if r := recover(); r != nil {
-			eRet = r.(error)
-		}
-	}()
-	//camClient.Timeout = 500 * time.Millisecond
+func getRequest(url string) (body []byte, err error) {
     client := httpClient()
     resp, err := client.Get(url)
     if err != nil {
-        panic(err)
+        err = fmt.Errorf("%w: %v", connError, err)
+        return
     }
     defer resp.Body.Close()
 
-    body, err := ioutil.ReadAll(resp.Body)
-    
-    //fmt.Print("\n======== GET", url, " : ", resp.StatusCode, " ========\n")
-
-    //fmt.Print("\n---------------------------------------\n")
-    //fmt.Println(string(body))
+    body, err = ioutil.ReadAll(resp.Body)
 	
     if http.StatusOK != resp.StatusCode {
-    	panic(errors.New("GET " + url + " => " + resp.Status))
+        err = fmt.Errorf("%w: %v", httpError, resp.StatusCode)
+    } else if err == io.ErrUnexpectedEOF {
+    	err = fmt.Errorf("%w: %v", connError, err)
     }
-
-    if err != nil && err != io.ErrUnexpectedEOF {
-    	panic(err)
-    }
-    return body, nil
+    return
 }
 

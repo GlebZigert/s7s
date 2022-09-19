@@ -57,6 +57,11 @@ const (
 )
 
 var ClassText = map[int64] string {
+    EC_OK: "Норма",
+    EC_ERROR: "Ошибка или неисправность",
+    EC_LOST: "Связь отсутствует",
+    EC_ALARM: "Тревога",
+    
     EC_CONNECTION_OK: "Связь установлена",
     EC_CONNECTION_LOST: "Связь отсутствует",
     EC_GLOBAL_ALARM: "Общая тревога",
@@ -74,7 +79,6 @@ var ClassText = map[int64] string {
     EC_ACCESS_VIOLATION: "Нарушение режима доступа в зону",
     EC_ACCESS_VIOLATION_ENDED: "Прекращено нарушение режима доступа в зону",
     EC_ONLINE: "Связь установлена",
-    EC_LOST: "Связь отсутствует",
     EC_ARMED: "Поставлено на охрану",
     EC_DISARMED: "Снято с охраны",
     EC_POINT_BLOCKED: "Проход запрещён",

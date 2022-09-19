@@ -2,12 +2,13 @@ package parus
 
 import (
     "time"
-    "math/rand"
+    "bytes"
+    "errors"
+    "strings"
     "context"
+    "math/rand"
     "encoding/xml"
     "encoding/json"
-    "bytes"
-    "strings"
     
     "golang.org/x/net/html/charset"
 
@@ -98,10 +99,8 @@ func (svc *Parus) queryStatus(dev *Device) {
     url := "http://" + dev.IP + "/upsstatus.xml"
     svc.RUnlock()
     xmlFile, err := getRequest(url)
-    if nil != err {
+    if nil == err {
         //svc.Log("HTTP ERR:", err)
-        stateClass = api.EC_LOST
-    } else {
         data := new(UPSStatus)
         reader := bytes.NewReader(xmlFile)
         decoder := xml.NewDecoder(reader)
@@ -121,7 +120,12 @@ func (svc *Parus) queryStatus(dev *Device) {
             }
             
         }
+    } else if errors.Is(err, httpError) {
+        stateClass = api.EC_ERROR
+    } else /*if errors.Is(err, connError)*/ {
+        stateClass = api.EC_LOST
     }
+
     svc.analyzeStatus(dev, stateClass)
 }
 
