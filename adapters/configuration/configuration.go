@@ -587,6 +587,14 @@ func (cfg *Configuration) setupApi() {
     }
 }*/
 
+func (cfg *Configuration) Encrypt(text string) (string, error) {
+    return encrypt(text)
+}
+    
+func (cfg *Configuration) Decrypt(cipher string) (string, error) {
+    return decrypt(cipher)
+}
+
 //////////////////////////////////////////////////////////////////////
 
 // extract last 3 bytes from card number (card format: 000,00000 or 1234567890)

@@ -25,9 +25,17 @@ func httpClient() *http.Client{
                 DisableKeepAlives: true}}
 }
 
-func getRequest(url string) (body []byte, err error) {
+func getRequest(url, login, password string) (body []byte, err error) {
     client := httpClient()
-    resp, err := client.Get(url)
+    req, err := http.NewRequest("GET", url, nil)
+    if err != nil {
+        // TODO: maybe report a general error, not related to the conn or api?
+        return
+    } 
+    if "" != login && "" != password {
+        req.SetBasicAuth(login, password)
+    }
+    resp, err := client.Do(req)
     if err != nil {
         err = fmt.Errorf("%w: %v", connError, err)
         return
@@ -36,11 +44,14 @@ func getRequest(url string) (body []byte, err error) {
 
     body, err = ioutil.ReadAll(resp.Body)
 	
-    if http.StatusOK != resp.StatusCode {
-        err = fmt.Errorf("%w: %v", httpError, resp.StatusCode)
-    } else if err == io.ErrUnexpectedEOF {
+    if io.ErrUnexpectedEOF == err {
+        err = nil // WTF: is this some kind of bug?
+    }
+    
+    if nil != err {
     	err = fmt.Errorf("%w: %v", connError, err)
+    } else if http.StatusOK != resp.StatusCode {
+        err = fmt.Errorf("%w: %v", httpError, resp.StatusCode)
     }
     return
 }
-

@@ -95,10 +95,13 @@ func (svc *Parus) pollDevices(ctx context.Context) {
 func (svc *Parus) queryStatus(dev *Device) {
     var stateClass int64
     
-    svc.RLock()
+    svc.RLock() //>>>>>>>>>>>>>>>>>>>>>>
     url := "http://" + dev.IP + "/upsstatus.xml"
-    svc.RUnlock()
-    xmlFile, err := getRequest(url)
+    login := dev.Login
+    password := dev.password
+    svc.RUnlock() //<<<<<<<<<<<<<<<<<<<
+
+    xmlFile, err := getRequest(url, login, password)
     if nil == err {
         //svc.Log("HTTP ERR:", err)
         data := new(UPSStatus)
@@ -168,8 +171,12 @@ func (svc *Parus) loadDevices() (err error) {
     for i := range devices {
         dev := Device{Device: devices[i]}
         if "" != dev.Data {
-            json.Unmarshal([]byte(dev.Data), &dev.DeviceData) // TODO: handle err
+            err = json.Unmarshal([]byte(dev.Data), &dev.DeviceData)
+            if nil != err {return}
             dev.Data = ""
+            dev.password, err = core.Decrypt(dev.NewPassword)
+            if nil != err {return}
+            dev.NewPassword = ""
         }
         dev.StateClass = api.EC_NA
         svc.devices[dev.Id] = &dev
@@ -186,10 +193,4 @@ func (svc *Parus) setupApi() {
         "ListDevices" : svc.listDevices,
         "DeleteDevice" : svc.deleteDevice,
         "UpdateDevice" : svc.updateDevice})
-}
-
-func catch(err error) {
-    if nil != err {
-        panic(err)
-    }
 }

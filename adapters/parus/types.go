@@ -19,7 +19,9 @@ type Parus struct {
 
 
 type DeviceData struct {
-    IP    string       `json:"ip"`
+    IP          string       `json:"ip"`
+    Login       string       `json:"login"`
+    NewPassword string       `json:"newPassword"`
 }
 
 type Device struct {
@@ -30,6 +32,7 @@ type Device struct {
     StateClass      int64       `json:"stateClass"`
     StateCounter    int64
     StateText       string      `json:"stateText"`
+    password        string
 }
 
 type UPSStatus struct {

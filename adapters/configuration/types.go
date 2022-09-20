@@ -287,6 +287,9 @@ type ConfigAPI interface {
     CompleteShift(userId int64) error
     GetUser(id int64) (*User, error)
     GetUser_for_Axxon(id int64) *User
+
+    Encrypt(text string) (string, error)
+    Decrypt(cipher string) (text string, err error)
 }
 
 type EventFilter struct {
