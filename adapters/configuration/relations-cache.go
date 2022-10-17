@@ -6,9 +6,8 @@ func (cache *RelationsCache) expandParents(userId, parentId int64) (users []int6
     cache.Lock()
     defer cache.Unlock()
 
-    if nil == cache.parents || nil == cache.children {
-        err = cache.cache()
-    }
+    err = cache.prepareCache()
+    if nil != err {return}
     
     return append(cache.parents[parentId], userId, parentId), err
 }
@@ -26,17 +25,22 @@ func (cache *RelationsCache) checkReset(userId int64) {
         cache.children = nil
     }
 }
+
 func (cache *RelationsCache) expandChildren(userId int64) (list []int64, err error) {
     list = []int64{userId}
     children, err := cache.childrenList(userId)
-    if nil != err {
-        return
-    }
-    cache.RLock()
+    if nil != err {return}
+
+    cache.Lock()
+    defer cache.Unlock()
+
+    err = cache.prepareCache()
+    if nil != err {return}
+
     for _, id := range children {
         list = append(list, cache.children[id]...)
     }
-    cache.RUnlock()
+
     list = append(list, children...)
     return
 }
@@ -54,10 +58,14 @@ func (cache *RelationsCache) childrenList(parentId int64) (list []int64, err err
     return
 }
 
-func (cache *RelationsCache) cache() (err error) {
+func (cache *RelationsCache) prepareCache() (err error) {
+    if nil != cache.parents && nil != cache.children {
+        return
+    }
+
+    var userId, parentId int64
     parents := make(map[int64] []int64)
     children := make(map[int64] []int64)
-    var userId, parentId int64
     
     fields := dblayer.Fields{
         "id": &userId,
