@@ -259,14 +259,18 @@ func (cfg *Configuration) deleteBranch(tx *sql.Tx, ids []int64) (err error) {
         all = append(all, userId)
     })
     if nil != err {return}
-    
+
+    if 0 == len(all) {
+        return
+    }
+
     // 2. "delete" sub-groups if needed
     if len(groups) > 0 {
         err = cfg.deleteBranch(tx, groups)
     }
     if nil != err {return}
     
-    // "delete" direct subnodes
+    // "delete" direct subnodes for groups
     fields = dblayer.Fields{"archived": time.Now().Unix()}
     if nil == err {
         _, err = db.Table("users").Seek("archived = 0 AND id", all).Update(tx, fields)
