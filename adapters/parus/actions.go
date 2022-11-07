@@ -8,21 +8,23 @@ import (
 )
 
 func (svc *Parus) resetAlarm(cid int64, data []byte) (interface{}, bool) {
-    var id int64
-    json.Unmarshal(data, &id)
-    //core.DeleteDevice(id)
+    var list []int64
+    var events api.EventsList
+    json.Unmarshal(data, &list)
 
     svc.RLock()
-    defer svc.RUnlock()
-    dev := svc.devices[id]
-    if nil != dev {
-        events := api.EventsList{{
-            ServiceId: svc.Settings.Id,
-            ServiceName: svc.Settings.Title,
-            DeviceId: dev.Id,
-            DeviceName: dev.Name,
-            UserId: cid,
-            Class: api.EC_INFO_ALARM_RESET}}
+    for _, id := range list {
+        dev := svc.devices[id]
+        if nil != dev {
+            events = append(events, api.Event{
+                DeviceId: dev.Id,
+                DeviceName: dev.Name,
+                UserId: cid,
+                Class: api.EC_INFO_ALARM_RESET})
+        }
+    }
+    svc.RUnlock()
+    if len(events) > 0 {
         svc.Broadcast("Events", events)
         return true, true // broadcast
     }
