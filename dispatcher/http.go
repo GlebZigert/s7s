@@ -1,6 +1,7 @@
 package dispatcher
 
 import (
+    "io"
     "log"
     "net"
     "time"
@@ -8,6 +9,7 @@ import (
     "strconv"
     "context"
 	"net/http"
+    "io/ioutil"
     "crypto/md5"
     "encoding/hex"
     "golang.org/x/net/websocket"
@@ -54,6 +56,14 @@ func (dispatcher *Dispatcher) httpServer(ctx context.Context, host string) (err 
 
 
 func (dispatcher *Dispatcher) httpHandler(w http.ResponseWriter, r *http.Request) {
+    defer func () {
+        if nil != r.Body {
+            // should not only to close the body, but also to drain it too!
+            // https://pkg.go.dev/net/http#Client.Do
+            io.Copy(ioutil.Discard, r.Body)
+            r.Body.Close()
+        }
+    }()
     parts := strings.Split(r.URL.Path, "/")
     if len(parts) != 3 {
         http.NotFound(w, r)
@@ -91,14 +101,6 @@ func (dispatcher *Dispatcher) httpHandler(w http.ResponseWriter, r *http.Request
 func (dispatcher *Dispatcher) checkAuth(w http.ResponseWriter, r *http.Request) (httpErrCode int) {
     var ok bool
     var client Client
-
-    //TODO: check why r.BasicAuth() does not work for large content-length
-    if len(r.Header["Content-Length"]) > 0 {
-        contentLength, _ := strconv.ParseInt(r.Header["Content-Length"][0], 10, 64)
-        if "POST" == r.Method && contentLength > 1e4 {
-            return // don't check
-        }
-    }
 
     u, p, ok := r.BasicAuth()
     if !ok {
