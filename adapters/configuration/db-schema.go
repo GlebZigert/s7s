@@ -82,7 +82,7 @@ var tables []string = []string {`
         service_id  INTEGER,
         handle      TEXT,
         name        TEXT,
-        data        TEXT NOT NULL DEFAULT 0
+        data        TEXT NOT NULL DEFAULT ''
     )`,
     `CREATE INDEX IF NOT EXISTS system_handle ON devices (service_id, handle)`,
     // TODO: @password is unused
