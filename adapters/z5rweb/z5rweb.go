@@ -10,7 +10,7 @@ import (
     "context"
     "math/rand"
     "sync/atomic"
-    //"encoding/json"
+    "encoding/json"
     
     "s7server/api"
     "s7server/adapters/configuration"
@@ -221,22 +221,25 @@ func (svc *Z5RWeb) setState(devId, code int64, text, card, dts string) (event ap
 }
 
 func (svc *Z5RWeb) loadDevices() (err error) {
+    var zones []configuration.ExtLink
     svc.devices = make(map[int64] *Device)
     devices, err := core.LoadDevices(svc.Settings.Id)
+    if nil != err {return}
 
-    if nil != err {
-        return
-    }
     for i := range devices {
         dev := Device{Device: devices[i]}
+        if "" != dev.Data {
+            json.Unmarshal([]byte(dev.Data), &dev.DeviceData)
+        }
         dev.Online = false
         dev.States[0].Class = api.EC_LOST
         dev.States[0].Text = api.DescribeClass(dev.States[0].Class)
         dev.States[0].DeviceId = dev.Id
         dev.States[0].DeviceName = dev.Name
-        dev.Zones, err = core.LoadLinks(dev.Id, "device-zone")
-        if nil != err {
-            break
+        zones, err = core.LoadLinks(dev.Id, "device-zone")
+        if nil != err {break}
+        if 2 == len(zones) {
+            dev.Zones = [2]configuration.ExtLink{zones[0], zones[1]}
         }
         svc.Lock()
         svc.devices[dev.Id] = &dev

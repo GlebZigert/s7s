@@ -116,29 +116,33 @@ func (svc *Z5RWeb) listDevices(cid int64, data []byte) (interface{}, bool) {
 func (svc *Z5RWeb) updateDevice(cid int64, data []byte) (interface{}, bool) {
     device := new(Device)
     json.Unmarshal(data, device) // TODO: handle err
-    //svc.dbUpdateDevice(device)
-    //svc.Log(device)
+
+    svc.RLock()
+    dev := svc.devices[device.Id]
+    svc.RUnlock()
+
+    if nil == dev {
+        return apiErr("Устройство удалено или отсутствует в системе.")
+    }
+
+    err := core.SaveDevice(svc.Settings.Id, &device.Device, &device.DeviceData)
+    catch(err)
+
+    svc.Lock()
+    dev.Name        = device.Name
+    dev.InternalCam = device.InternalCam
+    dev.ExternalCam = device.ExternalCam
+    svc.Unlock()
+
+    err = core.SaveLinks(device.Id, "device-zone", device.Zones[:])
+    catch(err)
+
     svc.Lock()
     defer svc.Unlock()
-    dev := svc.devices[device.Id]
-    if nil != dev {
-        name := dev.Name
-        dev.Name = device.Name
-        err := core.SaveDevice(svc.Settings.Id, &dev.Device, nil)
-        if nil != err {
-            dev.Name = name // recover name
-        }
-        catch(err)
-        zones := dev.Zones
-        dev.Zones = device.Zones
-        err = core.SaveLinks(dev.Id, "device-zone", dev.Zones)
-        if nil != err {
-            dev.Zones = zones // recover name
-        }
-        catch(err)
-        return *dev, true // broadcast
-    }
-    return "Устройство не найдено", false // don't broadcast error
+    dev.Zones = device.Zones
+    
+    // TODO: may dev.Zones[] cause race condition during marshalling?
+    return *dev, true // broadcast
 }
 
 func (svc *Z5RWeb) deleteDevice(cid int64, data []byte) (interface{}, bool) {
@@ -153,6 +157,10 @@ func (svc *Z5RWeb) deleteDevice(cid int64, data []byte) (interface{}, bool) {
     svc.Unlock()
     
     return id, true // broadcast
+}
+
+func apiErr(msg string) (*api.ErrorData, bool) {
+    return &api.ErrorData{0, msg}, false
 }
 
 func catch(err error) {

@@ -49,14 +49,14 @@ type Timezone struct { // DB
 }
 
 
-/*type DeviceData struct {
-    InternalZone    int64       `json:"internalZone"`
-    ExternalZone    int64       `json:"externalZone"`
-}*/
+type DeviceData struct {
+    InternalCam    int64       `json:"internalCam"`
+    ExternalCam    int64       `json:"externalCam"`
+}
 
 type Device struct {
     configuration.Device
-    //DeviceData
+    DeviceData
 
     Online          bool            `json:"-"`
     States          [2]api.Event    `json:"states"` // [1] "color" state, [0] - info
@@ -70,7 +70,7 @@ type Device struct {
     Firmware        string      `json:"firmware"`
     ConnFirmware    string      `json:"connFirmware"`
     Protocol        string      `json:"protocol"`
-    Zones           []configuration.ExtLink `json:"zones"`
+    Zones           [2]configuration.ExtLink `json:"zones"`
 }
 
 type DevList []Device // for filtering
