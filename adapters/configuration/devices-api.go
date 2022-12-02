@@ -90,6 +90,7 @@ func (cfg *Configuration) LoadDevices(serviceId int64) (list []Device, err error
     return
 }
 
+// TODO: return err if handle is not specified?
 func (cfg *Configuration) SaveDevice(serviceId int64, dev *Device, data interface{}) (err error) {
     defer func () {cfg.complaints <- de(err, "SaveDevice")}()
     fields := dblayer.Fields {

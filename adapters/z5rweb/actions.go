@@ -114,35 +114,42 @@ func (svc *Z5RWeb) listDevices(cid int64, data []byte) (interface{}, bool) {
 }
 
 func (svc *Z5RWeb) updateDevice(cid int64, data []byte) (interface{}, bool) {
+    var update Device
     device := new(Device)
-    json.Unmarshal(data, device) // TODO: handle err
+    err := json.Unmarshal(data, device)
+    catch(err)
 
     svc.RLock()
     dev := svc.devices[device.Id]
+    if nil != dev {
+        update = *dev
+    }
     svc.RUnlock()
 
     if nil == dev {
         return apiErr("Устройство удалено или отсутствует в системе.")
     }
 
-    err := core.SaveDevice(svc.Settings.Id, &device.Device, &device.DeviceData)
+    update.Name        = device.Name
+    update.InternalCam = device.InternalCam
+    update.ExternalCam = device.ExternalCam
+    err = core.SaveDevice(svc.Settings.Id, &update.Device, &update.DeviceData)
     catch(err)
-
+    
     svc.Lock()
-    dev.Name        = device.Name
-    dev.InternalCam = device.InternalCam
-    dev.ExternalCam = device.ExternalCam
+    dev.Device = update.Device
     svc.Unlock()
 
-    err = core.SaveLinks(device.Id, "device-zone", device.Zones[:])
+    update.Zones = device.Zones
+    err = core.SaveLinks(device.Id, "device-zone", update.Zones[:])
     catch(err)
 
     svc.Lock()
-    defer svc.Unlock()
     dev.Zones = device.Zones
+    ret := *dev // make the copy for marshalling for `return`
+    svc.Unlock()
     
-    // TODO: may dev.Zones[] cause race condition during marshalling?
-    return *dev, true // broadcast
+    return ret, true // broadcast
 }
 
 func (svc *Z5RWeb) deleteDevice(cid int64, data []byte) (interface{}, bool) {
