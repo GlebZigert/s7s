@@ -118,7 +118,6 @@ func (svc *Z5RWeb) updateDevice(cid int64, data []byte) (interface{}, bool) {
     device := new(Device)
     err := json.Unmarshal(data, device)
     catch(err)
-
     svc.RLock()
     dev := svc.devices[device.Id]
     if nil != dev {
@@ -138,6 +137,7 @@ func (svc *Z5RWeb) updateDevice(cid int64, data []byte) (interface{}, bool) {
     
     svc.Lock()
     dev.Device = update.Device
+    dev.DeviceData = update.DeviceData
     svc.Unlock()
 
     update.Zones = device.Zones
