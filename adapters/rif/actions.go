@@ -27,6 +27,10 @@ func (svc *Rif) resetAlarm(cid int64, data []byte) (interface{}, bool) {
                 DeviceName: dev.Name,
                 UserId: cid,
                 Class: api.EC_INFO_ALARM_RESET})
+        } else if 0 == id {
+            events = append(events, api.Event{
+                UserId: cid,
+                Class: api.EC_INFO_ALARM_RESET})
         }
     }
     svc.RUnlock()
