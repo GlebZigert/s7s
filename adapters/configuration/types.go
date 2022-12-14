@@ -296,6 +296,7 @@ type EventFilter struct {
     Start       time.Time   `json:"start"`
     End         time.Time   `json:"end"`
     ServiceId   int64       `json:"serviceId"`
+    DeviceId    int64       `json:"deviceId"`
     UserId      int64       `json:"userId"`
     Limit       int64       `json:"limit"`
     Class       int         `json:"class"`

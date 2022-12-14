@@ -121,11 +121,16 @@ func (cfg *Configuration) loadEvents(filter *EventFilter) (list []api.Event, err
         args = append(args, filter.ServiceId)
     }
     
+    if filter.DeviceId > 0 {
+        cond = append(cond, "e.device_id = ?")
+        args = append(args, filter.DeviceId)
+    }
+    
     if filter.UserId > 0 {
         cond = append(cond, "e.user_id = ?")
         args = append(args, filter.UserId)
     }
-    
+
     if filter.Limit < 100 || filter.Limit > 1000 {
         filter.Limit = 100
     }

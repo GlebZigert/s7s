@@ -160,6 +160,10 @@ var httpHandlers = map[string] func(*Configuration, http.ResponseWriter, *http.R
     if nil != err {return fmt.Errorf("%w: serviceId", argumentError)}
     filter.ServiceId = int64(n)
 
+    n, err = getIntVal(r.Form["deviceId"])
+    if nil != err {return fmt.Errorf("%w: deviceId", argumentError)}
+    filter.DeviceId = int64(n)
+
     n, err = getIntVal(r.Form["userId"])
     if nil != err {return fmt.Errorf("%w: userId", argumentError)}
     filter.UserId = int64(n)
