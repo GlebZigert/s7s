@@ -98,6 +98,8 @@ func (cfg *Configuration) listLocations(cid int64, data []byte) (interface{}, bo
 func (cfg *Configuration) describeEvent(cid int64, data []byte) (interface{}, bool) {
     event := new(api.Event)
     json.Unmarshal(data, &event)
+    event.Reason = strings.TrimSpace(event.Reason)
+    event.Reaction = strings.TrimSpace(event.Reaction)
     // TODO: use err separately from return value?
     if cfg.dbDescribeEvent(event) {
         return event, true // broadcast
