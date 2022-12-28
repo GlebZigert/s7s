@@ -186,7 +186,7 @@ func (svc *Z5RWeb) setState(devId, code int64, text, card, dts string) (event ap
     
     shortCard := strings.TrimLeft(card, "0")
     if "" != shortCard {
-        text += " (#" + shortCard + ")"
+        text += " (" + formatCard(shortCard) + ")"
     }
     
     svc.Lock()
@@ -401,6 +401,12 @@ func (svc *Z5RWeb) getJob(devId int64, usedBytes int) (list []string){
         svc.jobQueue[devId] = svc.jobQueue[devId][1:]
     }
     return
+}
+
+func formatCard(card string) string {
+    key, _ := strconv.ParseInt(card, 16, 64)
+    n := int(key & 0xFFFFFF)
+    return strconv.Itoa(n >> 16) + "," + strconv.Itoa(n & 0xFFFF)
 }
 
 // describe error
