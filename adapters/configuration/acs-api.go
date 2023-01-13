@@ -160,7 +160,7 @@ func (cfg *Configuration) RequestPassage(zoneId int64, card, pin string) (userId
     // 1. find card
     var dbPin string
     key := keyFromCard("#" + card)
-    cfg.Log("Seeking key", key, "for card", card)
+    //cfg.Log("Seeking key", key, "for card", card)
     fields := dblayer.Fields{"user_id": &userId, "pin": &dbPin}
     err = db.Table("cards").Seek("key = ?", key).First(nil, fields)
     if sql.ErrNoRows == err {
