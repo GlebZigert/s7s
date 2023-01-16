@@ -5,7 +5,6 @@ import (
     "fmt"
     "os"
     "time"
-    "strings"
     "strconv"
     "context"
     "math/rand"
@@ -25,6 +24,7 @@ const (
     
     maxWrongPins = 3 //
     wrongPinsInterval = 60 // seconds
+    journalInterval = 7 * time.Second
 )
 
 var core configuration.ConfigAPI
@@ -39,6 +39,10 @@ func (svc *Z5RWeb) Run(_ configuration.ConfigAPI) (err error) {
     
     svc.complaints = make(chan error, 100)
     go svc.ErrChecker(ctx, svc.complaints, api.EC_SERVICE_READY, api.EC_SERVICE_FAILURE)
+    
+    svc.journalLoaded = make(chan int64)
+    go svc.journalMon(ctx)
+
     
     rand.Seed(time.Now().UnixNano())
     svc.nextMessageId = int64(1e6 + rand.Intn(1e6)) // TODO: use timestamp?
@@ -110,52 +114,98 @@ func (svc *Z5RWeb) ZoneCommand(userId, zoneCommand int64, devList []int64) {
         api.EC_NORMAL_ACCESS: 0,
         api.EC_POINT_BLOCKED: 1,
         api.EC_FREE_PASS: 2}
-    svc.Log("ZONE-COMMAND", devList, zoneCommand)
+    //svc.Log("ZONE-COMMAND", devList, zoneCommand)
     for _, devId := range devList {
         if code, ok := modes[zoneCommand]; ok {
             cmd := fmt.Sprintf(`{"deviceId": %d, "command": %d, "argument": %d}`, devId, 370 + code, 0)
-            svc.Log("CMD:", cmd)
+            //svc.Log("CMD:", cmd)
             svc.execCommand(userId, []byte(cmd))
+        }
+    }
+}
+
+func (svc *Z5RWeb) journalNotice(list map[int64]struct{}) {
+    var events api.EventsList
+    var devices []*Device
+
+    svc.RLock()
+    for id := range list {
+        dev := svc.devices[id]
+        if nil != dev {
+            devices = append(devices, dev)
+        }
+    }
+    svc.RUnlock()
+
+    for _, dev := range devices {
+        // INFO: it will never return an error because no user affected (card = "")
+        ev, _ := svc.setState(dev, &Event{Event: EID_EVENTS_LOADED})
+        events = append(events, ev)
+    }
+    if len(events) > 0 {
+        svc.Broadcast("Events", events)
+    }
+}
+
+func (svc *Z5RWeb) journalMon(ctx context.Context) {
+    defer svc.Log("Journal update monitor stopped")
+    list := make(map[int64]struct{})
+    timer := time.NewTimer(0)
+    for nil == ctx.Err() {
+        select {
+            case <-ctx.Done():
+                return
+
+            case id := <-svc.journalLoaded:
+                if 0 == len(list) {
+                    timer.Reset(journalInterval)
+                }
+                list[id] = struct{}{}
+            
+            case <-timer.C:
+                svc.journalNotice(list)
+                list = make(map[int64]struct{})
         }
     }
 }
 
 
 func (svc *Z5RWeb) monitorDevices(ctx context.Context) {
+    defer svc.Log("Devices monitor stopped")
     maxDuration := time.Duration(svc.Settings.KeepAlive * maxLosses + 1) * time.Second
     for svc.Sleep(ctx, maxDuration) {
         var events api.EventsList
-        var offlineDevices []int64
+        var offlineDevices []*Device
         svc.Lock()
         for _, dev := range svc.devices {
             if dev.Online && time.Since(dev.LastSeen) > maxDuration {
                 dev.Online = false
-                offlineDevices = append(offlineDevices, dev.Id)
+                offlineDevices = append(offlineDevices, dev)
             }
         }
         svc.Unlock()
-        //svc.Log("Offline devs:", offlineDevices)
-        for _, devId := range offlineDevices {
+        //svc.Log("Offline devs:", len(offlineDevices))
+        for _, dev := range offlineDevices {
             // INFO: never return error because no user affected (card = "")
-            ev, _ := svc.setState(devId, EID_DEVICE_OFFLINE, "", "", "")
+            ev, _ := svc.setState(dev, &Event{Event: EID_DEVICE_OFFLINE})
             events = append(events, ev)
         }
         if nil != events {
             svc.Broadcast("Events", events)
         }
     }
-    svc.Log("Devices monitor stopped")
 }
 
-func (svc *Z5RWeb) setState(devId, code int64, text, card, dts string) (event api.Event, err error) {
-    var userId, zoneId int64
-    reader := getReader(code)
+func (svc *Z5RWeb) setState(dev *Device, event *Event) (eee api.Event, err error) {
     svc.RLock()
-    dev := svc.devices[devId]
+    devId := dev.Id
     svc.RUnlock()
     
-    userId = svc.getCommandAuthor(devId, code)
-    if 0 == userId && "" != card {
+    reader := getReader(event.Event)
+    card := event.Card
+    userId := svc.getCommandAuthor(devId, event.Event)
+    
+    if 0 == userId && "" != event.Card {
         //TODO: get from cfg by card# ?
         //userId = svc.getLastUser(dev.Id)
         userId, err = core.UserByCard(card)
@@ -167,57 +217,46 @@ func (svc *Z5RWeb) setState(devId, code int64, text, card, dts string) (event ap
             }
         }
     }
-    if nil != err {
-        return
-    }
+    if nil != err {return}
 
-    dt, err := time.ParseInLocation(dateFormat, dts, time.Now().Location())
-    if nil != err {
-        dt = time.Now()
-    }
-    
-    info, _ := evTypes[code]
-    text = info.Text
-    if "" == text {
-        text = "Неизвестное состояние"
-    }
-    
-    //text += " MODE: " + strconv.Itoa(dev.Mode)
-    
-    shortCard := strings.TrimLeft(card, "0")
-    if "" != shortCard {
-        text += " (" + formatCard(shortCard) + ")"
-    }
-    
+    event.Card = card // WARN: input data change!
+    ev := svc.adoptEvent(dev, event)
     svc.Lock()
+    defer svc.Unlock()
+
+    if dev.States[0].Class >= 200 {
+        dev.States[1] = dev.States[0]
+    }
+    ev.UserId = userId
+    dev.States[0] = *ev
+    
+    return dev.States[0], nil
+}
+
+// !!! check devId existance before calling!
+func (svc *Z5RWeb) adoptEvent(dev *Device, event *Event) (eee *api.Event) {
+    var zoneId int64
+    svc.RLock()
+    defer svc.RUnlock()
+
+    dt := parseDateTime(event.Time)
+    text, class := describeEvent(event)
+    reader := getReader(event.Event)
     for i := range dev.Zones {
         if reader == dev.Zones[i][2] {
             zoneId = dev.Zones[i][1]
         }
     }
-    if dev.States[0].Class >= 200 {
-        dev.States[1] = dev.States[0]
+    return &api.Event{
+        ServiceId: svc.Settings.Id,
+        DeviceId: dev.Id,
+        DeviceName: dev.Name,
+        Class: class,
+        Event: event.Event,
+        Text: text,
+        ZoneId: zoneId,
+        Time: dt.Unix(),
     }
-    state := &dev.States[0]
-    state.DeviceName = dev.Name    
-    //state.FromState = dev.State.Event
-    state.Class = info.Class
-    state.Event = code
-    state.Text = text
-    state.UserId = userId
-    state.ZoneId = zoneId
-    state.Time = dt.Unix()
-    svc.Unlock()
-    
-    // extra for EnterZone
-    
-    
-    /*if code == 16 || code == 17 {
-        //state.RelatedDevices = core.SameZoneDevices(dev.Id) // for event filtering
-        core.EnterZone(*state)
-    }*/
-    
-    return dev.States[0], nil
 }
 
 func (svc *Z5RWeb) loadDevices() (err error) {
@@ -246,7 +285,7 @@ func (svc *Z5RWeb) loadDevices() (err error) {
         svc.Unlock()
     }
     //svc.SetTCPStatus("online")
-    svc.Log("::::::::::::::::: DEVICES LOADED !", svc.Settings.Id, len(svc.devices))
+    //svc.Log("::::::::::::::::: DEVICES LOADED !", svc.Settings.Id, len(svc.devices))
     return
 }
 
@@ -269,14 +308,13 @@ func (svc *Z5RWeb) findDevice(handle string) (*Device, int64) {
 
 func (svc *Z5RWeb) appendDevice(dev *Device) (err error) {
     err = core.SaveDevice(svc.Settings.Id, &dev.Device, nil)
-    devId := dev.Id
     dev.States[0].DeviceId = dev.Id
     dev.States[0].DeviceName = dev.Name
     svc.Lock()
     svc.devices[dev.Id] = dev
     svc.Unlock()
     // INFO: it will never return an error because no user affected (card = "")
-    svc.setState(devId, EID_DEVICE_ONLINE, "", "", "")
+    svc.setState(dev, &Event{Event: EID_DEVICE_ONLINE})
     devs, _ := svc.listDevices(0, nil)
     svc.Broadcast("ListDevices", devs)
     return
@@ -387,7 +425,7 @@ func (svc *Z5RWeb) newJob(devId, jobId int64, payload string) {
     svc.Lock()
     svc.jobQueue[devId] = append(svc.jobQueue[devId], payload)
     svc.Unlock()
-    svc.Log("NEW JOB:", payload)
+    //svc.Log("NEW JOB:", payload)
 }
 
 func (svc *Z5RWeb) getJob(devId int64, usedBytes int) (list []string){
@@ -403,10 +441,12 @@ func (svc *Z5RWeb) getJob(devId int64, usedBytes int) (list []string){
     return
 }
 
-func formatCard(card string) string {
-    key, _ := strconv.ParseInt(card, 16, 64)
-    n := int(key & 0xFFFFFF)
-    return strconv.Itoa(n >> 16) + "," + strconv.Itoa(n & 0xFFFF)
+func parseDateTime(dts string) (dt time.Time) {
+    dt, err := time.ParseInLocation(dateFormat, dts, time.Now().Location())
+    if nil != err {
+        dt = time.Now()
+    }
+    return
 }
 
 // describe error

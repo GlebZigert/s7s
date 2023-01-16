@@ -19,6 +19,8 @@ type Z5RWeb struct {
     httpLog  *os.File
     
     complaints      chan error
+    journalLoaded  chan int64
+    
     
     subscription    chan interface{}
     devices         map[int64] *Device
@@ -59,6 +61,7 @@ type Device struct {
     DeviceData
 
     Online          bool            `json:"-"`
+    onlineSince     time.Time       `json:"-"`
     States          [2]api.Event    `json:"states"` // [1] "color" state, [0] - info
 
     AccessMode      int64       `json:"accessMode"` // hint for GUI (user permissions)

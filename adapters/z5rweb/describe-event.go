@@ -1,10 +1,17 @@
 package z5rweb
 
+import (
+    "strings"
+    "strconv"
+)
+
 import "s7server/api"
 
 const (
     EID_DEVICE_ONLINE = 101
     EID_DEVICE_OFFLINE = 102
+    EID_DEVICE_ERROR = 103
+    EID_EVENTS_LOADED = 104
 )
 
 
@@ -62,9 +69,11 @@ var evTypes = map[int64] struct {Class int64; Reader int; Text string} {
     
     // service events
     100: {api.EC_INFO, 0, "Неизвестное состояние"},
-    101: {api.EC_ONLINE, 0, "Соединение установлено"},
-    102: {api.EC_LOST, 0, "Связь потеряна"},
-    103: {api.EC_ERROR, 0, "Обнаружен сбой в работе устройства"}}
+    EID_DEVICE_ONLINE: {api.EC_ONLINE, 0, "Соединение установлено"},
+    EID_DEVICE_OFFLINE: {api.EC_LOST, 0, "Связь потеряна"},
+    EID_DEVICE_ERROR: {api.EC_ERROR, 0, "Обнаружен сбой в работе устройства"},
+    EID_EVENTS_LOADED: {api.EC_INFO, 0, "Переданы события из памяти"},
+}
 
 
 /*func eventClass(code int64) (class int64){
@@ -82,11 +91,17 @@ func getReader(code int64) int64 {
     return int64(info.Reader)
 }
 
-func describeEvent(event *Event) string {
-    var txt string
+func formatCard(card string) string {
+    key, _ := strconv.ParseInt(card, 16, 64)
+    n := int(key & 0xFFFFFF)
+    return strconv.Itoa(n >> 16) + "," + strconv.Itoa(n & 0xFFFF)
+}
+
+func describeEvent(event *Event) (txt string, cls int64) {
     info, ok := evTypes[int64(event.Event)]
     if ok {
-        txt := info.Text
+        txt = info.Text
+        cls = info.Class
         if 21 == event.Event {
             if 0 == event.Flag {
                 txt += "пропало"
@@ -100,10 +115,12 @@ func describeEvent(event *Event) string {
             txt = "Выход: " + txt
         }*/
     } else {
-        txt = "Неизвестный код"
+        txt = "Неизвестное состояние"
+        cls = api.EC_INFO
     }
-    if ""!= event.Card {
-        txt += "(#"+ event.Card + ")"
+    card := strings.TrimLeft(event.Card, "0")
+    if "" != card {
+        txt += " (" + formatCard(card) + ")"
     }
-    return txt
+    return
 }
