@@ -616,7 +616,7 @@ func (svc *Axxon) request_URL(cid int64, data []byte) (interface{}, bool) {
 	*/
 
 	type MyJsonName struct {
-		CameraId  int64  `json:"cameraId"`
+		CameraIdlist  []int64  `json:"cameraId"`
 		Dt        string `json:"dt"`
 		Format_dt string `json:"format_dt"`
 	}
@@ -632,36 +632,51 @@ func (svc *Axxon) request_URL(cid int64, data []byte) (interface{}, bool) {
 
 	}
 
-	cameraId := m_struct.CameraId
+	fmt.Println("m_struct.CameraIdlist: ",m_struct.CameraIdlist," len ", len(m_struct.CameraIdlist))
+
+
+
+	var result []MyJsonName1
+
+
+	for i:=0;i< len(m_struct.CameraIdlist);i++{
+
+
+
+	cameraId := m_struct.CameraIdlist[i]
+	fmt.Println("cameraId: ",cameraId)
 	dt := m_struct.Dt
 	format_dt := m_struct.Format_dt
 
-	//	fmt.Println("cameraId : ",cameraId)
-	//	fmt.Println("dt       : ",dt)
+		fmt.Println("cameraId : ",cameraId)
+		fmt.Println("dt       : ",dt)
 	//	fmt.Println("format_dt: ",format_dt)
 
-	return svc.request_URL_handler(cameraId, dt, format_dt), false
-
+	result=append(result,svc.request_URL_handler(cameraId, dt, format_dt).(MyJsonName1))
+	fmt.Println("profit       : ")
+	}
+//	fmt.Println("m_struct: ",result)
+	return result, false
 }
 
 //----------------------------------------------------------
 func (svc *Axxon) request_URL_handler(cameraId int64, dt, format_dt string) interface{} {
 
-	//fmt.Println("Запрос URL на камеру ", cameraId, " время", dt)
-	/*
-		//fmt.Println("----------------------------")
-		//fmt.Println("")
-		//fmt.Println("")
+	fmt.Println("Запрос URL на камеру ", cameraId, " время", dt)
+	
+		fmt.Println("----------------------------")
+		fmt.Println("")
+		fmt.Println("")
 
-		//fmt.Println("[request_URL_handler]")
-		//fmt.Println("")
-		//fmt.Println("cameraId ",cameraId)
-		//fmt.Println("dt ",dt)
-		//fmt.Println("format_dt ",format_dt)
-		//fmt.Println("")
-		//fmt.Println("")
-		//fmt.Println("----------------------------")
-	*/
+		fmt.Println("[request_URL_handler]")
+		fmt.Println("")
+		fmt.Println("cameraId ",cameraId)
+		fmt.Println("dt ",dt)
+		fmt.Println("format_dt ",format_dt)
+		fmt.Println("")
+		fmt.Println("")
+	//	fmt.Println("----------------------------")
+	
 	//fmt.Println("cameraId: ", cameraId)
 
 	//Найти у себя камеру с таким же Id
@@ -757,18 +772,11 @@ func (svc *Axxon) request_URL_handler(cameraId int64, dt, format_dt string) inte
 	}
 	//fmt.Println("[05]")
 
-	//fmt.Println("storageStream: ",storageStream)
+	fmt.Println("storageStream: ",storageStream)
 
-	type MyJsonName struct {
-		Id                 int64     `json:"id"`
-		LiveStream         string    `json:"liveStream"`
-		StorageStream      string    `json:"storageStream"`
-		Snapshot           string    `json:"snapshot"`
-		TelemetryControlID string    `json:"telemetryControlID"`
-		Intervals          intervals `json:"intervals"`
-	}
 
-	var m_struct []MyJsonName
+
+	var m_struct MyJsonName1
 
 	var mTelemetryControlID string
 
@@ -777,11 +785,13 @@ func (svc *Axxon) request_URL_handler(cameraId int64, dt, format_dt string) inte
 	}
 	//fmt.Println("TelemetryControlID: ",mTelemetryControlID)
 
-	m_struct = append(m_struct, MyJsonName{Id: cameraId, LiveStream: liveStream,
+	m_struct = MyJsonName1{
+		Id: cameraId, 
+		LiveStream: liveStream,
 		StorageStream:      storageStream,
 		Snapshot:           snapshot,
 		TelemetryControlID: mTelemetryControlID,
-		Intervals:          my_intervals})
+		Intervals:          my_intervals}
 
 	//storageStream="http://"+svc.username+":"+svc.password+"@"+svc.ipaddr+":"+svc.port+"/archive/hosts/"+needed_point+
 	//Добываем для этого point  ссылки на живой поток, на архивный поток и стоп кадр по данному времени
@@ -806,13 +816,13 @@ func (svc *Axxon) compare_dt_with_intervals(string_dt string, my_intervals inter
 		val_begin := dt_to_float64(my_intervals.Intervals[i].Begin)
 		val_end := dt_to_float64(my_intervals.Intervals[i].End)
 
-		//		fmt.Println("val_begin ",val_begin)
-		//		fmt.Println("val_dt    ",val_dt)
-		//		fmt.Println("val_end   ",val_end)
+				fmt.Println("val_begin ",val_begin)
+				fmt.Println("val_dt    ",val_dt)
+				fmt.Println("val_end   ",val_end)
 
 		if (val_dt > val_begin) && (val_dt < val_end) {
 
-			//		fmt.Println("PROFIT !!!!!")
+					fmt.Println("PROFIT !!!!!")
 			return true
 		}
 	}

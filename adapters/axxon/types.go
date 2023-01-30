@@ -242,6 +242,15 @@ type intervals struct {
 	More bool `json:"more"`
 }
 
+type MyJsonName1 struct {
+	Id                 int64     `json:"id"`
+	LiveStream         string    `json:"liveStream"`
+	StorageStream      string    `json:"storageStream"`
+	Snapshot           string    `json:"snapshot"`
+	TelemetryControlID string    `json:"telemetryControlID"`
+	Intervals          intervals `json:"intervals"`
+}
+
 type telemetrySession struct {
 	cid      int64  `json:"clientId"`
 	point    string `json:"TelemetryPoint"`
