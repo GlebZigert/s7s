@@ -609,14 +609,14 @@ func (svc *Axxon) get_state(camera *Camera) string {
 
 func (svc *Axxon) request_URL(cid int64, data []byte) (interface{}, bool) {
 
-	/*
+	
 	       svc.Log(" ")
 	   svc.Log("[Request_URL]")
 	       svc.Log(" ")
-	*/
+	
 
 	type MyJsonName struct {
-		videowall int64  `json:"videowall"`
+		Videowall string  `json:"videowall"`
 		CameraIdlist  []int64  `json:"cameraId"`
 		Dt        string `json:"dt"`
 		Format_dt string `json:"format_dt"`
@@ -626,12 +626,15 @@ func (svc *Axxon) request_URL(cid int64, data []byte) (interface{}, bool) {
 
 	str := string(data[:])
 
-	//	fmt.Println("str: ",str)
+		fmt.Println("str: ",str)
 
 	err := json.Unmarshal([]byte(str), &m_struct)
 	if err != nil {
 
 	}
+
+	fmt.Println("m_struc.Videowal: ",m_struct.Videowall)
+
 
 	fmt.Println("m_struct.CameraIdlist: ",m_struct.CameraIdlist," len ", len(m_struct.CameraIdlist))
 
@@ -660,7 +663,7 @@ func (svc *Axxon) request_URL(cid int64, data []byte) (interface{}, bool) {
 
 	result=MyJsonName2{
 
-		Videowall : m_struct.videowall,
+		Videowall : m_struct.Videowall,
 		Data    :     arr}
 
 

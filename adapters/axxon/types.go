@@ -243,7 +243,7 @@ type intervals struct {
 }
 
 type MyJsonName2 struct {
-	Videowall                 int64     `json:"videowall"`
+	Videowall    string           `json:"videowall"`
 	Data         []MyJsonName1    `json:"data"`
 
 }
