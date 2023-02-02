@@ -616,6 +616,7 @@ func (svc *Axxon) request_URL(cid int64, data []byte) (interface{}, bool) {
 	*/
 
 	type MyJsonName struct {
+		videowall int64  `json:"videowall"`
 		CameraIdlist  []int64  `json:"cameraId"`
 		Dt        string `json:"dt"`
 		Format_dt string `json:"format_dt"`
@@ -636,8 +637,9 @@ func (svc *Axxon) request_URL(cid int64, data []byte) (interface{}, bool) {
 
 
 
-	var result []MyJsonName1
 
+	var result MyJsonName2
+	var arr []MyJsonName1
 
 	for i:=0;i< len(m_struct.CameraIdlist);i++{
 
@@ -652,9 +654,17 @@ func (svc *Axxon) request_URL(cid int64, data []byte) (interface{}, bool) {
 		fmt.Println("dt       : ",dt)
 	//	fmt.Println("format_dt: ",format_dt)
 
-	result=append(result,svc.request_URL_handler(cameraId, dt, format_dt).(MyJsonName1))
+	arr=append(arr,svc.request_URL_handler(cameraId, dt, format_dt).(MyJsonName1))
 	fmt.Println("profit       : ")
 	}
+
+	result=MyJsonName2{
+
+		Videowall : m_struct.videowall,
+		Data    :     arr}
+
+
+
 //	fmt.Println("m_struct: ",result)
 	return result, false
 }

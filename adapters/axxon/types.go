@@ -242,6 +242,12 @@ type intervals struct {
 	More bool `json:"more"`
 }
 
+type MyJsonName2 struct {
+	Videowall                 int64     `json:"videowall"`
+	Data         []MyJsonName1    `json:"data"`
+
+}
+
 type MyJsonName1 struct {
 	Id                 int64     `json:"id"`
 	LiveStream         string    `json:"liveStream"`
