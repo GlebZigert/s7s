@@ -1041,10 +1041,11 @@ func (svc *Axxon) request_intervals(cid int64, data []byte) (interface{}, bool) 
 
 	}
 	type MyJsonName struct {
+		Id int64 "json: id"
 		Intervals intervals `json:"intervals"`
 	}
 	var m_struct []MyJsonName
-	m_struct = append(m_struct, MyJsonName{Intervals: res})
+	m_struct = append(m_struct, MyJsonName{Id: id, Intervals: res})
 
 	return m_struct, false
 
