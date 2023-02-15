@@ -178,12 +178,13 @@ func (svc *Z5RWeb) logDevice(dType string, sn int64) (err error) {
     defer func () {svc.complaints <- de(err, "LogDevice")}()
     //var events api.EventsList
     handle := svc.makeHandle(dType, sn)
-    dev, devId := svc.findDevice(handle)
+    dev, _ := svc.findDevice(handle)
     if nil != dev {
         var notify bool
         svc.Lock()
         if !dev.Online {
             dev.Online = true
+            dev.onlineSince = time.Now()
             notify = true
         }
         device := dev.Device // copy for further usage
@@ -192,7 +193,7 @@ func (svc *Z5RWeb) logDevice(dType string, sn int64) (err error) {
         err = core.TouchDevice(svc.Settings.Id, &device) // TODO: restore it
         if notify {
             // INFO: it will never return an error because no user affected (card = "")
-            ev, _ := svc.setState(devId, EID_DEVICE_ONLINE, "", "", "")
+            ev, _ := svc.setState(dev, &Event{Event: EID_DEVICE_ONLINE})
             svc.Broadcast("Events", api.EventsList{ev})
         }
         
@@ -245,7 +246,7 @@ func (svc *Z5RWeb) checkAccess(dType string, sn int64, msg *Message) (res interf
         } else {
             // analyze passage attempt results
             event := mapEventCode(msg.Reader, errCode)
-            ev, err = svc.setState(devId, event, "", msg.Card, "")
+            ev, err = svc.setState(dev, &Event{Event: event, Card: msg.Card})
             if nil != err {
                 return
             }
@@ -253,7 +254,7 @@ func (svc *Z5RWeb) checkAccess(dType string, sn int64, msg *Message) (res interf
 
             if api.ACS_WRONG_PIN == errCode {
                 if svc.logWrongPin(card) {
-                    ev, err = svc.setState(devId, 64 + int64(msg.Reader) - 1, "", card, "")
+                    ev, err = svc.setState(dev, &Event{Event: 64 + int64(msg.Reader) - 1, Card: card})
                     if nil != err {
                         return
                     }
@@ -380,17 +381,12 @@ func (svc *Z5RWeb) handlePowerOn(dType string, sn int64, msg *Message) (ret inte
     if nil != err {
         return
     }
-    
-    online := 1
-    /*if msg.Mode > 0 {
-        online = 0
-    }*/
-    
+
     ret = &SetActiveCmd {
         Id: svc.getMessageId(),
         Operation: "set_active",
         Active: 1,
-        Online: online}
+        Online: 1}
     
     //svc.Log("##### SET ACT ####", ret)
     return
@@ -406,25 +402,41 @@ func (svc *Z5RWeb) handleEvents(dType string, sn int64, msg *Message) (res inter
         return
     }
     var ev api.Event
+    
+    svc.RLock()
+    onlineSince := dev.onlineSince
+    svc.RUnlock()
+    
     events := make(api.EventsList, 0, len(msg.Events))
+    journal := make(api.EventsList, 0, len(msg.Events))
     for _, event := range msg.Events {
-        text := describeEvent(&event)
-        if !svc.ignoredEvent(event.Card, event.Event) {
-            ev, err = svc.setState(devId, event.Event, text, event.Card, event.Time)
-            if nil != err {
-                break
+        dt := parseDateTime(event.Time)
+        if dt.After(onlineSince) {
+            if !svc.ignoredEvent(event.Card, event.Event) {
+                ev, err = svc.setState(dev, &event)
+                if nil != err {
+                    break
+                }
+                events = append(events, ev)
             }
-            events = append(events, ev)
+        } else {
+            journal = append(journal, *svc.adoptEvent(dev, &event))
         }
-        
     }
     if nil != err {
         return
     }
+    //svc.Log("Import", len(journal), "events, broadcast", len(events))
     // broadcast
     if len(events) > 0 { // skip ignored
         svc.Broadcast("Events", events)
     }
+    if len(journal) > 0 {
+        //svc.Log(journal)
+        err = core.ImportEvents(journal)
+        svc.journalLoaded <- devId
+    }
+    if nil != err {return}
     return EventReply {
         Id: svc.getMessageId(),
         Operation: "events",
