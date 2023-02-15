@@ -423,8 +423,34 @@ func (svc *Axxon) get_intervals_from(camera *Camera) intervals {
 		archive := m_archive.Archives[i].Name
 
 		var src string
-		src, _ = svc.request_to_axxon("archive/contents/intervals/" + strings.Replace(point, "hosts/", "", 1) + "/past/future?archive=" + archive)
-		//fmt.Println("src: ",src)
+		old_t := time.Now()
+		t:=old_t.Add(-10*time.Second)
+		t=t.Add(-3*time.Hour)		
+
+		fmt.Println(old_t.Format("20060102"))
+
+		fmt.Println(t.Format("2006-01-02 15:04:05"))
+
+
+
+
+
+		
+		fmt.Println("dcurrent_dt: ",old_t.Format("20060102150405"))
+		fmt.Println("dcurrent_dt: ",t.Format("20060102150405"))
+
+		cdt:=t.Format("20060102150405")
+		lcl:=cdt
+		cdt=lcl[:8]+"T"+lcl[8:]
+
+	
+
+		src, _ = svc.request_to_axxon("archive/contents/intervals/" + strings.Replace(point, "hosts/", "", 1) + "/past/"+cdt+"?archive=" + archive)
+
+		//src, _ = svc.request_to_axxon("archive/contents/intervals/" + strings.Replace(point, "hosts/", "", 1) + "/past/future?archive=" + archive)
+	
+
+		fmt.Println("src: ",src)
 
 		var m_struct intervals
 
@@ -752,6 +778,8 @@ func (svc *Axxon) request_URL_handler(cameraId int64, dt, format_dt string) inte
 	//fmt.Println("len(dt) ",len(dt))
 
 	var my_intervals intervals
+
+	
 	my_intervals = svc.get_intervals_from(&needed_camera)
 	//fmt.Println("len(dt) ",len(dt))
 	if dt != "" && dt != "undefined" {
@@ -833,7 +861,7 @@ func (svc *Axxon) compare_dt_with_intervals(string_dt string, my_intervals inter
 				fmt.Println("val_dt    ",val_dt)
 				fmt.Println("val_end   ",val_end)
 
-		if (val_dt > val_begin) && (val_dt < val_end) {
+		if (val_dt > val_begin) && (val_dt <= val_end) {
 
 					fmt.Println("PROFIT !!!!!")
 			return true
