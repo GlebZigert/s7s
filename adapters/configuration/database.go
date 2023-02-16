@@ -23,7 +23,6 @@ import (
 )
 
 const (
-    dbMaxBackups = 10
     timestampLayout = "20060102150405"
 )
 
@@ -182,7 +181,7 @@ func (cfg *Configuration) backupDatabase(minInterval time.Duration) (err error) 
 
     // 3. clean old databases
     for i, fn := range dbList {
-        if i >= dbMaxBackups - 1 {
+        if i >= maxDBBackups - 1 {
             err = os.Remove(fn)
             if nil != err {return}
         }
