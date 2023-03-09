@@ -427,17 +427,17 @@ func (svc *Axxon) get_intervals_from(camera *Camera) intervals {
 		t:=old_t.Add(-10*time.Second)
 		t=t.Add(-3*time.Hour)		
 
-		fmt.Println(old_t.Format("20060102"))
+	//	fmt.Println(old_t.Format("20060102"))
 
-		fmt.Println(t.Format("2006-01-02 15:04:05"))
+	//	fmt.Println(t.Format("2006-01-02 15:04:05"))
 
 
 
 
 
 		
-		fmt.Println("dcurrent_dt: ",old_t.Format("20060102150405"))
-		fmt.Println("dcurrent_dt: ",t.Format("20060102150405"))
+	//	fmt.Println("dcurrent_dt: ",old_t.Format("20060102150405"))
+	//	fmt.Println("dcurrent_dt: ",t.Format("20060102150405"))
 
 		cdt:=t.Format("20060102150405")
 		lcl:=cdt
@@ -450,7 +450,7 @@ func (svc *Axxon) get_intervals_from(camera *Camera) intervals {
 		//src, _ = svc.request_to_axxon("archive/contents/intervals/" + strings.Replace(point, "hosts/", "", 1) + "/past/future?archive=" + archive)
 	
 
-		fmt.Println("src: ",src)
+	//	fmt.Println("src: ",src)
 
 		var m_struct intervals
 
@@ -857,13 +857,13 @@ func (svc *Axxon) compare_dt_with_intervals(string_dt string, my_intervals inter
 		val_begin := dt_to_float64(my_intervals.Intervals[i].Begin)
 		val_end := dt_to_float64(my_intervals.Intervals[i].End)
 
-				fmt.Println("val_begin ",val_begin)
-				fmt.Println("val_dt    ",val_dt)
-				fmt.Println("val_end   ",val_end)
+			//	fmt.Println("val_begin ",val_begin)
+			//	fmt.Println("val_dt    ",val_dt)
+			//	fmt.Println("val_end   ",val_end)
 
 		if (val_dt > val_begin) && (val_dt <= val_end) {
 
-					fmt.Println("PROFIT !!!!!")
+			//		fmt.Println("PROFIT !!!!!")
 			return true
 		}
 	}
