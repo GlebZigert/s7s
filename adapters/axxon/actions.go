@@ -423,8 +423,34 @@ func (svc *Axxon) get_intervals_from(camera *Camera) intervals {
 		archive := m_archive.Archives[i].Name
 
 		var src string
-		src, _ = svc.request_to_axxon("archive/contents/intervals/" + strings.Replace(point, "hosts/", "", 1) + "/past/future?archive=" + archive)
-		//fmt.Println("src: ",src)
+		old_t := time.Now()
+		t:=old_t.Add(-10*time.Second)
+		t=t.Add(-3*time.Hour)		
+
+	//	fmt.Println(old_t.Format("20060102"))
+
+	//	fmt.Println(t.Format("2006-01-02 15:04:05"))
+
+
+
+
+
+		
+	//	fmt.Println("dcurrent_dt: ",old_t.Format("20060102150405"))
+	//	fmt.Println("dcurrent_dt: ",t.Format("20060102150405"))
+
+		cdt:=t.Format("20060102150405")
+		lcl:=cdt
+		cdt=lcl[:8]+"T"+lcl[8:]
+
+	
+
+		src, _ = svc.request_to_axxon("archive/contents/intervals/" + strings.Replace(point, "hosts/", "", 1) + "/past/"+cdt+"?archive=" + archive)
+
+		//src, _ = svc.request_to_axxon("archive/contents/intervals/" + strings.Replace(point, "hosts/", "", 1) + "/past/future?archive=" + archive)
+	
+
+	//	fmt.Println("src: ",src)
 
 		var m_struct intervals
 
@@ -609,14 +635,15 @@ func (svc *Axxon) get_state(camera *Camera) string {
 
 func (svc *Axxon) request_URL(cid int64, data []byte) (interface{}, bool) {
 
-	/*
+	
 	       svc.Log(" ")
 	   svc.Log("[Request_URL]")
 	       svc.Log(" ")
-	*/
+	
 
 	type MyJsonName struct {
-		CameraId  int64  `json:"cameraId"`
+		Videowall string  `json:"videowall"`
+		CameraIdlist  []int64  `json:"cameraId"`
 		Dt        string `json:"dt"`
 		Format_dt string `json:"format_dt"`
 	}
@@ -625,43 +652,70 @@ func (svc *Axxon) request_URL(cid int64, data []byte) (interface{}, bool) {
 
 	str := string(data[:])
 
-	//	fmt.Println("str: ",str)
+		fmt.Println("str: ",str)
 
 	err := json.Unmarshal([]byte(str), &m_struct)
 	if err != nil {
 
 	}
 
-	cameraId := m_struct.CameraId
+	fmt.Println("m_struc.Videowal: ",m_struct.Videowall)
+
+
+	fmt.Println("m_struct.CameraIdlist: ",m_struct.CameraIdlist," len ", len(m_struct.CameraIdlist))
+
+
+
+
+	var result MyJsonName2
+	var arr []MyJsonName1
+
+	for i:=0;i< len(m_struct.CameraIdlist);i++{
+
+
+
+	cameraId := m_struct.CameraIdlist[i]
+	fmt.Println("cameraId: ",cameraId)
 	dt := m_struct.Dt
 	format_dt := m_struct.Format_dt
 
-	//	fmt.Println("cameraId : ",cameraId)
-	//	fmt.Println("dt       : ",dt)
+		fmt.Println("cameraId : ",cameraId)
+		fmt.Println("dt       : ",dt)
 	//	fmt.Println("format_dt: ",format_dt)
 
-	return svc.request_URL_handler(cameraId, dt, format_dt), false
+	arr=append(arr,svc.request_URL_handler(cameraId, dt, format_dt).(MyJsonName1))
+	fmt.Println("profit       : ")
+	}
 
+	result=MyJsonName2{
+
+		Videowall : m_struct.Videowall,
+		Data    :     arr}
+
+
+
+//	fmt.Println("m_struct: ",result)
+	return result, false
 }
 
 //----------------------------------------------------------
 func (svc *Axxon) request_URL_handler(cameraId int64, dt, format_dt string) interface{} {
 
-	//fmt.Println("Запрос URL на камеру ", cameraId, " время", dt)
-	/*
-		//fmt.Println("----------------------------")
-		//fmt.Println("")
-		//fmt.Println("")
+	fmt.Println("Запрос URL на камеру ", cameraId, " время", dt)
+	
+		fmt.Println("----------------------------")
+		fmt.Println("")
+		fmt.Println("")
 
-		//fmt.Println("[request_URL_handler]")
-		//fmt.Println("")
-		//fmt.Println("cameraId ",cameraId)
-		//fmt.Println("dt ",dt)
-		//fmt.Println("format_dt ",format_dt)
-		//fmt.Println("")
-		//fmt.Println("")
-		//fmt.Println("----------------------------")
-	*/
+		fmt.Println("[request_URL_handler]")
+		fmt.Println("")
+		fmt.Println("cameraId ",cameraId)
+		fmt.Println("dt ",dt)
+		fmt.Println("format_dt ",format_dt)
+		fmt.Println("")
+		fmt.Println("")
+	//	fmt.Println("----------------------------")
+	
 	//fmt.Println("cameraId: ", cameraId)
 
 	//Найти у себя камеру с таким же Id
@@ -724,6 +778,8 @@ func (svc *Axxon) request_URL_handler(cameraId int64, dt, format_dt string) inte
 	//fmt.Println("len(dt) ",len(dt))
 
 	var my_intervals intervals
+
+	
 	my_intervals = svc.get_intervals_from(&needed_camera)
 	//fmt.Println("len(dt) ",len(dt))
 	if dt != "" && dt != "undefined" {
@@ -757,18 +813,11 @@ func (svc *Axxon) request_URL_handler(cameraId int64, dt, format_dt string) inte
 	}
 	//fmt.Println("[05]")
 
-	//fmt.Println("storageStream: ",storageStream)
+	fmt.Println("storageStream: ",storageStream)
 
-	type MyJsonName struct {
-		Id                 int64     `json:"id"`
-		LiveStream         string    `json:"liveStream"`
-		StorageStream      string    `json:"storageStream"`
-		Snapshot           string    `json:"snapshot"`
-		TelemetryControlID string    `json:"telemetryControlID"`
-		Intervals          intervals `json:"intervals"`
-	}
 
-	var m_struct []MyJsonName
+
+	var m_struct MyJsonName1
 
 	var mTelemetryControlID string
 
@@ -777,11 +826,13 @@ func (svc *Axxon) request_URL_handler(cameraId int64, dt, format_dt string) inte
 	}
 	//fmt.Println("TelemetryControlID: ",mTelemetryControlID)
 
-	m_struct = append(m_struct, MyJsonName{Id: cameraId, LiveStream: liveStream,
+	m_struct = MyJsonName1{
+		Id: cameraId, 
+		LiveStream: liveStream,
 		StorageStream:      storageStream,
 		Snapshot:           snapshot,
 		TelemetryControlID: mTelemetryControlID,
-		Intervals:          my_intervals})
+		Intervals:          my_intervals}
 
 	//storageStream="http://"+svc.username+":"+svc.password+"@"+svc.ipaddr+":"+svc.port+"/archive/hosts/"+needed_point+
 	//Добываем для этого point  ссылки на живой поток, на архивный поток и стоп кадр по данному времени
@@ -806,11 +857,11 @@ func (svc *Axxon) compare_dt_with_intervals(string_dt string, my_intervals inter
 		val_begin := dt_to_float64(my_intervals.Intervals[i].Begin)
 		val_end := dt_to_float64(my_intervals.Intervals[i].End)
 
-		//		fmt.Println("val_begin ",val_begin)
-		//		fmt.Println("val_dt    ",val_dt)
-		//		fmt.Println("val_end   ",val_end)
+			//	fmt.Println("val_begin ",val_begin)
+			//	fmt.Println("val_dt    ",val_dt)
+			//	fmt.Println("val_end   ",val_end)
 
-		if (val_dt > val_begin) && (val_dt < val_end) {
+		if (val_dt > val_begin) && (val_dt <= val_end) {
 
 			//		fmt.Println("PROFIT !!!!!")
 			return true
@@ -1018,10 +1069,11 @@ func (svc *Axxon) request_intervals(cid int64, data []byte) (interface{}, bool) 
 
 	}
 	type MyJsonName struct {
+		Id int64 "json: id"
 		Intervals intervals `json:"intervals"`
 	}
 	var m_struct []MyJsonName
-	m_struct = append(m_struct, MyJsonName{Intervals: res})
+	m_struct = append(m_struct, MyJsonName{Id: id, Intervals: res})
 
 	return m_struct, false
 
