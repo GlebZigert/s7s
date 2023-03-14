@@ -44,11 +44,13 @@ type User struct {
     Password    string      `json:"password"`
     Token       string      `json:"token"` // session token (temp password)
     //NewPassword string      `json:"newPassword"` // input from extrenal form
+    Settings    string      `json:"settings"` // settings list in JSON format
+    
     Cards       []string    `json:"cards"`
     
     Zones       []ExtLink   `json:"zones"`      //  [0, zone_id, rule_id]
     Devices     []ExtLink   `json:"devices"`    // [] scope_id : device_id
-    // frontend error reportion
+    // frontend error reporting
     Warnings    []string    `json:"warnings"`    // warning messages
     Errors      []string    `json:"errors"`    // warning messages
 }

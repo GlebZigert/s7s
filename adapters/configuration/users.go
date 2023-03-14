@@ -165,6 +165,7 @@ func (cfg *Configuration) dbUpdateUser(user *User, filter map[string] interface{
         "rank":         user.Rank,
         "organization": user.Organization,
         "position":     user.Position,
+        "settings":     user.Settings,
         "login": user.Login}
 
     if nil != filter {
@@ -331,7 +332,9 @@ func (cfg *Configuration) loadUsers() (list []User, err error) {
         "rank":         &user.Rank,
         "organization": &user.Organization,
         "position":     &user.Position,
-        "login":        &user.Login}
+        "login":        &user.Login,
+        "settings":     &user.Settings,
+    }
 
     err = db.Table("users").Seek("archived = 0").Rows(nil, fields).Each(func() {
         list = append(list, *user)
@@ -369,7 +372,9 @@ func (cfg *Configuration) GetUser(id int64) (user *User, err error) {
         "rank":         &user.Rank,
         "organization": &user.Organization,
         "position":     &user.Position,
-        "login":        &user.Login}
+        "login":        &user.Login,
+        "settings":     &user.Settings,
+    }
 
     err = db.Table("users").Seek("archived = 0 AND id = ?", id).First(nil, fields)
     if nil != err {

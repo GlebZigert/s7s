@@ -24,6 +24,7 @@ var tableUpdates []string = []string {
     //"ALTER TABLE events ADD COLUMN zone_id INTEGER NOT NULL DEFAULT 0",
     //"ALTER TABLE zones ADD COLUMN max_visitors INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE cards ADD COLUMN key INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE users ADD COLUMN settings TEXT NOT NULL DEFAULT ''",
 }
 
 var tables []string = []string {`
@@ -102,6 +103,7 @@ var tables []string = []string {`
         login           TEXT NOT NULL DEFAULT '',
         token           TEXT NOT NULL DEFAULT '',
         salt            TEXT NOT NULL DEFAULT '',
+        settings        TEXT NOT NULL DEFAULT '',
         photo           BLOB
     )`,`
     CREATE TABLE IF NOT EXISTS cards (
