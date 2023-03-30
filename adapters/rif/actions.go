@@ -52,9 +52,9 @@ func (svc *Rif) commandXML(devId, command int64) (xml string) {
     xml = fmt.Sprintf(`<RIFPlusPacket type="Commands">
         <Commands>
             <Command id="%d"/>
-            <device id="%d" level="%d" type="%d" num1="%d" num2="%d" num3="%d" />
+            <device id="%d" level="%d" type="%d" num1="%d" num2="%d" num3="%d" ip="%s"/>
         </Commands></RIFPlusPacket>`,
-        command, d.Order, d.Level, d.Type, d.Num[0], d.Num[1], d.Num[2])    
+        command, d.Order, d.Level, d.Type, d.Num[0], d.Num[1], d.Num[2], d.Ip)
     return
 }
 

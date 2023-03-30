@@ -490,8 +490,7 @@ func (dispatcher *Dispatcher) preprocessQuery(userId *int64, ws *websocket.Conn,
         switch q.Action {
             case "ListServices": // services with statuses
                 var list []api.Settings
-                dispatcher.RLock()
-                for _, service := range dispatcher.services {
+                for _, service := range dispatcher.allServices() {
                     settings := service.GetSettings()
                     if 0 != settings.Id {
                         idList := service.GetList()
@@ -506,7 +505,6 @@ func (dispatcher *Dispatcher) preprocessQuery(userId *int64, ws *websocket.Conn,
                         }
                     }
                 }
-                dispatcher.RUnlock()
                 return list
 
             case "ChangeUser":
@@ -537,19 +535,17 @@ func (dispatcher *Dispatcher) doZoneCommand(userId, zoneId, command int64) {
     services := make(map[int64]ManageableZones)
     var devices []int64
     sNames := make(map[int64] string)
-    dispatcher.RLock()
-    for i := range dispatcher.services {
-        inter, ok := dispatcher.services[i].(ManageableZones)
+    for _, service := range dispatcher.allServices() {
+        zAPI, ok := service.(ManageableZones)
         if ok {
-            s := dispatcher.services[i].GetSettings()
+            s := service.GetSettings()
             sNames[s.Id] = s.Title
-            services[i] = inter
-            if d := inter.GetList(); len(d) > 0 {
+            services[s.Id] = zAPI
+            if d := zAPI.GetList(); len(d) > 0 {
                 devices = append(devices, d...)
             }
         }
     }
-    dispatcher.RUnlock()
 
     devMap := core.ZoneDevices(zoneId, userId, devices)
     if nil == devMap {
@@ -623,6 +619,18 @@ func (dispatcher *Dispatcher) deleteService(data interface{}) {
 
     dispatcher.shutdownService(id)
 }
+
+// returns copy of active services
+func (dispatcher *Dispatcher) allServices() []Service {
+    dispatcher.RLock()
+    defer dispatcher.RUnlock()
+    svc := make([]Service, 0, len(dispatcher.services))
+    for i := range dispatcher.services {
+        svc = append(svc, dispatcher.services[i])
+    }
+    return svc
+}
+
 
 // formatRequest generates ascii representation of a request
 /*

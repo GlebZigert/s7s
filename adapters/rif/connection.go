@@ -6,6 +6,7 @@ import (
 	"bufio"
 //	"fmt"
 	"log"
+    "errors"
     "regexp"
     "context"
 	"encoding/xml"
@@ -15,8 +16,10 @@ import (
 //	"golang.org/x/net/html/charset"
 )
 
-const reconnectInterval = 5 // seconds
+const reconnectInterval = 5 * time.Second
+const waitTree = 5 * time.Second
 var rifPacketRE = regexp.MustCompile(`<RIFPlusPacket[^>]*?/>`)
+var noTreeErr = errors.New("Tree not arrived at specified time")
 
 func (rif *Rif) connect(ctx context.Context) {
     //var lastTryTime time.Time
@@ -26,7 +29,7 @@ func (rif *Rif) connect(ctx context.Context) {
 	host := rif.Settings.Host
 	newTry := true
     waitKeepAlive := false // wait for service's "KeepAlive" replies
-    
+    treeRequestAt := time.Time{}
     listCommand := `<RIFPlusPacket type="Commands"><Commands><Command id="0"/><Command id="10000"/></Commands></RIFPlusPacket>`
     
     var err error
@@ -36,7 +39,7 @@ func (rif *Rif) connect(ctx context.Context) {
                 rif.Warn("External service problem:", err)
                 rif.SetServiceStatus(api.EC_SERVICE_ERROR, api.EC_SERVICE_OFFLINE)
             }
-            rif.Sleep(ctx, reconnectInterval * time.Second)
+            rif.Sleep(ctx, reconnectInterval)
         }
         if newTry {
             rif.Log("Trying to connect to", host)
@@ -67,17 +70,21 @@ func (rif *Rif) connect(ctx context.Context) {
 		
 		netReader := bufio.NewReader(conn)
         rif.SendCommand(listCommand)
+        treeRequestAt = time.Now()
         rif.queryEventsChan <-0
 
         var message, packet string
         for nil == err {
-            //conn.SetReadDeadline(time.Now().Add(time.Duration(keepAlive) * time.Second))
             if waitKeepAlive {
                 next := time.Duration(2 + rif.Settings.KeepAlive) * time.Second
                 conn.SetReadDeadline(time.Now().Add(next))
             }
             packet, err = netReader.ReadString('>')
             if err == nil { // io.EOF
+                if !treeRequestAt.IsZero() && time.Since(treeRequestAt) > waitTree {
+                    err = noTreeErr
+                    continue
+                }
                 message += packet
                 //if strings.Index(packet, "</RIFPlusPacket>") >= 0 {
                 if strings.Index(packet, "</RIFPlusPacket>") >= 0 || rifPacketRE.MatchString(packet) {
@@ -89,7 +96,7 @@ func (rif *Rif) connect(ctx context.Context) {
                     err = xml.Unmarshal([]byte(message), &p)
                     if nil == err {
                         switch p.Type {
-                            case "InitialStatus": err = rif.populate(p.Devices)
+                            case "InitialStatus": treeRequestAt = time.Time{}; err = rif.populate(p.Devices)
                             case "EventsAndStates": rif.update(p.Devices)
                             case "ListJourRecord": rif.scanJourEvents(p.Events)
                             case "KeepAlive": waitKeepAlive = true // use new protocol version

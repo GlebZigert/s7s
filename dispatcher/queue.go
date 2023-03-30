@@ -191,13 +191,16 @@ func (dispatcher *Dispatcher) scanAlgorithms(events api.EventsList) {
 
 
 func (dispatcher *Dispatcher) visibleServices(userId int64, svcList []int64) (list map[int64]struct{}, err error) {
-    dispatcher.RLock()
-    defer dispatcher.RUnlock()
     list = make(map[int64]struct{})
     var filter map[int64] int64
     for _, id := range svcList {
         if 0 == id {continue}
-        if service, ok := dispatcher.services[id]; ok {
+
+        dispatcher.RLock()
+        service, ok := dispatcher.services[id]
+        dispatcher.RUnlock()
+
+        if ok {
             idList := service.GetList()
             filter, err = core.Authorize(userId, idList)
             if nil != err {return}

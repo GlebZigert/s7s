@@ -42,11 +42,12 @@ type Device struct {
 	Name       string   `json:"name"`
 	Num        [3]int   `json:"num"`
     Ip         string   `json:"ip"`
-    Ip2        string   `json:"ip"`
+    Ip2        string   `json:"ip2"`
     Login      string   `json:"login"`
     Password   string   `json:"password"`
     Option     int 	    `json:"option"`
     Dk         int 	    `json:"dk"`
+    Links      []int64  `json:"links"`
 	States 	   [2]State `json:"states"`
 }
 

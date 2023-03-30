@@ -1,0 +1,341 @@
+diff --git a/adapters/rif/actions.go b/adapters/rif/actions.go
+index 876d68f..72da61b 100644
+--- a/adapters/rif/actions.go
++++ b/adapters/rif/actions.go
+@@ -52,9 +52,9 @@ func (svc *Rif) commandXML(devId, command int64) (xml string) {
+     xml = fmt.Sprintf(`<RIFPlusPacket type="Commands">
+         <Commands>
+             <Command id="%d"/>
+-            <device id="%d" level="%d" type="%d" num1="%d" num2="%d" num3="%d" />
++            <device id="%d" level="%d" type="%d" num1="%d" num2="%d" num3="%d" ip="%s"/>
+         </Commands></RIFPlusPacket>`,
+-        command, d.Order, d.Level, d.Type, d.Num[0], d.Num[1], d.Num[2])    
++        command, d.Order, d.Level, d.Type, d.Num[0], d.Num[1], d.Num[2], d.Ip)
+     return
+ }
+ 
+diff --git a/adapters/rif/connection.go b/adapters/rif/connection.go
+index e9267b7..cb128f3 100644
+--- a/adapters/rif/connection.go
++++ b/adapters/rif/connection.go
+@@ -6,6 +6,7 @@ import (
+ 	"bufio"
+ //	"fmt"
+ 	"log"
++    "errors"
+     "regexp"
+     "context"
+ 	"encoding/xml"
+@@ -15,8 +16,10 @@ import (
+ //	"golang.org/x/net/html/charset"
+ )
+ 
+-const reconnectInterval = 5 // seconds
++const reconnectInterval = 5 * time.Second
++const waitTree = 5 * time.Second
+ var rifPacketRE = regexp.MustCompile(`<RIFPlusPacket[^>]*?/>`)
++var noTreeErr = errors.New("Tree not arrived at specified time")
+ 
+ func (rif *Rif) connect(ctx context.Context) {
+     //var lastTryTime time.Time
+@@ -26,7 +29,7 @@ func (rif *Rif) connect(ctx context.Context) {
+ 	host := rif.Settings.Host
+ 	newTry := true
+     waitKeepAlive := false // wait for service's "KeepAlive" replies
+-    
++    treeRequestAt := time.Time{}
+     listCommand := `<RIFPlusPacket type="Commands"><Commands><Command id="0"/><Command id="10000"/></Commands></RIFPlusPacket>`
+     
+     var err error
+@@ -36,7 +39,7 @@ func (rif *Rif) connect(ctx context.Context) {
+                 rif.Warn("External service problem:", err)
+                 rif.SetServiceStatus(api.EC_SERVICE_ERROR, api.EC_SERVICE_OFFLINE)
+             }
+-            rif.Sleep(ctx, reconnectInterval * time.Second)
++            rif.Sleep(ctx, reconnectInterval)
+         }
+         if newTry {
+             rif.Log("Trying to connect to", host)
+@@ -67,17 +70,21 @@ func (rif *Rif) connect(ctx context.Context) {
+ 		
+ 		netReader := bufio.NewReader(conn)
+         rif.SendCommand(listCommand)
++        treeRequestAt = time.Now()
+         rif.queryEventsChan <-0
+ 
+         var message, packet string
+         for nil == err {
+-            //conn.SetReadDeadline(time.Now().Add(time.Duration(keepAlive) * time.Second))
+             if waitKeepAlive {
+                 next := time.Duration(2 + rif.Settings.KeepAlive) * time.Second
+                 conn.SetReadDeadline(time.Now().Add(next))
+             }
+             packet, err = netReader.ReadString('>')
+             if err == nil { // io.EOF
++                if !treeRequestAt.IsZero() && time.Since(treeRequestAt) > waitTree {
++                    err = noTreeErr
++                    continue
++                }
+                 message += packet
+                 //if strings.Index(packet, "</RIFPlusPacket>") >= 0 {
+                 if strings.Index(packet, "</RIFPlusPacket>") >= 0 || rifPacketRE.MatchString(packet) {
+@@ -89,7 +96,7 @@ func (rif *Rif) connect(ctx context.Context) {
+                     err = xml.Unmarshal([]byte(message), &p)
+                     if nil == err {
+                         switch p.Type {
+-                            case "InitialStatus": err = rif.populate(p.Devices)
++                            case "InitialStatus": treeRequestAt = time.Time{}; err = rif.populate(p.Devices)
+                             case "EventsAndStates": rif.update(p.Devices)
+                             case "ListJourRecord": rif.scanJourEvents(p.Events)
+                             case "KeepAlive": waitKeepAlive = true // use new protocol version
+diff --git a/adapters/rif/rif.go b/adapters/rif/rif.go
+index 900d861..51b5e31 100644
+--- a/adapters/rif/rif.go
++++ b/adapters/rif/rif.go
+@@ -220,12 +220,9 @@ func (svc *Rif) getEventLog(nextId int64) (err error){
+     return
+ }
+ 
+-func (svc *Rif) populate(devices []_Device) (err error) {
+-    defer func () {svc.complaints <- de(err, "Populate")}()
+-    var fixedId int64
++func (svc *Rif) getGroupIds(devices []_Device) (gids []int64, err error) {
+     nextGroup := int64(9e15) // ~Number.MAX_SAFE_INTEGER
+-
+-    gids := make([]int64, len(devices))
++    gids = make([]int64, len(devices))
+     for i := 0; i < len(devices) && nil == err; i++ {
+         if 0 == devices[i].Type {
+             gids[i] = nextGroup
+@@ -234,14 +231,22 @@ func (svc *Rif) populate(devices []_Device) (err error) {
+             //fixedId = svc.getDeviceId(&devices[i])
+             handle := svc.makeHandle(&devices[i])
+             gids[i], err = core.GlobalDeviceId(svc.Settings.Id, handle, devices[i].Name)
++            /*if "БЛ086-ИУ1" == devices[i].Name {
++                svc.Log(gids[i], devices[i].Name, handle)
++            }*/
+             if nil != err {
+                 break
+             }
+         }
+     }
+-    if nil != err {
+-        return
+-    }
++    return
++}
++
++func (svc *Rif) populate(devices []_Device) (err error) {
++    defer func () {svc.complaints <- de(err, "Populate")}()
++    var fixedId int64
++    gids, err := svc.getGroupIds(devices)
++    if nil != err {return}
+     //return fmt.Errorf("AAAAAAAAAAAAAAAA")
+     ////////////////////////////////////////
+ 
+@@ -251,49 +256,69 @@ func (svc *Rif) populate(devices []_Device) (err error) {
+     svc.Lock()
+     defer svc.Unlock()
+     
+-    typeAtLevel := []int{}
++    var devPath []*_Device
++    links := make(map[int64][]int64)
+     for i := range devices {
+         fixedId = gids[i]
+-        state := State {
+-            Id: devices[i].States[0].Id,
+-            Class: getClassCode(int64(devices[i].States[0].Id), devices[i].Type),
+-            DateTime: parseTime(devices[i].States[0].DateTime),
+-            Name: devices[i].States[0].Name,
+-        }
+-        
++        svc.idMap[devices[i].Id] = fixedId
+         // ignore duplicates (linked with or "nested" into devices, not groups?)
+-        for devices[i].Level > len(typeAtLevel) - 1 {
+-            typeAtLevel = append(typeAtLevel, devices[i].Type)
++        for devices[i].Level > len(devPath) - 1 {
++            devPath = append(devPath, &devices[i])
+         }
+-        for devices[i].Level < len(typeAtLevel) - 1 {
+-            typeAtLevel = typeAtLevel[:len(typeAtLevel)-1]
++
++        if devices[i].Level < len(devPath) - 1 {
++            devPath = devPath[:len(devPath)-1]
++            devPath[len(devPath)-1] = &devices[i] // set new parent
+         }
+ 
+         dev := svc.devices[fixedId]
+-        if nil == dev || devices[i].Level == 0 || typeAtLevel[devices[i].Level - 1] == 0 {
+-            svc.idMap[devices[i].Id] = fixedId
+-            svc.devices[fixedId] = &Device {
+-                Id: fixedId,
+-                Order: devices[i].Id, // original id
+-                Level: devices[i].Level,
+-                Type: devices[i].Type,
+-                Name: devices[i].Name,
+-                Num: [3]int{devices[i].Num1, devices[i].Num2, devices[i].Num3},
+-                Ip: devices[i].Ip,
+-                Ip2: devices[i].Ip2,
+-                Login: devices[i].Login,
+-                Password: devices[i].Password,
+-                Option: devices[i].Option,
+-                Dk: devices[i].Dk,
+-                States: [2]State{state, {}}}
++        lvl := devices[i].Level - 1
++        // type == 0 is a Rif bug, should be 200
++        parentIsNotGroup := lvl >= 0 && lvl < len(devPath) && 0 != devPath[lvl].Type && 200 != devPath[lvl].Type
++        // check for linked IU is SSOI or Rif's IU and it's not inside a group
++        if parentIsNotGroup && (12 == devices[i].Type || 45 == devices[i].Type) {
++            //svc.Log(">>>>>>> DUP >>>>>>>>", devices[i].Name, "in", devPath[lvl].Name, devPath[lvl].Type)
++            links[devPath[lvl].Id] = append(links[devPath[lvl].Id], fixedId)
++        } else {
++            if nil == dev || devices[i].Level == 0 || lvl >= 0 && lvl < len(devPath) && devPath[lvl].Level == 0 {
++                svc.devices[fixedId] = makeDevice(fixedId, &devices[i])
++            }
+         }
+     }
++
++    for i := range svc.devices {
++        svc.devices[i].Links = links[svc.devices[i].Order]
++    }
++
+     svc.Log("Use", len(svc.devices), "devices of", len(devices))
+     // TODO: db in not really n/a, need deep check
+     svc.SetServiceStatus(api.EC_SERVICE_ONLINE, api.EC_DATABASE_UNAVAILABLE)
+     return
+ }
+ 
++func makeDevice(fixedId int64, d *_Device) *Device {
++    state := State {
++        Id: d.States[0].Id,
++        Class: getClassCode(int64(d.States[0].Id), d.Type),
++        DateTime: parseTime(d.States[0].DateTime),
++        Name: d.States[0].Name,
++    }
++    return &Device {
++        Id: fixedId,
++        Order: d.Id, // original id
++        Level: d.Level,
++        Type: d.Type,
++        Name: d.Name,
++        Num: [3]int{d.Num1, d.Num2, d.Num3},
++        Ip: d.Ip,
++        Ip2: d.Ip2,
++        Login: d.Login,
++        Password: d.Password,
++        Option: d.Option,
++        Dk: d.Dk,
++        States: [2]State{state, {}}}
++}
++
+ func (svc *Rif) update(devices []_Device) {
+     var fixedId int64
+     var ok bool
+diff --git a/adapters/rif/types.go b/adapters/rif/types.go
+index 6d72484..519bcc4 100644
+--- a/adapters/rif/types.go
++++ b/adapters/rif/types.go
+@@ -42,11 +42,12 @@ type Device struct {
+ 	Name       string   `json:"name"`
+ 	Num        [3]int   `json:"num"`
+     Ip         string   `json:"ip"`
+-    Ip2        string   `json:"ip"`
++    Ip2        string   `json:"ip2"`
+     Login      string   `json:"login"`
+     Password   string   `json:"password"`
+     Option     int 	    `json:"option"`
+     Dk         int 	    `json:"dk"`
++    Links      []int64  `json:"links"`
+ 	States 	   [2]State `json:"states"`
+ }
+ 
+diff --git a/dispatcher/dispatcher.go b/dispatcher/dispatcher.go
+index 71681f2..00bd47d 100644
+--- a/dispatcher/dispatcher.go
++++ b/dispatcher/dispatcher.go
+@@ -490,8 +490,7 @@ func (dispatcher *Dispatcher) preprocessQuery(userId *int64, ws *websocket.Conn,
+         switch q.Action {
+             case "ListServices": // services with statuses
+                 var list []api.Settings
+-                dispatcher.RLock()
+-                for _, service := range dispatcher.services {
++                for _, service := range dispatcher.allServices() {
+                     settings := service.GetSettings()
+                     if 0 != settings.Id {
+                         idList := service.GetList()
+@@ -506,7 +505,6 @@ func (dispatcher *Dispatcher) preprocessQuery(userId *int64, ws *websocket.Conn,
+                         }
+                     }
+                 }
+-                dispatcher.RUnlock()
+                 return list
+ 
+             case "ChangeUser":
+@@ -537,19 +535,17 @@ func (dispatcher *Dispatcher) doZoneCommand(userId, zoneId, command int64) {
+     services := make(map[int64]ManageableZones)
+     var devices []int64
+     sNames := make(map[int64] string)
+-    dispatcher.RLock()
+-    for i := range dispatcher.services {
+-        inter, ok := dispatcher.services[i].(ManageableZones)
++    for _, service := range dispatcher.allServices() {
++        zAPI, ok := service.(ManageableZones)
+         if ok {
+-            s := dispatcher.services[i].GetSettings()
++            s := service.GetSettings()
+             sNames[s.Id] = s.Title
+-            services[i] = inter
+-            if d := inter.GetList(); len(d) > 0 {
++            services[s.Id] = zAPI
++            if d := zAPI.GetList(); len(d) > 0 {
+                 devices = append(devices, d...)
+             }
+         }
+     }
+-    dispatcher.RUnlock()
+ 
+     devMap := core.ZoneDevices(zoneId, userId, devices)
+     if nil == devMap {
+@@ -624,6 +620,18 @@ func (dispatcher *Dispatcher) deleteService(data interface{}) {
+     dispatcher.shutdownService(id)
+ }
+ 
++// returns copy of active services
++func (dispatcher *Dispatcher) allServices() []Service {
++    dispatcher.RLock()
++    defer dispatcher.RUnlock()
++    svc := make([]Service, 0, len(dispatcher.services))
++    for i := range dispatcher.services {
++        svc = append(svc, dispatcher.services[i])
++    }
++    return svc
++}
++
++
+ // formatRequest generates ascii representation of a request
+ /*
+ func formatRequest(r *http.Request) string {
+diff --git a/dispatcher/queue.go b/dispatcher/queue.go
+index f543c90..f8e2660 100644
+--- a/dispatcher/queue.go
++++ b/dispatcher/queue.go
+@@ -191,13 +191,16 @@ func (dispatcher *Dispatcher) scanAlgorithms(events api.EventsList) {
+ 
+ 
+ func (dispatcher *Dispatcher) visibleServices(userId int64, svcList []int64) (list map[int64]struct{}, err error) {
+-    dispatcher.RLock()
+-    defer dispatcher.RUnlock()
+     list = make(map[int64]struct{})
+     var filter map[int64] int64
+     for _, id := range svcList {
+         if 0 == id {continue}
+-        if service, ok := dispatcher.services[id]; ok {
++
++        dispatcher.RLock()
++        service, ok := dispatcher.services[id]
++        dispatcher.RUnlock()
++
++        if ok {
+             idList := service.GetList()
+             filter, err = core.Authorize(userId, idList)
+             if nil != err {return}

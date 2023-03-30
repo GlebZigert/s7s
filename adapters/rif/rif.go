@@ -220,12 +220,9 @@ func (svc *Rif) getEventLog(nextId int64) (err error){
     return
 }
 
-func (svc *Rif) populate(devices []_Device) (err error) {
-    defer func () {svc.complaints <- de(err, "Populate")}()
-    var fixedId int64
+func (svc *Rif) getGroupIds(devices []_Device) (gids []int64, err error) {
     nextGroup := int64(9e15) // ~Number.MAX_SAFE_INTEGER
-
-    gids := make([]int64, len(devices))
+    gids = make([]int64, len(devices))
     for i := 0; i < len(devices) && nil == err; i++ {
         if 0 == devices[i].Type {
             gids[i] = nextGroup
@@ -234,14 +231,22 @@ func (svc *Rif) populate(devices []_Device) (err error) {
             //fixedId = svc.getDeviceId(&devices[i])
             handle := svc.makeHandle(&devices[i])
             gids[i], err = core.GlobalDeviceId(svc.Settings.Id, handle, devices[i].Name)
+            /*if "БЛ086-ИУ1" == devices[i].Name {
+                svc.Log(gids[i], devices[i].Name, handle)
+            }*/
             if nil != err {
                 break
             }
         }
     }
-    if nil != err {
-        return
-    }
+    return
+}
+
+func (svc *Rif) populate(devices []_Device) (err error) {
+    defer func () {svc.complaints <- de(err, "Populate")}()
+    var fixedId int64
+    gids, err := svc.getGroupIds(devices)
+    if nil != err {return}
     //return fmt.Errorf("AAAAAAAAAAAAAAAA")
     ////////////////////////////////////////
 
@@ -251,47 +256,67 @@ func (svc *Rif) populate(devices []_Device) (err error) {
     svc.Lock()
     defer svc.Unlock()
     
-    typeAtLevel := []int{}
+    var devPath []*_Device
+    links := make(map[int64][]int64)
     for i := range devices {
         fixedId = gids[i]
-        state := State {
-            Id: devices[i].States[0].Id,
-            Class: getClassCode(int64(devices[i].States[0].Id), devices[i].Type),
-            DateTime: parseTime(devices[i].States[0].DateTime),
-            Name: devices[i].States[0].Name,
-        }
-        
+        svc.idMap[devices[i].Id] = fixedId
         // ignore duplicates (linked with or "nested" into devices, not groups?)
-        for devices[i].Level > len(typeAtLevel) - 1 {
-            typeAtLevel = append(typeAtLevel, devices[i].Type)
+        for devices[i].Level > len(devPath) - 1 {
+            devPath = append(devPath, &devices[i])
         }
-        for devices[i].Level < len(typeAtLevel) - 1 {
-            typeAtLevel = typeAtLevel[:len(typeAtLevel)-1]
+
+        if devices[i].Level < len(devPath) - 1 {
+            devPath = devPath[:len(devPath)-1]
+            devPath[len(devPath)-1] = &devices[i] // set new parent
         }
 
         dev := svc.devices[fixedId]
-        if nil == dev || devices[i].Level == 0 || typeAtLevel[devices[i].Level - 1] == 0 {
-            svc.idMap[devices[i].Id] = fixedId
-            svc.devices[fixedId] = &Device {
-                Id: fixedId,
-                Order: devices[i].Id, // original id
-                Level: devices[i].Level,
-                Type: devices[i].Type,
-                Name: devices[i].Name,
-                Num: [3]int{devices[i].Num1, devices[i].Num2, devices[i].Num3},
-                Ip: devices[i].Ip,
-                Ip2: devices[i].Ip2,
-                Login: devices[i].Login,
-                Password: devices[i].Password,
-                Option: devices[i].Option,
-                Dk: devices[i].Dk,
-                States: [2]State{state, {}}}
+        lvl := devices[i].Level - 1
+        // type == 0 is a Rif bug, should be 200
+        parentIsNotGroup := lvl >= 0 && lvl < len(devPath) && 0 != devPath[lvl].Type && 200 != devPath[lvl].Type
+        // check for linked IU is SSOI or Rif's IU and it's not inside a group
+        if parentIsNotGroup && (12 == devices[i].Type || 45 == devices[i].Type) {
+            //svc.Log(">>>>>>> DUP >>>>>>>>", devices[i].Name, "in", devPath[lvl].Name, devPath[lvl].Type)
+            links[devPath[lvl].Id] = append(links[devPath[lvl].Id], fixedId)
+        } else {
+            if nil == dev || devices[i].Level == 0 || lvl >= 0 && lvl < len(devPath) && devPath[lvl].Level == 0 {
+                svc.devices[fixedId] = makeDevice(fixedId, &devices[i])
+            }
         }
     }
+
+    for i := range svc.devices {
+        svc.devices[i].Links = links[svc.devices[i].Order]
+    }
+
     svc.Log("Use", len(svc.devices), "devices of", len(devices))
     // TODO: db in not really n/a, need deep check
     svc.SetServiceStatus(api.EC_SERVICE_ONLINE, api.EC_DATABASE_UNAVAILABLE)
     return
+}
+
+func makeDevice(fixedId int64, d *_Device) *Device {
+    state := State {
+        Id: d.States[0].Id,
+        Class: getClassCode(int64(d.States[0].Id), d.Type),
+        DateTime: parseTime(d.States[0].DateTime),
+        Name: d.States[0].Name,
+    }
+    return &Device {
+        Id: fixedId,
+        Order: d.Id, // original id
+        Level: d.Level,
+        Type: d.Type,
+        Name: d.Name,
+        Num: [3]int{d.Num1, d.Num2, d.Num3},
+        Ip: d.Ip,
+        Ip2: d.Ip2,
+        Login: d.Login,
+        Password: d.Password,
+        Option: d.Option,
+        Dk: d.Dk,
+        States: [2]State{state, {}}}
 }
 
 func (svc *Rif) update(devices []_Device) {
