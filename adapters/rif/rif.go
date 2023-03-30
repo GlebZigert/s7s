@@ -258,17 +258,22 @@ func (svc *Rif) populate(devices []_Device) (err error) {
     
     var devPath []*_Device
     links := make(map[int64][]int64)
+    isReal := make(map[int64]int64)
     for i := range devices {
         fixedId = gids[i]
         svc.idMap[devices[i].Id] = fixedId
         // ignore duplicates (linked with or "nested" into devices, not groups?)
+        //TODO: use if, because cant't jump more than +1 level?
         for devices[i].Level > len(devPath) - 1 {
             devPath = append(devPath, &devices[i])
         }
 
         if devices[i].Level < len(devPath) - 1 {
-            devPath = devPath[:len(devPath)-1]
-            devPath[len(devPath)-1] = &devices[i] // set new parent
+            devPath = devPath[:devices[i].Level+1]
+        }
+
+        if devices[i].Level == len(devPath) - 1 {
+            devPath[devices[i].Level] = &devices[i] // set new parent
         }
 
         dev := svc.devices[fixedId]
@@ -279,10 +284,15 @@ func (svc *Rif) populate(devices []_Device) (err error) {
         if parentIsNotGroup && (12 == devices[i].Type || 45 == devices[i].Type) {
             //svc.Log(">>>>>>> DUP >>>>>>>>", devices[i].Name, "in", devPath[lvl].Name, devPath[lvl].Type)
             links[devPath[lvl].Id] = append(links[devPath[lvl].Id], fixedId)
-        } else {
-            if nil == dev || devices[i].Level == 0 || lvl >= 0 && lvl < len(devPath) && devPath[lvl].Level == 0 {
-                svc.devices[fixedId] = makeDevice(fixedId, &devices[i])
-            }
+        } else if 0 == isReal[fixedId] {
+            isReal[fixedId] = 1
+        }
+        if nil == dev /*|| devices[i].Level == 0 || lvl >= 0 && lvl < len(devPath) && devPath[lvl].Level == 0*/ {
+            svc.devices[fixedId] = makeDevice(fixedId, &devices[i])
+        } else if 1 == isReal[fixedId] {
+            isReal[fixedId] = 2
+            svc.devices[fixedId].Level = devices[i].Level
+            svc.devices[fixedId].Order = devices[i].Id
         }
     }
 
@@ -331,6 +341,10 @@ func (svc *Rif) update(devices []_Device) {
         if fixedId, ok = svc.idMap[devices[i].Id]; !ok {
             svc.Log("Unknown device", devices[i])
             continue // unknown device
+        }
+        if _, ok = svc.devices[fixedId]; !ok {
+            svc.Log("Unknown device ID", fixedId)
+            continue
         }
         for j, _ := range devices[i].States {
             dt := parseTime(devices[i].States[j].DateTime)
