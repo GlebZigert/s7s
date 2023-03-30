@@ -1,0 +1,63 @@
+diff --git a/js/rif-plus.js b/js/rif-plus.js
+index 7576488..fccfcdd 100644
+--- a/js/rif-plus.js
++++ b/js/rif-plus.js
+@@ -381,13 +381,15 @@ Rif.prototype.rebuildTree = function (data0) {
+         for (const i in links)
+             for (const j of links[i]) {
+                 let children = this.cache[i].children
+-                children.append(cache[j])
+-                let item = children.get(children.count-1)
+-                if (j in this.duplicates)
+-                    this.duplicates[j].push(item)
+-                else
+-                    this.duplicates[j] = [item]
++                if (appendNested(children, cache[j])) {
++                    let item = children.get(children.count-1)
++                    if (j in this.duplicates)
++                        this.duplicates[j].push(item)
++                    else
++                        this.duplicates[j] = [item]
++                }
+             }
++        //console.log("Rif links:", JSON.stringify(links))
+         //console.log("Rif dbl:", JSON.stringify(this.duplicates))
+ 
+         // colorize sites
+@@ -402,6 +404,19 @@ Rif.prototype.rebuildTree = function (data0) {
+     }
+ }
+ 
++function appendNested(children, child) {
++    var i, node
++    for (i = 0; i < children.count; i++) {
++        if (children.get(i).id === child.id)
++            break
++    }
++    if (0 === children.count || i >= children.count) {
++        children.append(child)
++        return true
++    } else
++        return false
++}
++
+ function customType(dev) {
+     return 1e4 * dev.option + dev.type
+     /*var custom = 1 === dev.option
+diff --git a/qml/forms/RifForm.qml b/qml/forms/RifForm.qml
+index cf9aa7a..e34d642 100755
+--- a/qml/forms/RifForm.qml
++++ b/qml/forms/RifForm.qml
+@@ -4,6 +4,12 @@ Column {
+     spacing: 5
+     anchors.fill: parent
+ 
++    Row {
++        spacing: 5
++        Text { text: "ID:"; horizontalAlignment: Text.AlignRight }
++        Text { text: model.id }
++    }
++
+     Row {
+         spacing: 5
+         Text { text: "Name:"; horizontalAlignment: Text.AlignRight }
