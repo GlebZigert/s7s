@@ -278,7 +278,7 @@ func (svc *Axxon) request_to_axxon(req string) (string, error) {
 		return "", err
 	}
 	bodyString := string(bodyBytes)
-	//fmt.Println("ответ:  ", bodyString)
+//fmt.Println("ответ:  ", bodyString)
 
 	return bodyString, nil
 
@@ -636,9 +636,9 @@ func (svc *Axxon) get_state(camera *Camera) string {
 func (svc *Axxon) request_URL(cid int64, data []byte) (interface{}, bool) {
 
 	
-	       svc.Log(" ")
-	   svc.Log("[Request_URL]")
-	       svc.Log(" ")
+	fmt.Println(" ")
+	fmt.Println("[Request_URL]")
+	fmt.Println(" ")
 	
 
 	type MyJsonName struct {
@@ -646,6 +646,7 @@ func (svc *Axxon) request_URL(cid int64, data []byte) (interface{}, bool) {
 		CameraIdlist  []int64  `json:"cameraId"`
 		Dt        string `json:"dt"`
 		Format_dt string `json:"format_dt"`
+		Quality string  `json:"quality"`
 	}
 
 	var m_struct MyJsonName
@@ -678,12 +679,13 @@ func (svc *Axxon) request_URL(cid int64, data []byte) (interface{}, bool) {
 	fmt.Println("cameraId: ",cameraId)
 	dt := m_struct.Dt
 	format_dt := m_struct.Format_dt
+	quality:=m_struct.Quality
 
 		fmt.Println("cameraId : ",cameraId)
 		fmt.Println("dt       : ",dt)
 	//	fmt.Println("format_dt: ",format_dt)
 
-	arr=append(arr,svc.request_URL_handler(cameraId, dt, format_dt).(MyJsonName1))
+	arr=append(arr,svc.request_URL_handler(cameraId, dt, format_dt,quality).(MyJsonName1))
 	fmt.Println("profit       : ")
 	}
 
@@ -699,7 +701,7 @@ func (svc *Axxon) request_URL(cid int64, data []byte) (interface{}, bool) {
 }
 
 //----------------------------------------------------------
-func (svc *Axxon) request_URL_handler(cameraId int64, dt, format_dt string) interface{} {
+func (svc *Axxon) request_URL_handler(cameraId int64, dt, format_dt string, quality string) interface{} {
 
 	fmt.Println("Запрос URL на камеру ", cameraId, " время", dt)
 	
@@ -712,6 +714,7 @@ func (svc *Axxon) request_URL_handler(cameraId int64, dt, format_dt string) inte
 		fmt.Println("cameraId ",cameraId)
 		fmt.Println("dt ",dt)
 		fmt.Println("format_dt ",format_dt)
+		fmt.Println("quality ",quality)
 		fmt.Println("")
 		fmt.Println("")
 	//	fmt.Println("----------------------------")
@@ -724,12 +727,12 @@ func (svc *Axxon) request_URL_handler(cameraId int64, dt, format_dt string) inte
 	var needed_camera Camera
 
 	for i := 0; i < len(svc.devList); i++ {
-		//	    fmt.Println(i)
+			    fmt.Println(i," ",svc.devList[i].id," ",cameraId )
 
 		var m_camera = *svc.devList[i].pointer
 
 		if svc.devList[i].id == cameraId {
-			//	     fmt.Println("Найдена камера ",m_camera.DisplayName, ";ID: ",m_camera.DisplayID)
+				     fmt.Println("Найдена камера ",m_camera.DisplayName, ";ID: ",m_camera.DisplayID)
 			needed_camera = m_camera
 
 		}
@@ -738,28 +741,76 @@ func (svc *Axxon) request_URL_handler(cameraId int64, dt, format_dt string) inte
 	var needed_point string
 	needed_point = ""
 
-	//	    fmt.Println("количество точек: ",len(needed_camera.VideoStreams))
+		    fmt.Println("количество точек: ",len(needed_camera.VideoStreams))
+			if(len(needed_camera.VideoStreams)==0){
+
+				fmt.Println("!!!")
+			}
 	var width int64
 	width = 0
-	//	    fmt.Println(width)
+
+/*	
+	first:=true
+		    fmt.Println(width)
+
 	for i := 0; i < len(needed_camera.VideoStreams); i++ {
 
 		var point string = needed_camera.VideoStreams[i].AccessPoint
-		//	    fmt.Println(needed_camera.VideoStreams[i].AccessPoint)
-
+			    fmt.Println(needed_camera.VideoStreams[i].AccessPoint)
 		var this_width int64
-		this_width = svc.get_width(point)
+		this_width = svc.get_width(point)				
+		fmt.Println("point: ",point," width ",this_width)
+
+		fmt.Println("this_width: ",this_width, "  width",width, " dt ", dt," quality ",quality)
+
+if first{
+first=false
+width=this_width
+}else{
+
+if dt==""{
+	if width < this_width {
+		fmt.Println("<")
+		width = this_width
+		needed_point = point
+	}
+}else{
+	if width > this_width {
+		fmt.Println(">")
+		width = this_width
+		needed_point = point
+	}
+
+}
+
+		if quality=="high"{
 		if width < this_width {
+			fmt.Println(">")
 			width = this_width
 			needed_point = point
 		}
-
+	}else{
+		if width > this_width {
+			fmt.Println("<")
+			width = this_width
+			needed_point = point
+			
+		}
 	}
-	if needed_point == "" {
+	
+}
+	}
+	*/
+
+
+	if dt != "" || quality=="higth" {
 		needed_point = needed_camera.VideoStreams[0].AccessPoint
 
+	}else{
+
+		needed_point = needed_camera.VideoStreams[1].AccessPoint
 	}
-	//  //fmt.Println("Нужный стрим 2: ",needed_point)
+	fmt.Println("Нужный стрим : ",needed_point," ",width)
 
 	var liveStream string = ""
 	var storageStream string = ""
@@ -768,23 +819,23 @@ func (svc *Axxon) request_URL_handler(cameraId int64, dt, format_dt string) inte
 	snapshot := ""
 	liveStream = "rtsp://" + svc.username + ":" + svc.password + "@" + svc.ipaddr + ":" + "50554" + "/" + needed_point
 
-	//  //fmt.Println("liveStream: ",liveStream)
+	fmt.Println("liveStream: ",liveStream)
 
-	//   //fmt.Println("dt: ",dt)
+	fmt.Println("dt: ",dt)
 
 	format_dt = "local"
-	//fmt.Println("[01]")
+	fmt.Println("[01]")
 
-	//fmt.Println("len(dt) ",len(dt))
+	fmt.Println("len(dt) ",len(dt))
 
 	var my_intervals intervals
 
 	
 	my_intervals = svc.get_intervals_from(&needed_camera)
-	//fmt.Println("len(dt) ",len(dt))
+	fmt.Println("len(dt) ",len(dt))
 	if dt != "" && dt != "undefined" {
 
-		// //fmt.Println("[02]")
+		fmt.Println("[02]")
 		//  storageStream=svc.get_storage_rtsp_stream(needed_point,dt)
 
 		var string_dt string
@@ -793,11 +844,11 @@ func (svc *Axxon) request_URL_handler(cameraId int64, dt, format_dt string) inte
 
 		if format_dt == "local" {
 			string_dt = svc.local_to_utc(dt)
-			//fmt.Println("[03]")
+			fmt.Println("[03]")
 		}
 		if format_dt == "utc" {
 			string_dt = dt
-			//fmt.Println("[04]")
+			fmt.Println("[04]")
 		}
 
 		if res == true {
@@ -811,7 +862,7 @@ func (svc *Axxon) request_URL_handler(cameraId int64, dt, format_dt string) inte
 		//}
 
 	}
-	//fmt.Println("[05]")
+	fmt.Println("[05]")
 
 	fmt.Println("storageStream: ",storageStream)
 
@@ -824,7 +875,7 @@ func (svc *Axxon) request_URL_handler(cameraId int64, dt, format_dt string) inte
 	if len(needed_camera.Ptzs) > 0 {
 		mTelemetryControlID = strings.Replace(needed_camera.Ptzs[0].AccessPoint, "hosts", "", 1)
 	}
-	//fmt.Println("TelemetryControlID: ",mTelemetryControlID)
+	fmt.Println("TelemetryControlID: ",mTelemetryControlID)
 
 	m_struct = MyJsonName1{
 		Id: cameraId, 
@@ -1120,13 +1171,13 @@ func (svc *Axxon) execCommand(cid int64, data []byte) (interface{}, bool) {
 
 				//Остановить сеанс управления телеметрией
 
-				return svc.request_URL_handler(d.id, "undefined", "local"), true
+				return svc.request_URL_handler(d.id, "undefined", "local",""), true
 
 			
 
 			case 101:
 
-				return svc.request_URL_handler(d.id, "undefined", "local"), true
+				return svc.request_URL_handler(d.id, "undefined", "local",""), true
 
 			default:				
 			}
