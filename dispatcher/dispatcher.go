@@ -259,11 +259,14 @@ func (dispatcher *Dispatcher) serveClient(userId int64, ws *websocket.Conn) {
     }()
 
     //var msg string
-    var q Query
 	var err error
+    busy := make(map[int64] chan struct{})
+    lastActions := make(map[int64] string)
+    var mu sync.RWMutex
 	
     for {
-		//if err = websocket.Message.Receive(dispatcher.clients[cid].ws, &msg); err != nil {
+        var q Query
+        //if err = websocket.Message.Receive(dispatcher.clients[cid].ws, &msg); err != nil {
         ws.SetReadDeadline(time.Now().Add(keepAliveInterval * time.Second))
         if err = websocket.JSON.Receive(ws, &q); err != nil {
             if io.EOF == err {
@@ -284,10 +287,39 @@ func (dispatcher *Dispatcher) serveClient(userId int64, ws *websocket.Conn) {
                 reply := api.ReplyMessage{Service: q.Service, Action: q.Action, Task: q.Task, Data: res}
                 dispatcher.reply(userId, &reply)
             } else {
-                dispatcher.do(userId, &q)
+                if _, ok := busy[q.Service]; !ok {
+                    busy[q.Service] = make(chan struct{}, 1)
+                }
+                go func (q Query) {
+                    start := time.Now()
+                    for try := 2; try > 0; try *= 2 {
+                        select {
+                            case <-time.After(time.Duration(try) * time.Second):
+                                mu.RLock()
+                                action := lastActions[q.Service]
+                                mu.RUnlock()
+                                elapsed := time.Since(start)
+                                log.Println("Service #", q.Service, "possible HANG! Client", userId, "is waiting for", action, elapsed.Seconds(), "sec")
+
+                            case busy[q.Service] <- struct{}{}:
+                                try = 0
+                        }
+                    }
+                    mu.Lock()
+                    lastActions[q.Service] = q.Action
+                    mu.Unlock()
+
+                    dispatcher.do(userId, q)
+
+                    //elapsed := time.Since(start)
+                    //log.Println("Client", userId, "=>", q.Service, "." + q.Action + ": processed in", elapsed.Seconds(), "sec")
+
+                    <- busy[q.Service]
+                }(q)
             }
+
             //websocket.Message.Send(ws, res)
-  	    }
+        }
         q.Task = 0
         //message, _ := json.Marshal(q)
         //log.Println("[QQQ]", string(message))
@@ -384,7 +416,7 @@ func makeToken(size int) string {
     return token[:size]
 }
 
-func (dispatcher *Dispatcher) do(userId int64, q *Query) {
+func (dispatcher *Dispatcher) do(userId int64, q Query) {
     // 0 - client id for permissions check
     dispatcher.RLock()
     service, ok := dispatcher.services[q.Service]
@@ -490,19 +522,15 @@ func (dispatcher *Dispatcher) preprocessQuery(userId *int64, ws *websocket.Conn,
         switch q.Action {
             case "ListServices": // services with statuses
                 var list []api.Settings
-                for _, service := range dispatcher.allServices() {
-                    settings := service.GetSettings()
-                    if 0 != settings.Id {
-                        idList := service.GetList()
-                        //log.Println("ListAllDevices", idList)
-                        filter, err := core.Authorize(*userId, idList)
-                        //log.Println("FILTER", filter)
-                        // TODO: handle err (report db failure)
-                        if nil == err && len(filter) > 0 {
-                            settings.Status.RLock()
-                            list = append(list, *settings)
-                            settings.Status.RUnlock()
-                        }
+                services := dispatcher.allServices(nil)
+                // TODO: handle err!
+                svcFilter, _ := dispatcher.visibleServices(*userId, nil)
+                for id := range svcFilter {
+                    if  0 != id {
+                        settings := services[id].GetSettings()
+                        settings.Status.RLock()
+                        list = append(list, *settings)
+                        settings.Status.RUnlock()
                     }
                 }
                 return list
@@ -535,7 +563,7 @@ func (dispatcher *Dispatcher) doZoneCommand(userId, zoneId, command int64) {
     services := make(map[int64]ManageableZones)
     var devices []int64
     sNames := make(map[int64] string)
-    for _, service := range dispatcher.allServices() {
+    for _, service := range dispatcher.allServices(nil) {
         zAPI, ok := service.(ManageableZones)
         if ok {
             s := service.GetSettings()
@@ -621,14 +649,22 @@ func (dispatcher *Dispatcher) deleteService(data interface{}) {
 }
 
 // returns copy of active services
-func (dispatcher *Dispatcher) allServices() []Service {
+func (dispatcher *Dispatcher) allServices(all []int64) map[int64]Service {
     dispatcher.RLock()
     defer dispatcher.RUnlock()
-    svc := make([]Service, 0, len(dispatcher.services))
-    for i := range dispatcher.services {
-        svc = append(svc, dispatcher.services[i])
+    services := make(map[int64] Service)
+    if nil == all { // return all
+        for id, svc := range dispatcher.services {
+            services[id] = svc
+        }
+    } else { // return filtered
+        for _, id := range all {
+            if svc, ok := dispatcher.services[id]; ok {
+                services[id] = svc
+            }
+        }
     }
-    return svc
+    return services
 }
 
 

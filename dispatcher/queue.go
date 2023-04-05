@@ -117,11 +117,10 @@ func (dispatcher *Dispatcher) processReply(reply *api.ReplyMessage) (err error) 
     var devFilter map[int64] int64
     var svcFilter map[int64] struct{}
     defer func (d interface{}) {reply.Data = d}(reply.Data) // save & restore original data
-    
     if events, _ := reply.Data.(api.EventsList); len(events) > 0 && 0 != events[0].Id {
         // send processed events & filter list by devices permissions
         //log.Println("::: APPLY EV FILTER :::", len(events), " events for svc #", reply.Service)
-        //log.Println(events)
+        //log.Println("EV", events)
         svcList, devList := events.GetList()
         //log.Println("Svc & Dev list:", svcList, devList)
         devFilter, err = core.Authorize(cid, devList)
@@ -144,7 +143,6 @@ func (dispatcher *Dispatcher) processReply(reply *api.ReplyMessage) (err error) 
             reply.Data = original.Filter(devFilter)
         }
     }
-    
     if nil == err && nil != reply.Data {
         res, _ := json.Marshal(reply)
         // TODO: handle send error? implement retry limit for send? if send failed, client has gone?
@@ -183,31 +181,61 @@ func (dispatcher *Dispatcher) scanAlgorithms(events api.EventsList) {
                 q := Query{algos[i].TargetServiceId, "ExecCommand", 0, res}
                 //log.Println("!!! QUERY:", q)
                 //log.Println("!!! CMD:", cmd)
-                dispatcher.do(0, &q)
+                dispatcher.do(0, q)
             }
         }
     }
 }
 
-
 func (dispatcher *Dispatcher) visibleServices(userId int64, svcList []int64) (list map[int64]struct{}, err error) {
     list = make(map[int64]struct{})
     var filter map[int64] int64
-    for _, id := range svcList {
+    devices := dispatcher.visibleDevices(svcList)
+
+    for id := range devices {
         if 0 == id {continue}
-
-        dispatcher.RLock()
-        service, ok := dispatcher.services[id]
-        dispatcher.RUnlock()
-
-        if ok {
-            idList := service.GetList()
-            filter, err = core.Authorize(userId, idList)
-            if nil != err {return}
-            if len(filter) > 0 {
-                list[id] = struct{}{}
-            }
+        //log.Println("GL-start")
+        //log.Println("GL-end")
+        filter, err = core.Authorize(userId, devices[id])
+        if nil != err {return}
+        if len(filter) > 0 {
+            list[id] = struct{}{}
         }
     }
     return
+}
+
+func (dispatcher *Dispatcher) visibleDevices(svcList []int64) (list map[int64][]int64) {
+    list = make(map[int64][]int64)
+    results := make(chan GetListResult, len(list))
+    services := dispatcher.allServices(svcList)
+    for id, service := range services {
+        go doGetList(id, service, results)
+    }
+
+    to := time.After(time.Second)
+
+    for _ = range services {
+        select {
+            case res := <-results:
+                list[res.id] = res.list
+            case <-to:
+        }
+    }
+
+    for id := range services {
+        if _, ok := list[id]; !ok {
+            list[id] = []int64{-1}
+            log.Println("Failed to wait GetList() for service #", id, "- possible HANG?")
+        } else {
+            //log.Println("OK to GetList() for service #", id)
+        }
+    }
+    return
+}
+
+func doGetList(id int64, service Service, results chan GetListResult) {
+    // TODO: fix possible leaks when service hang
+    idList := service.GetList()
+    results <- GetListResult{id, idList}
 }

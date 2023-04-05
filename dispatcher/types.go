@@ -49,6 +49,11 @@ type Error struct {
     Error   string  `json:"error"`
 }
 
+type GetListResult struct {
+    id int64
+    list []int64
+}
+
 type Credentials struct {
     Login       string   `json:"login"`
     Token       string   `json:"token"`
