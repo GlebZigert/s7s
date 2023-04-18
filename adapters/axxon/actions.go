@@ -264,7 +264,7 @@ func (svc *Axxon) control_connection_status(res bool) {
 
 func (svc *Axxon) request_to_axxon(req string) (string, error) {
 	request := svc.msg_to_axxon(req)
-	fmt.Println("запрос: ", request)
+//	fmt.Println("запрос: ", request)
 
 	resp, err := http.Get(request)
 
@@ -295,7 +295,7 @@ func (svc *Axxon) request_to_axxon(req string) (string, error) {
 		return "", err
 	}
 	bodyString := string(bodyBytes)
-fmt.Println("ответ:  ", bodyString)
+//fmt.Println("ответ:  ", bodyString)
 
 	return bodyString, nil
 
