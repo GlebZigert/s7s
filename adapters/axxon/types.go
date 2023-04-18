@@ -255,8 +255,8 @@ type MyJsonName2 struct {
 type MyJsonName1 struct {
 	Id                 int64     `json:"id"`
 	LiveStream         string    `json:"liveStream"`	
-	LiveStream_low         string    `json:"liveStream"`
-	LiveStream_higth         string    `json:"liveStream"`	
+	LiveStream_low         string    `json:"liveStream_low"`
+	LiveStream_higth         string    `json:"liveStream_higth"`	
 	StorageStream      string    `json:"storageStream"`
 	Snapshot           string    `json:"snapshot"`
 	TelemetryControlID string    `json:"telemetryControlID"`
