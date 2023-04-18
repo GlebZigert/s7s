@@ -30,7 +30,7 @@ import (
 // 3.1. Если соответствует - вернуть true. иначе - false
 
 func (svc *Axxon) test_http_connection() bool {
-
+//fmt.Println("axxon: test_http_connection")
 	//	fmt.Println("Контроль возможности подключения к серверу : ")
 
 	//	fmt.Println("логин:  ", svc.username)
@@ -93,7 +93,7 @@ func (svc *Axxon) test_http_connection() bool {
 var lock sync.Mutex
 
 func (svc *Axxon) devList_update() {
-
+//	fmt.Println("axxon: devList_update")
 	//Блокируем запись и чтение из других потоков
 	svc.Lock()
 	defer svc.Unlock()
@@ -175,6 +175,7 @@ func (svc *Axxon) devList_update() {
 }
 
 func (svc *Axxon) devList_add(camera *Camera) {
+//	fmt.Println("axxon: devList_add")
 	VIDEOSOURCEID := svc.get_VIDEOSOURCEID(camera)
 	TelemetryControlID := svc.get_TelemetryControlID_from(camera)
 	fmt.Println("добавляю камеру: ", VIDEOSOURCEID)
@@ -186,11 +187,26 @@ func (svc *Axxon) devList_add(camera *Camera) {
 		VIDEOSOURSEID:      VIDEOSOURCEID,
 		TelemetryControlID: TelemetryControlID,
 		actual:             true,
-		state:              svc.get_state(camera)})
+		state:              svc.get_state(camera),
+		LiveStream_low:         svc.get_live_low(camera),
+		LiveStream_higth:         svc.get_live_higth(camera),
+	
+})
+}
+func (svc *Axxon) get_live_low(camera *Camera) string {
+
+
+	return "rtsp://" + svc.username + ":" + svc.password + "@" + svc.ipaddr + ":" + "50554" + "/" + camera.VideoStreams[1].AccessPoint
+
+}
+func (svc *Axxon) get_live_higth(camera *Camera) string {
+
+
+	 	return "rtsp://" + svc.username + ":" + svc.password + "@" + svc.ipaddr + ":" + "50554" + "/" + camera.VideoStreams[0].AccessPoint
 }
 
 func (svc *Axxon) get_VIDEOSOURCEID(camera *Camera) string {
-
+	//fmt.Println("axxon: get_VIDEOSOURCEID")
 	return camera.VideoStreams[0].AccessPoint
 
 }
@@ -198,7 +214,7 @@ func (svc *Axxon) get_VIDEOSOURCEID(camera *Camera) string {
 //Запрашивает с с сервера Ахон список камер
 //Пишет в структуру svc.m_camera_list
 func (svc *Axxon) get_cameraList() error {
-
+//	fmt.Println("axxon: get_cameraList")
 	src, err := svc.request_to_axxon("camera/list/")
 
 	if err != nil {
@@ -248,7 +264,7 @@ func (svc *Axxon) control_connection_status(res bool) {
 
 func (svc *Axxon) request_to_axxon(req string) (string, error) {
 	request := svc.msg_to_axxon(req)
-	//fmt.Println("запрос: ", request)
+	fmt.Println("запрос: ", request)
 
 	resp, err := http.Get(request)
 
@@ -260,13 +276,14 @@ func (svc *Axxon) request_to_axxon(req string) (string, error) {
 	} else {
 		res = false
 		svc.control_connection_status(res)
+		fmt.Println("err: ", err)
 		return "", err
 	}
 
 	if err != nil {
 
 		//Вывести актуальный к этому моменту статус видеосервера RIF
-
+		fmt.Println("err: ", err)
 		return "", err
 	}
 
@@ -278,7 +295,7 @@ func (svc *Axxon) request_to_axxon(req string) (string, error) {
 		return "", err
 	}
 	bodyString := string(bodyBytes)
-//fmt.Println("ответ:  ", bodyString)
+fmt.Println("ответ:  ", bodyString)
 
 	return bodyString, nil
 
@@ -319,6 +336,9 @@ func (svc *Axxon) convert_for_client(dev *dev) Device {
 
 	device.TelemetryControlID = dev.TelemetryControlID
 	device.Intervals = svc.get_intervals_from(dev.pointer)
+
+	device.LiveStream_low=dev.LiveStream_low
+	device.LiveStream_higth=dev.LiveStream_higth
 
 	//fmt.Println("convert for client: ",dev.pointer.VideoStreams[0].AccessPoint)
 
@@ -442,8 +462,8 @@ func (svc *Axxon) get_intervals_from(camera *Camera) intervals {
 		cdt:=t.Format("20060102150405")
 		lcl:=cdt
 		cdt=lcl[:8]+"T"+lcl[8:]
-
-	
+		//xx:=lcl[:8]+"T000000"
+		
 
 		src, _ = svc.request_to_axxon("archive/contents/intervals/" + strings.Replace(point, "hosts/", "", 1) + "/past/"+cdt+"?archive=" + archive)
 
@@ -810,14 +830,20 @@ if dt==""{
 
 		needed_point = needed_camera.VideoStreams[1].AccessPoint
 	}
+	
 	fmt.Println("Нужный стрим : ",needed_point," ",width)
-
 	var liveStream string = ""
+	var liveStream_higth string = ""
+	var liveStream_low string = ""	
 	var storageStream string = ""
 	//ar snapshot string = "http://"+svc.username+":"+svc.password+"@"+svc.ipaddr+":"+"8000"+"/live/media/snapshot/"+strings.Replace(needed_point,"hosts/","",1)
 
 	snapshot := ""
 	liveStream = "rtsp://" + svc.username + ":" + svc.password + "@" + svc.ipaddr + ":" + "50554" + "/" + needed_point
+
+	liveStream_low = "rtsp://" + svc.username + ":" + svc.password + "@" + svc.ipaddr + ":" + "50554" + "/" + needed_camera.VideoStreams[1].AccessPoint
+
+	liveStream_higth = "rtsp://" + svc.username + ":" + svc.password + "@" + svc.ipaddr + ":" + "50554" + "/" + needed_camera.VideoStreams[0].AccessPoint
 
 	fmt.Println("liveStream: ",liveStream)
 
@@ -880,6 +906,8 @@ if dt==""{
 	m_struct = MyJsonName1{
 		Id: cameraId, 
 		LiveStream: liveStream,
+		LiveStream_low: liveStream_low,
+		LiveStream_higth: liveStream_higth,		
 		StorageStream:      storageStream,
 		Snapshot:           snapshot,
 		TelemetryControlID: mTelemetryControlID,
@@ -951,7 +979,7 @@ func (svc *Axxon) get_width(point string) int64 {
 }
 
 func (svc *Axxon) local_to_utc(point string) string {
-	/*
+	
 	  //fmt.Println("")
 	  //fmt.Println("")
 	  //fmt.Println("")
@@ -959,7 +987,7 @@ func (svc *Axxon) local_to_utc(point string) string {
 	  //fmt.Println("")
 
 	  //fmt.Println("point", point)
-	*/
+	
 	var timestamp int = time.Now().In(time.UTC).Hour() - time.Now().In(time.Local).Hour()
 
 	//fmt.Println("временная задержка: ",timestamp)
@@ -972,18 +1000,18 @@ func (svc *Axxon) local_to_utc(point string) string {
 	min, err := strconv.Atoi(point[11:13])
 	sec, err := strconv.Atoi(point[13:15])
 
-	//fmt.Println("year ", year)
-	//fmt.Println("mouth ", mouth)
-	//fmt.Println("day ",day)
+	fmt.Println("year ", year)
+	fmt.Println("mouth ", mouth)
+	fmt.Println("day ",day)
 
-	//fmt.Println("hour ",hour)
-	//fmt.Println("min ",min)
-	//fmt.Println("sec ",sec)
+	fmt.Println("hour ",hour)
+	fmt.Println("min ",min)
+	fmt.Println("sec ",sec)
 
 	if err != nil {
 		//fmt.Println("err",err)
 	}
-	//fmt.Println("")
+	fmt.Println("")
 
 	//var dt string=year+"-"+mouth+"-"+day+" "+hour+":"+min+":"+sec
 
@@ -997,12 +1025,12 @@ func (svc *Axxon) local_to_utc(point string) string {
 	//fmt.Println("добавляем временную задержку: ",time.Duration(timestamp)*time.Hour)
 	dt = dt.Add(time.Duration(timestamp) * time.Hour)
 
-	//fmt.Println(dt)
-	/*
-	  //fmt.Println("In(time,UTC) ",dt.In(time.UTC))
-	  //fmt.Println("In(time,local) ",dt.In(time.Local))
-	  //fmt.Println("dt.In(time.Local).Format(2999-01-02 23:59:59) ",dt.In(time.Local).Format("2006-01-02 15:04:05"))
-	*/
+	fmt.Println(dt)
+	
+	  fmt.Println("In(time,UTC) ",dt.In(time.UTC))
+	  fmt.Println("In(time,local) ",dt.In(time.Local))
+	  fmt.Println("dt.In(time.Local).Format(2999-01-02 23:59:59) ",dt.In(time.Local).Format("2006-01-02 15:04:05"))
+	
 	//timeT, _ := time.Parse("2006-01-02 03:04:05", dt.In(time.Local).Format("2006-01-02 15:04:05") )
 
 	//fmt.Println("timeT",timeT)
@@ -1028,16 +1056,16 @@ func (svc *Axxon) local_to_utc(point string) string {
 
 	hour, min, sec = dt.In(time.UTC).Clock()
 
-	/*
+	
 	  //fmt.Println("len(point) ", len(point))
 
-	  //fmt.Println("year ", year)
-	  //fmt.Println("mouth ", mouth)
-	  //fmt.Println("day ",day)
-	  //fmt.Println("hour ",hour)
-	  //fmt.Println("min ",min)
-	  //fmt.Println("sec ",sec)
-	*/
+	  fmt.Println("year ", year)
+	  fmt.Println("mouth ", mouth)
+	  fmt.Println("day ",day)
+	  fmt.Println("hour ",hour)
+	  fmt.Println("min ",min)
+	  fmt.Println("sec ",sec)
+	
 	var str_year, str_mouth, str_day, str_hour, str_min, str_sec string
 
 	str_year = strconv.Itoa(year)
@@ -1102,7 +1130,7 @@ func (svc *Axxon) local_to_utc(point string) string {
 
 	var res string = str_year + str_mouth + str_day + "T" + str_hour + str_min + str_sec + str_msec
 
-	//fmt.Println("res:", res)
+	fmt.Println("res:", res)
 
 	return res
 }

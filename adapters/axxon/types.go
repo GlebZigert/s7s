@@ -214,6 +214,8 @@ type dev struct {
 	pointer            *Camera
 	actual             bool
 	state              string
+	LiveStream_low     string
+	LiveStream_higth   string
 }
 
 //struct to send camera options to client
@@ -231,6 +233,8 @@ type Device struct {
 	Intervals      intervals
 	Frash_Snapshot string `json:"frash_snapshot"`
 	AccessMode     int64  `json:"accessMode"`
+	LiveStream_low	   string`json:"liveStream_low"`
+	LiveStream_higth   string`json:"liveStream_higth"`	
 }
 
 
@@ -250,7 +254,9 @@ type MyJsonName2 struct {
 
 type MyJsonName1 struct {
 	Id                 int64     `json:"id"`
-	LiveStream         string    `json:"liveStream"`
+	LiveStream         string    `json:"liveStream"`	
+	LiveStream_low         string    `json:"liveStream"`
+	LiveStream_higth         string    `json:"liveStream"`	
 	StorageStream      string    `json:"storageStream"`
 	Snapshot           string    `json:"snapshot"`
 	TelemetryControlID string    `json:"telemetryControlID"`
