@@ -457,15 +457,17 @@ func (svc *Axxon) get_intervals_from(camera *Camera) intervals {
 
 		
 	//	fmt.Println("dcurrent_dt: ",old_t.Format("20060102150405"))
-	//	fmt.Println("dcurrent_dt: ",t.Format("20060102150405"))
 
 		cdt:=t.Format("20060102150405")
 		lcl:=cdt
-		cdt=lcl[:8]+"T"+lcl[8:]
+		cdt =lcl[:8]+"T"+lcl[8:]
+		bdt:=lcl[:8]+"T"+"000000"
+	//	fmt.Println("сейчас     : ",cdt)
+	//	fmt.Println("начало дня : ",bdt)	
 		//xx:=lcl[:8]+"T000000"
 		
 
-		src, _ = svc.request_to_axxon("archive/contents/intervals/" + strings.Replace(point, "hosts/", "", 1) + "/past/"+cdt+"?archive=" + archive)
+		src, _ = svc.request_to_axxon("archive/contents/intervals/" + strings.Replace(point, "hosts/", "", 1) + "/"+bdt+"/"+cdt+"?archive=" + archive)
 
 		//src, _ = svc.request_to_axxon("archive/contents/intervals/" + strings.Replace(point, "hosts/", "", 1) + "/past/future?archive=" + archive)
 	
@@ -520,7 +522,7 @@ func (svc *Axxon) utc_to_local(point string) string {
 	}
 
 	dt := time.Date(year, time.Month(mouth), day, hour, min, sec, 0, time.UTC)
-
+	
 	year = dt.In(time.Local).Year()
 	mouth = int(dt.In(time.Local).Month())
 	day = dt.In(time.Local).Day()
@@ -562,8 +564,9 @@ func (svc *Axxon) utc_to_local(point string) string {
 	}
 
 	res := str_year + str_mouth + str_day + "T" + str_hour + str_min + str_sec + msec
-
+	//fmt.Println("utc_to_local: ",point," to ",res)
 	return res
+
 }
 
 func (svc *Axxon) get_TelemetryControlID_from(camera *Camera) string {
@@ -747,7 +750,7 @@ func (svc *Axxon) request_URL_handler(cameraId int64, dt, format_dt string, qual
 	var needed_camera Camera
 
 	for i := 0; i < len(svc.devList); i++ {
-			    fmt.Println(i," ",svc.devList[i].id," ",cameraId )
+		//	    fmt.Println(i," ",svc.devList[i].id," ",cameraId )
 
 		var m_camera = *svc.devList[i].pointer
 
@@ -986,11 +989,11 @@ func (svc *Axxon) local_to_utc(point string) string {
 	  //fmt.Println("[utc_to_local]")
 	  //fmt.Println("")
 
-	  //fmt.Println("point", point)
+//	  fmt.Println("point", point)
 	
-	var timestamp int = time.Now().In(time.UTC).Hour() - time.Now().In(time.Local).Hour()
+//	var timestamp int = (24-(time.Now().In(time.UTC).Hour() - time.Now().In(time.Local).Hour()))
 
-	//fmt.Println("временная задержка: ",timestamp)
+//	fmt.Println("временная задержка: ",timestamp)
 
 	year, err := strconv.Atoi(point[0:4])
 	mouth, err := strconv.Atoi(point[4:6])
@@ -1000,13 +1003,13 @@ func (svc *Axxon) local_to_utc(point string) string {
 	min, err := strconv.Atoi(point[11:13])
 	sec, err := strconv.Atoi(point[13:15])
 
-	fmt.Println("year ", year)
-	fmt.Println("mouth ", mouth)
-	fmt.Println("day ",day)
+//	fmt.Println("year ", year)
+//	fmt.Println("mouth ", mouth)
+//	fmt.Println("day ",day)
 
-	fmt.Println("hour ",hour)
-	fmt.Println("min ",min)
-	fmt.Println("sec ",sec)
+//	fmt.Println("hour ",hour)
+//	fmt.Println("min ",min)
+//	fmt.Println("sec ",sec)
 
 	if err != nil {
 		//fmt.Println("err",err)
@@ -1016,20 +1019,20 @@ func (svc *Axxon) local_to_utc(point string) string {
 	//var dt string=year+"-"+mouth+"-"+day+" "+hour+":"+min+":"+sec
 
 	// timeT, _ := time.Parse("2006-01-02 03:04:05", dt)
-	dt := time.Date(year, time.Month(mouth), day, hour, min, sec, 0, time.UTC)
+	dt := time.Date(year, time.Month(mouth), day, hour, min, sec, 0, time.Local)
 
 	//dt:=time.Date(2021,7,19,1,2,3,0,time.UTC)
 
 	//fmt.Println(dt)
 
 	//fmt.Println("добавляем временную задержку: ",time.Duration(timestamp)*time.Hour)
-	dt = dt.Add(time.Duration(timestamp) * time.Hour)
+	//dt = dt.Add(time.Duration(timestamp) * (-time.Hour))
 
 	fmt.Println(dt)
 	
-	  fmt.Println("In(time,UTC) ",dt.In(time.UTC))
-	  fmt.Println("In(time,local) ",dt.In(time.Local))
-	  fmt.Println("dt.In(time.Local).Format(2999-01-02 23:59:59) ",dt.In(time.Local).Format("2006-01-02 15:04:05"))
+//	  fmt.Println("In(time,UTC) ",dt.In(time.UTC))
+//	  fmt.Println("In(time,local) ",dt.In(time.Local))
+//	  fmt.Println("dt.In(time.Local).Format(2999-01-02 23:59:59) ",dt.In(time.Local).Format("2006-01-02 15:04:05"))
 	
 	//timeT, _ := time.Parse("2006-01-02 03:04:05", dt.In(time.Local).Format("2006-01-02 15:04:05") )
 
@@ -1059,12 +1062,12 @@ func (svc *Axxon) local_to_utc(point string) string {
 	
 	  //fmt.Println("len(point) ", len(point))
 
-	  fmt.Println("year ", year)
-	  fmt.Println("mouth ", mouth)
-	  fmt.Println("day ",day)
-	  fmt.Println("hour ",hour)
-	  fmt.Println("min ",min)
-	  fmt.Println("sec ",sec)
+//	  fmt.Println("year ", year)
+//	  fmt.Println("mouth ", mouth)
+//	  fmt.Println("day ",day)
+//	  fmt.Println("hour ",hour)
+//	  fmt.Println("min ",min)
+//	  fmt.Println("sec ",sec)
 	
 	var str_year, str_mouth, str_day, str_hour, str_min, str_sec string
 

@@ -2,7 +2,7 @@ package axxon
 
 import (
 	//    "log"
-	//    "fmt"
+	    "fmt"
 	"context"
 	"s7server/adapters/configuration"
 	"s7server/api"
@@ -173,7 +173,38 @@ func (svc *Axxon) Run(cfg configuration.ConfigAPI) (err error) {
 
 	//Проверяем соеднинение с сервером Axxon
 	svc.work = false
+	fmt.Println("utc_to_local")
+	dt:= "20230419T200000.850000"
+	fmt.Println(dt," to ",svc.utc_to_local(dt))
+	dt = "20230419T210000.850000"
+	fmt.Println(dt," to ",svc.utc_to_local(dt))
+	dt = "20230419T220000.850000"
+	fmt.Println(dt," to ",svc.utc_to_local(dt))	
+	dt = "20230419T230000.850000"
+	fmt.Println(dt," to ",svc.utc_to_local(dt))	
+	dt = "20230419T240000.850000"
+	fmt.Println(dt," to ",svc.utc_to_local(dt))		
 
+	fmt.Println("local_to_utc")
+	dt= "20230419T200000.850000"	
+	fmt.Println(dt," to ",svc.local_to_utc(dt))
+	dt = "20230419T210000.850000"
+	fmt.Println(dt," to ",svc.local_to_utc(dt))
+	dt = "20230419T220000.850000"
+	fmt.Println(dt," to ",svc.local_to_utc(dt))	
+	dt = "20230419T230000.850000"
+	fmt.Println(dt," to ",svc.local_to_utc(dt))	
+	dt = "20230419T240000.850000"
+	fmt.Println(dt," to ",svc.local_to_utc(dt))	
+
+	dt = "20230419T000100.850000"
+	fmt.Println(dt," to ",svc.local_to_utc(dt))
+	dt = "20230419T000100.850000"
+	fmt.Println(dt," to ",svc.local_to_utc(dt))	
+	dt = "20230419T000200.850000"
+	fmt.Println(dt," to ",svc.local_to_utc(dt))	
+	dt = "20230419T000300.850000"
+	fmt.Println(dt," to ",svc.local_to_utc(dt))	
 	go waiter(svc)
 
 
