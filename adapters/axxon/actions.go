@@ -461,13 +461,13 @@ func (svc *Axxon) get_intervals_from(camera *Camera) intervals {
 		cdt:=t.Format("20060102150405")
 		lcl:=cdt
 		cdt =lcl[:8]+"T"+lcl[8:]
-		bdt:=lcl[:8]+"T"+"000000"
+	//	bdt:=lcl[:8]+"T"+"000000"
 	//	fmt.Println("сейчас     : ",cdt)
 	//	fmt.Println("начало дня : ",bdt)	
 		//xx:=lcl[:8]+"T000000"
 		
 
-		src, _ = svc.request_to_axxon("archive/contents/intervals/" + strings.Replace(point, "hosts/", "", 1) + "/"+bdt+"/"+cdt+"?archive=" + archive)
+		src, _ = svc.request_to_axxon("archive/contents/intervals/" + strings.Replace(point, "hosts/", "", 1) + "/past/"+cdt+"?archive=" + archive)
 
 		//src, _ = svc.request_to_axxon("archive/contents/intervals/" + strings.Replace(point, "hosts/", "", 1) + "/past/future?archive=" + archive)
 	
